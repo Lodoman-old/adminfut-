@@ -5,6 +5,7 @@ db.sqlite3
 local_settings.py
 .env
 db.json
+db_*.json
 Manual_Usuario_AdminFut.docx
 Manual_Usuario_AdminFut.pdf
 media/
