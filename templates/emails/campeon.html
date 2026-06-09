@@ -8,7 +8,7 @@
     <h2>{{ campeon.nombre|upper }}</h2>
     <p class="temporada">{{ temporada.nombre }} · {{ categoria.nombre }}</p>
     {% if campeon.logo %}
-    <div style="margin:20px 0"><img src="{{ site_url }}{{ campeon.logo.url }}" alt="{{ campeon.nombre }}" class="logo"></div>
+    <div style="margin:20px 0"><img src="{{ campeon.logo.url }}" alt="{{ campeon.nombre }}" class="logo"></div>
     {% endif %}
     <p class="p">¡Felicidades al equipo <strong>{{ campeon.nombre }}</strong> por coronarse campeón de <strong>{{ temporada.nombre }}</strong>!</p>
     <div class="footer">

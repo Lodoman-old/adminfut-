@@ -754,7 +754,7 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
     if not config.email_smtp_host:
         return 0
 
-    site_url = "http://localhost:8000"
+    site_url = "https://adminfut.onrender.com"
     if request:
         site_url = f"{request.scheme}://{request.get_host()}"
 
@@ -2744,7 +2744,22 @@ def publicar_campeon_view(request, pk):
 
     ahora = datetime.datetime.now()
     ahora_str = ahora.strftime("%d/%m/%Y %H:%M")
-    logo_path = campeon.logo.path if campeon.logo else None
+    logo_path = None
+    if campeon.logo:
+        try:
+            logo_path = campeon.logo.path
+        except NotImplementedError:
+            import requests as _req
+            try:
+                r = _req.get(campeon.logo.url, timeout=10)
+                if r.status_code == 200:
+                    import tempfile
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                    tmp.write(r.content)
+                    tmp.close()
+                    logo_path = tmp.name
+            except Exception:
+                pass
 
     from .social_image import generar_imagen_campeon
     from .social import publicar_imagen_en_facebook

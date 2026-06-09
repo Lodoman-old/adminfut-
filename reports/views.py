@@ -23,9 +23,19 @@ def draw_header(p, width, height, extra_line=""):
     y = height - 30
 
     # Logo
-    if cfg.logo and os.path.exists(os.path.join(settings.MEDIA_ROOT, cfg.logo.name)):
+    logo_src = None
+    if cfg.logo:
+        local_path = os.path.join(settings.MEDIA_ROOT, cfg.logo.name)
+        if os.path.exists(local_path):
+            logo_src = local_path
+        else:
+            try:
+                logo_src = cfg.logo.url
+            except Exception:
+                pass
+    if logo_src:
         try:
-            p.drawImage(os.path.join(settings.MEDIA_ROOT, cfg.logo.name), 30, y - 25, width=50, height=50, preserveAspectRatio=True)
+            p.drawImage(logo_src, 30, y - 25, width=50, height=50, preserveAspectRatio=True)
         except Exception:
             pass
         x_text = 90
