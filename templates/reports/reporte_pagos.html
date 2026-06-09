@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load league_extras %}
+{% block title %}Reporte de Pagos por Temporada - AdminFut{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width:1100px">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Reporte de Pagos por Temporada</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Temporada</label>
+                <select name="temporada" class="form-select" required>
+                    <option value="">-- Seleccionar --</option>
+                    {% regroup temporadas by finalizada as grupos %}
+                    {% for grupo in grupos %}
+                    <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                        {% for t in grupo.list %}
+                        <option value="{{ t.id }}" {% if temp and temp.id == t.id %}selected{% endif %}>
+                            {{ t.nombre }} ({{ t.categoria.nombre }})
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
+            </div>
+        </form>
+
+        {% if data is not None %}
+        <hr>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h6 class="fw-bold text-success mb-0">Temporada: {{ temp.nombre }}</h6>
+            <div class="d-flex gap-2">
+                <a href="{% url 'reporte_pagos_pdf' %}?temporada={{ temp.id }}" class="btn btn-danger btn-sm" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+                <a href="{% url 'reporte_pagos_xlsx' %}?temporada={{ temp.id }}" class="btn btn-success btn-sm"><i class="bi bi-table"></i> Excel</a>
+            </div>
+        </div>
+        <p class="text-muted">{{ temp.categoria.nombre }} | {{ temp.fecha_inicio|date:"d/m/Y" }} - {{ temp.fecha_fin|date:"d/m/Y" }}</p>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Equipo</th>
+                        {% for c in conceptos %}
+                        <th class="text-center">{{ c.nombre }}</th>
+                        {% endfor %}
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ item.equipo.nombre }}</strong></td>
+                        {% for c in conceptos %}
+                        {% with monto=item.pagos|dict_key:c.nombre %}
+                        <td class="text-center">
+                            {% if monto and monto > 0 %}
+                            <span class="text-success fw-bold">${{ monto|floatformat:2 }}</span>
+                            {% else %}
+                            <span class="text-danger"><i class="bi bi-x-circle"></i> Pendiente</span>
+                            {% endif %}
+                        </td>
+                        {% endwith %}
+                        {% endfor %}
+                        <td class="text-center">
+                            {% if item.completo %}
+                            <span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Completo</span>
+                            {% else %}
+                            <span class="badge bg-danger fs-6"><i class="bi bi-exclamation-circle"></i> Incompleto</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if data %}
+        <div class="d-flex gap-2 mt-3">
+            <a href="{% url 'reporte_pagos_pdf' %}?temporada={{ temp.id }}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            <a href="{% url 'reporte_pagos_xlsx' %}?temporada={{ temp.id }}" class="btn btn-success"><i class="bi bi-table"></i> Excel</a>
+        </div>
+        <div class="mt-2 text-muted small">
+            Mostrando {{ data|length }} equipo(s)
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

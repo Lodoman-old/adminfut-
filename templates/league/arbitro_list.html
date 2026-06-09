@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Árbitros - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-people"></i> Árbitros</h3>
+    {% if user|tiene_permiso:"arbitro_crear" %}
+    <a href="{% url 'arbitro_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+    {% endif %}
+</div>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Nombre</th><th>Apellido</th><th>Teléfono</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for a in arbitros %}
+        <tr>
+            <td>{{ a.nombre }}</td><td>{{ a.apellido }}</td><td>{{ a.telefono }}</td>
+            <td>{% if a.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            <td>
+                {% if user|tiene_permiso:"arbitro_editar" %}
+                <a href="{% url 'arbitro_update' a.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if user|tiene_permiso:"arbitro_eliminar" %}
+                <a href="{% url 'arbitro_delete' a.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted">No hay árbitros.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

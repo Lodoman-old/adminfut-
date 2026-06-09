@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Gestionar Indisponibilidad de Campos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-geo-alt"></i> Gestionar Indisponibilidad de Campos</h3>
+    <a href="{% url 'partido_list' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0">{% if indisp %}Indisponibilidad registrada{% else %}Nueva Indisponibilidad{% endif %}</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Campo</label>
+                    <select name="campo" class="form-select" required>
+                        <option value="">Seleccionar...</option>
+                        {% for c in campos %}
+                        <option value="{{ c.id }}" {% if indisp and indisp.campo_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control" required value="{{ indisp.fecha_desde|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control" required value="{{ indisp.fecha_hasta|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    {% if user|tiene_permiso:"partido_indisponibilidad" %}
+                    <button type="submit" name="guardar_indisponibilidad" class="btn btn-danger w-100">
+                        <i class="bi bi-plus-circle"></i> Registrar
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label">Motivo</label>
+                    <textarea name="motivo" class="form-control" rows="2" placeholder="Opcional: razón de la indisponibilidad...">{{ indisp.motivo|default:'' }}</textarea>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if indisponibilidades %}
+<div class="card mb-4">
+    <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0"><i class="bi bi-list"></i> Indisponibilidades registradas</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Campo</th>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                    <th>Motivo</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in indisponibilidades %}
+                <tr>
+                    <td>{{ i.campo.nombre }}</td>
+                    <td>{{ i.fecha_desde|date:"d/m/Y" }}</td>
+                    <td>{{ i.fecha_hasta|date:"d/m/Y" }}</td>
+                    <td>{{ i.motivo|default:"-" }}</td>
+                    <td>
+                        {% if user|tiene_permiso:"partido_indisponibilidad" %}
+                        <form method="post" style="display:inline" id="form_eliminar_{{ i.id }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="indisp_id" value="{{ i.id }}">
+                            <button type="button" name="eliminar_indisponibilidad" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#eliminarIndispModal" data-form-id="form_eliminar_{{ i.id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if afectados is not None %}
+<div class="card">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Partidos afectados ({{ afectados|length }})</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if afectados %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="indisp_id" value="{{ indisp.id }}">
+            <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Jornada</th>
+                        <th>Local</th>
+                        <th>vs</th>
+                        <th>Visitante</th>
+                        <th>Fecha actual</th>
+                        <th>Nuevo campo</th>
+                        <th>Nueva fecha</th>
+                        <th>Nueva hora</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in afectados %}
+                    <tr>
+                        <td>{{ p.jornada.nombre|default:"-" }}</td>
+                        <td>{{ p.equipo_local.nombre }}</td>
+                        <td class="text-center">vs</td>
+                        <td>{{ p.equipo_visitante.nombre }}</td>
+                        <td>{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <select name="nuevo_campo_{{ p.pk }}" class="form-select form-select-sm">
+                                <option value="">Sin cambios</option>
+                                {% for c in campos %}
+                                <option value="{{ c.id }}" {% if c.id == p.campo_id %}selected{% endif %}>{{ c.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="date" name="nueva_fecha_{{ p.pk }}" class="form-control form-control-sm" value="{{ p.fecha_hora|date:'Y-m-d' }}">
+                        </td>
+                        <td>
+                            <input type="time" name="nueva_hora_{{ p.pk }}" class="form-control form-control-sm" value="{{ p.fecha_hora|date:'H:i' }}">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <div class="p-3 text-center">
+                <button type="submit" name="reasignar" class="btn btn-success btn-lg">
+                    <i class="bi bi-check-circle"></i> Reasignar partidos
+                </button>
+                <a href="{% url 'partido_list' %}" class="btn btn-secondary btn-lg">Volver a partidos</a>
+            </div>
+        </form>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+            <i class="bi bi-check-circle text-success" style="font-size:2rem"></i>
+            <p class="mt-2">No hay partidos programados en este campo durante el período seleccionado.</p>
+            <a href="{% url 'partido_list' %}" class="btn btn-secondary">Volver a partidos</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal Eliminar Indisponibilidad -->
+<div class="modal fade" id="eliminarIndispModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-trash"></i> Eliminar Indisponibilidad</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size:3rem"></i>
+                <p class="mt-3 mb-0">¿Eliminar esta indisponibilidad?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-danger" id="confirmarEliminarIndispBtn"><i class="bi bi-check-circle"></i> Sí, eliminar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('eliminarIndispModal');
+    var btn = document.getElementById('confirmarEliminarIndispBtn');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function(event) {
+            var trigger = event.relatedTarget;
+            var formId = trigger.getAttribute('data-form-id');
+            btn.onclick = function() {
+                document.getElementById(formId).submit();
+            };
+        });
+    }
+});
+</script>
+{% endblock %}

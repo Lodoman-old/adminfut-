@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Jugadores - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-people"></i> Jugadores</h3>
+    {% if user|tiene_permiso:"jugador_crear" %}
+    <a href="{% url 'jugador_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+    {% endif %}
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="categoria" class="form-select" onchange="this.form.submit()">
+            <option value="">Todas las categorías</option>
+            {% for c in categorias %}<option value="{{ c.id }}" {% if request.GET.categoria == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="equipo" class="form-select" onchange="this.form.submit()">
+            <option value="">Todos los equipos</option>
+            {% for e in equipos %}<option value="{{ e.id }}" {% if request.GET.equipo == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto"><input type="text" class="form-control" name="q" placeholder="Buscar nombre o CURP..." value="{{ request.GET.q }}" oninput="filtrarJugadores(this)"></div>
+</form>
+<div class="table-responsive">
+<table class="table table-striped table-hover" id="tabla-jugadores">
+    <thead><tr><th>Nombre</th><th>CURP</th><th>Edad</th><th>Posición</th><th>Equipo</th><th>Dorsal</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for j in jugadores %}
+        <tr class="fila-jugador">
+            <td class="nombre-jugador">{{ j.nombre }} {{ j.apellido }}{% if j.suspendido_pago %} <span class="badge bg-danger" title="Suspendido por multa">S</span>{% endif %}</td>
+            <td class="curp-jugador"><code style="font-size:.8em">{{ j.curp|default:"-" }}</code></td>
+            <td>{% if j.fecha_nacimiento %}{{ j.edad }} años{% else %}-{% endif %}</td>
+            <td>{{ j.get_posicion_display }}</td>
+            <td>
+                {% with secs=j.registros_equipo.all %}
+                <span class="badge bg-primary me-1">{{ j.equipo.nombre }}</span>
+                {% for r in secs %}
+                {% if r.equipo_id != j.equipo_id %}
+                <span class="badge bg-secondary me-1">{{ r.equipo.nombre }}</span>
+                {% endif %}
+                {% endfor %}
+                <div class="mt-1">
+                    <small class="text-muted me-2" style="font-size:.65rem">{{ j.equipo.categoria.nombre }}</small>
+                    {% for r in secs %}
+                    {% if r.equipo_id != j.equipo_id %}
+                    <small class="text-muted d-inline-block me-1" style="font-size:.65rem">{{ r.equipo.categoria.nombre }}</small>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endwith %}
+            </td>
+            <td>{{ j.dorsal|default:"-" }}</td>
+            <td>{% if j.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            <td>
+                {% with cat_id=j.equipo.categoria_id %}
+                {% if user|tiene_permiso:"jugador_editar" %}
+                {% if cat_id in categorias_periodo_abierto or user.is_superuser %}
+                <a href="{% url 'jugador_update' j.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% else %}
+                <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Periodo de altas cerrado"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% endif %}
+                {% if user|tiene_permiso:"jugador_eliminar" %}
+                {% if cat_id not in categorias_temporada_iniciada or user.is_superuser %}
+                <a href="{% url 'jugador_delete' j.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% else %}
+                <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Temporada en curso, no se puede eliminar"><i class="bi bi-trash"></i></a>
+                {% endif %}
+                {% endif %}
+                {% endwith %}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-center text-muted">No hay jugadores.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrarJugadores(input) {
+    var texto = input.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    document.querySelectorAll(".fila-jugador").forEach(function(row) {
+        var nombre = row.querySelector(".nombre-jugador").textContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        var curp = row.querySelector(".curp-jugador").textContent.toLowerCase();
+        row.style.display = (nombre.indexOf(texto) > -1 || curp.indexOf(texto) > -1) ? "" : "none";
+    });
+}
+</script>
+{% endblock %}
+
+{% block extra_modals %}
+{% if mostrar_modal_edad %}
+<div class="modal" id="modalAlertaEdad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-warning">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Alerta: Incumplimiento de Rango de Edad</h5>
+                <button type="button" class="btn-close" id="btn-cerrar-modal-edad"></button>
+            </div>
+            <div class="modal-body">
+                <p>Se ha cambiado la fecha de nacimiento del jugador y ahora <strong>no cumple con el rango de edad</strong> de las siguientes categorías:</p>
+                <ul>
+                {% for v in mostrar_modal_edad.violaciones %}
+                    <li><strong>{{ v.categoria }}</strong> ({{ v.equipo }}) — {{ v.motivo }} — Edad del jugador: {{ v.edad_jugador }} años</li>
+                {% endfor %}
+                </ul>
+                {% if mostrar_modal_edad.multas %}
+                <div class="alert alert-danger mt-3">
+                    <strong><i class="bi bi-cash-stack"></i> Multa(s) generada(s):</strong>
+                    Se han creado <strong>{{ mostrar_modal_edad.multas }} multa(s)</strong> como consecuencia.<br>
+                    <strong>{{ mostrar_modal_edad.partidos }} partido(s)</strong> han sido marcados como default (pérdida por walkover).
+                </div>
+                {% endif %}
+                {% if mostrar_modal_edad.suspendido %}
+                <div class="alert alert-info mt-2">
+                    <strong><i class="bi bi-lock"></i> Suspensión activa:</strong>
+                    El jugador ha sido <strong>suspendido</strong> de todas las categorías hasta que liquide la(s) multa(s) registrando el pago en el módulo de Ingresos (POS).
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" id="btn-cerrar-modal-edad-ok">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var el = document.getElementById('modalAlertaEdad');
+    var modal = new bootstrap.Modal(el, {backdrop: 'static', keyboard: false});
+    modal.show();
+    function cleanup() {
+        modal.hide();
+        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+        document.body.style.removeProperty('overflow');
+    }
+    document.getElementById('btn-cerrar-modal-edad').addEventListener('click', cleanup);
+    document.getElementById('btn-cerrar-modal-edad-ok').addEventListener('click', cleanup);
+});
+</script>
+{% endif %}
+{% endblock %}

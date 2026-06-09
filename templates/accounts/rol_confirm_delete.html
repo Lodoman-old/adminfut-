@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Eliminar Rol - AdminFut{% endblock %}
+{% block content %}
+<h3><i class="bi bi-exclamation-triangle text-danger"></i> Eliminar Rol</h3>
+<div class="card">
+    <div class="card-header bg-danger text-white"><h5 class="mb-0">Confirmar eliminación</h5></div>
+    <div class="card-body text-center">
+        {% if rol.usuarios.count > 0 %}
+        <p class="lead text-danger"><i class="bi bi-shield-lock"></i> No se puede eliminar el rol <strong>{{ rol.nombre }}</strong> porque tiene {{ rol.usuarios.count }} usuario(s) asignado(s).</p>
+        <p class="text-muted">Reasigna los usuarios a otro rol antes de eliminarlo.</p>
+        <a href="{% url 'rol_list' %}" class="btn btn-secondary btn-lg">Volver</a>
+        {% else %}
+        <p class="lead">¿Estás seguro de eliminar el rol <strong>{{ rol.nombre }}</strong>?</p>
+        <p class="text-muted">Esta acción no se puede deshacer.</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-lg"><i class="bi bi-trash"></i> Eliminar</button>
+            <a href="{% url 'rol_list' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+django>=5.0
+gunicorn
+psycopg2-binary
+dj-database-url
+whitenoise
+python-dotenv
+django-allauth
+reportlab
+openpyxl
+pillow
+djangorestframework

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Eliminar Árbitro - AdminFut{% endblock %}
+{% block content %}
+<h3>Confirmar Eliminación</h3>
+<p>¿Estás seguro de eliminar al árbitro <strong>{{ object }}</strong>?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Eliminar</button>
+    <a href="{% url 'arbitro_list' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

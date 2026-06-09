@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} - AdminFut{% endblock %}
+{% block content %}
+<h3><i class="bi bi-person"></i> {{ titulo }}</h3>
+<div class="card">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">{{ titulo }}</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}<div class="text-danger small">{{ form.password.errors }}</div>{% endif %}
+                    {% if form.password.help_text %}<div class="form-text">{{ form.password.help_text }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.email.label }}</label>
+                    {{ form.email }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.telefono.label }}</label>
+                    {{ form.telefono }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ form.rol.label }}</label>
+                    {{ form.rol }}
+                    {% if form.rol.help_text %}<div class="form-text">{{ form.rol.help_text }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 d-flex align-items-center pt-4">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label ms-2">{{ form.is_active.label }}</label>
+                        {% if form.is_active.help_text %}<div class="form-text">{{ form.is_active.help_text }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 text-center">
+                <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-save"></i> Guardar</button>
+                <a href="{% url 'usuario_list' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

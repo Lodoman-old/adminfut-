@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Período de Altas/Bajas - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-person-up text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Período de Altas/Bajas</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Configuración del Período</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.temporada.label }}</label>
+                    {{ form.temporada }}
+                    {% if form.temporada.errors %}<div class="text-danger small">{{ form.temporada.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.tipo.label }}</label>
+                    {{ form.tipo }}
+                    {% if form.tipo.errors %}<div class="text-danger small">{{ form.tipo.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 fecha-field">
+                    <label class="form-label">{{ form.fecha_inicio.label }}</label>
+                    {{ form.fecha_inicio }}
+                    {% if form.fecha_inicio.errors %}<div class="text-danger small">{{ form.fecha_inicio.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 fecha-field">
+                    <label class="form-label">{{ form.fecha_fin.label }}</label>
+                    {{ form.fecha_fin }}
+                    {% if form.fecha_fin.errors %}<div class="text-danger small">{{ form.fecha_fin.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 jornada-field" style="display:none">
+                    <label class="form-label">{{ form.jornada_inicio.label }}</label>
+                    {{ form.jornada_inicio }}
+                    {% if form.jornada_inicio.errors %}<div class="text-danger small">{{ form.jornada_inicio.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 jornada-field" style="display:none">
+                    <label class="form-label">{{ form.jornada_fin.label }}</label>
+                    {{ form.jornada_fin }}
+                    {% if form.jornada_fin.errors %}<div class="text-danger small">{{ form.jornada_fin.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.extraordinario.label }}</label>
+                        {{ form.extraordinario }}
+                        {% if form.extraordinario.errors %}<div class="text-danger small">{{ form.extraordinario.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.activo.label }}</label>
+                        {{ form.activo }}
+                        {% if form.activo.errors %}<div class="text-danger small">{{ form.activo.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'periodoaltas_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tipo = document.getElementById('id_tipo');
+    function toggleRangos() {
+        var isFechas = tipo.value === 'fechas';
+        document.querySelectorAll('.fecha-field').forEach(function(el) {
+            el.style.display = isFechas ? 'block' : 'none';
+        });
+        document.querySelectorAll('.jornada-field').forEach(function(el) {
+            el.style.display = isFechas ? 'none' : 'block';
+        });
+    }
+    if (tipo) {
+        tipo.addEventListener('change', toggleRangos);
+        toggleRangos();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;background:#0d0d1a;margin:0;padding:20px}.container{max-width:600px;margin:auto;background:#1a1a2e;border-radius:10px;padding:30px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.3);text-align:center}h1{color:#FFD700;font-size:36px;margin:8px 0}h2{color:#ffffff;font-size:32px;margin:8px 0}.temporada{color:#aaaaaa;font-size:16px;margin:4px 0}.p{color:#cccccc;font-size:18px;line-height:1.5}.footer{margin-top:20px;font-size:12px;color:#888;text-align:center}img.logo{max-width:120px;max-height:120px;border-radius:50%;border:3px solid #FFD700}</style></head>
+<body>
+<div class="container">
+    <div style="font-size:72px;line-height:1">🏆</div>
+    <h1>👑 CAMPEÓN 👑</h1>
+    <h2>{{ campeon.nombre|upper }}</h2>
+    <p class="temporada">{{ temporada.nombre }} · {{ categoria.nombre }}</p>
+    {% if campeon.logo %}
+    <div style="margin:20px 0"><img src="{{ site_url }}{{ campeon.logo.url }}" alt="{{ campeon.nombre }}" class="logo"></div>
+    {% endif %}
+    <p class="p">¡Felicidades al equipo <strong>{{ campeon.nombre }}</strong> por coronarse campeón de <strong>{{ temporada.nombre }}</strong>!</p>
+    <div class="footer">
+        Generado el {{ ahora_str }}
+        <p><a href="{{ site_url }}/suscripcion/?token={{ unsubscribe_token }}" style="color:#666">Cancelar suscripción</a></p>
+    </div>
+</div>
+</body>
+</html>

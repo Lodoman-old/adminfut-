@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Campo - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-geo-alt text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Campo</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Campo</h5></div>
+    <div class="card-body">
+        <form method="post" id="campoForm">
+            {% csrf_token %}
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 offset-md-1 mb-3">
+                    <label class="form-label d-block">{{ form.es_rancheria.label }}</label>
+                    {{ form.es_rancheria }}
+                    {% if form.es_rancheria.errors %}<div class="text-danger small">{{ form.es_rancheria.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label d-block">{{ form.activo.label }}</label>
+                    {{ form.activo }}
+                    {% if form.activo.errors %}<div class="text-danger small">{{ form.activo.errors }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-9 mb-3">
+                    <label class="form-label">{{ form.direccion.label }}</label>
+                    {{ form.direccion }}
+                    {% if form.direccion.errors %}<div class="text-danger small">{{ form.direccion.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{{ form.telefono_contacto.label }}</label>
+                    {{ form.telefono_contacto }}
+                    {% if form.telefono_contacto.errors %}<div class="text-danger small">{{ form.telefono_contacto.errors }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div id="obsFields" style="display:none">
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label fw-bold">{{ form.observaciones.label }}</label>
+                        {{ form.observaciones }}
+                        {% if form.observaciones.errors %}<div class="text-danger small">{{ form.observaciones.errors }}</div>{% endif %}
+                        <small class="text-muted">Indica el motivo (remodelación, mantenimiento, etc.)</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">{{ form.fecha_estimada_retorno.label }}</label>
+                        {{ form.fecha_estimada_retorno }}
+                        {% if form.fecha_estimada_retorno.errors %}<div class="text-danger small">{{ form.fecha_estimada_retorno.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'campo_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const activoChk = document.getElementById('id_activo');
+    const obsDiv = document.getElementById('obsFields');
+
+    function toggleObs() {
+        if (!activoChk.checked) {
+            obsDiv.style.display = 'block';
+        } else {
+            obsDiv.style.display = 'none';
+        }
+    }
+
+    // Mostrar al cargar si ya está desactivado en edición
+    toggleObs();
+    activoChk.addEventListener('change', toggleObs);
+});
+</script>
+{% endblock %}

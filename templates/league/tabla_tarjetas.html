@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Tabla de Tarjetas - AdminFut{% endblock %}
+{% block extra_head %}
+<style>
+.player-card-small {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: 12px;
+  padding: 1rem;
+  color: white;
+  text-align: center;
+  transition: transform 0.2s;
+  border: 1px solid rgba(255,215,0,0.3);
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.player-card-small:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(255,215,0,0.15); }
+.player-card-small .team-logo-bg {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 55px;
+  height: 55px;
+  opacity: 1;
+  object-fit: contain;
+  pointer-events: none;
+}
+.player-avatar {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffd700;
+  margin: 0 auto 0.5rem;
+  background: #333;
+}
+.player-avatar-placeholder {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2d5a27, #1a3a15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  border: 2px solid #ffd700;
+  color: #ffd700;
+  font-size: 1.3rem;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-exclamation-triangle text-warning"></i> Tabla de Tarjetas</h3>
+    <div class="d-flex gap-1">
+    {% if temp_id %}
+        <div class="btn-group btn-group-md">
+            <a href="{% url 'reporte_tarjetas_pdf' %}?temporada={{ temp_id }}{% if jornada_id %}&jornada={{ jornada_id }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            <a href="{% url 'reporte_tarjetas_xlsx' %}?temporada={{ temp_id }}{% if jornada_id %}&jornada={{ jornada_id }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-success" target="_blank"><i class="bi bi-table"></i> Excel</a>
+        </div>
+    {% endif %}
+    </div>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="categoria" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las categorías</option>
+            {% for c in categorias %}<option value="{{ c.id }}" {% if cat_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="temporada" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Seleccionar temporada</option>
+            {% regroup temporadas by finalizada as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                {% for t in grupo.list %}
+                <option value="{{ t.id }}" {% if temp_id == t.id %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="jornada" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las jornadas</option>
+            {% for j in jornadas %}<option value="{{ j.id }}" {% if jornada_id == j.id %}selected{% endif %}>{{ j.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+</form>
+
+{% if temp_id %}
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <div class="card">
+      <div class="card-header bg-warning"><i class="bi bi-exclamation-triangle"></i> Tarjetas Amarillas</div>
+      <div class="card-body">
+        {% if amarillas %}
+        <div class="row">
+          {% for t in amarillas %}
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="player-card-small" style="background:linear-gradient(135deg,#3d2a1a,#5a3d2a)">
+              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto %}
+              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="fw-bold" style="font-size:0.85rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>
+              <small class="text-white-50">{{ t.equipo__nombre }}</small>
+              <div><span class="badge bg-warning text-dark mt-2 fs-6">{{ t.total }}</span></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">Sin tarjetas amarillas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 mb-4">
+    <div class="card">
+      <div class="card-header bg-danger text-white"><i class="bi bi-x-circle"></i> Tarjetas Rojas</div>
+      <div class="card-body">
+        {% if rojas %}
+        <div class="row">
+          {% for t in rojas %}
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="player-card-small" style="background:linear-gradient(135deg,#2a1a1a,#5a2a2a)">
+              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto %}
+              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="fw-bold" style="font-size:0.85rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>
+              <small class="text-white-50">{{ t.equipo__nombre }}</small>
+              <div><span class="badge bg-danger mt-2 fs-6">{{ t.total }}</span></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">Sin tarjetas rojas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body text-center text-muted">Selecciona una temporada para ver las estadísticas de tarjetas.</div>
+</div>
+{% endif %}
+{% endblock %}

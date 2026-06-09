@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Reagendar Partido - AdminFut{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width:700px">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Reagendar Partido</h5>
+    </div>
+    <div class="card-body">
+        <h6 class="fw-bold">{{ partido.equipo_local.nombre }} vs {{ partido.equipo_visitante.nombre }}</h6>
+        <p class="text-muted">
+            Actual: {{ partido.fecha_hora|date:"d/m/Y H:i" }} | {{ partido.campo.nombre }} | Estado: <strong>{{ partido.get_estado_display }}</strong>
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Campo</label>
+                {{ form.campo }}
+                {% if form.campo.errors %}<div class="text-danger small">{{ form.campo.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha</label>
+                        {{ form.fecha }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Hora</label>
+                        {{ form.hora }}
+                    </div>
+                </div>
+                {% if form.fecha.errors %}<div class="text-danger small">{{ form.fecha.errors }}</div>{% endif %}
+                {% if form.hora.errors %}<div class="text-danger small">{{ form.hora.errors }}</div>{% endif %}
+            </div>
+            <div class="text-center">
+                <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> Reagendar</button>
+                <a href="{% url 'partido_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

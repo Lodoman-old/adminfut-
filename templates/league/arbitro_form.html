@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Árbitro - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-people text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Árbitro</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Árbitro</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                {% for field in form %}
+                {% if field.widget_type == 'checkbox' %}
+                <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch pt-2">
+                        <label class="form-check-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'arbitro_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

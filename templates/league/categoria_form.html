@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nueva{% endif %} Categoría - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-tags text-warning"></i> {% if object %}Editar{% else %}Nueva{% endif %} Categoría</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos de la Categoría</h5></div>
+    <div class="card-body">
+        <form method="post" id="categoriaForm">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.rango_edad.label }}</label>
+                    {{ form.rango_edad }}
+                    {% if form.rango_edad.errors %}<div class="text-danger small">{{ form.rango_edad.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">{{ form.edad_minima.label }}</label>
+                    {{ form.edad_minima }}
+                    {% if form.edad_minima.errors %}<div class="text-danger small">{{ form.edad_minima.errors }}</div>{% endif %}
+                    <small class="text-muted">Vacío = sin límite</small>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">{{ form.edad_maxima.label }}</label>
+                    {{ form.edad_maxima }}
+                    {% if form.edad_maxima.errors %}<div class="text-danger small">{{ form.edad_maxima.errors }}</div>{% endif %}
+                    <small class="text-muted">Vacío = sin límite</small>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.genero.label }}</label>
+                    {{ form.genero }}
+                    {% if form.genero.errors %}<div class="text-danger small">{{ form.genero.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.min_jugadores.label }}</label>
+                    {{ form.min_jugadores }}
+                    {% if form.min_jugadores.errors %}<div class="text-danger small">{{ form.min_jugadores.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.max_jugadores.label }}</label>
+                    {{ form.max_jugadores }}
+                    {% if form.max_jugadores.errors %}<div class="text-danger small">{{ form.max_jugadores.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3 d-flex flex-row align-items-end pb-3">
+                    <div>
+                        <label class="form-label d-block">{{ form.activo.label }}</label>
+                        {{ form.activo }}
+                        {% if form.activo.errors %}<div class="text-danger small">{{ form.activo.errors }}</div>{% endif %}
+                    </div>
+                    <div class="ms-5">
+                        <label class="form-label d-block">{{ form.es_principal.label }}</label>
+                        {{ form.es_principal }}
+                        {% if form.es_principal.errors %}<div class="text-danger small">{{ form.es_principal.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.descripcion.label }}</label>
+                {{ form.descripcion }}
+                {% if form.descripcion.errors %}<div class="text-danger small">{{ form.descripcion.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Días de juego</label>
+                <div class="d-flex flex-wrap gap-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_lunes" id="id_dias_lunes" {% if form.dias_lunes.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_lunes">Lunes</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_martes" id="id_dias_martes" {% if form.dias_martes.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_martes">Martes</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_miercoles" id="id_dias_miercoles" {% if form.dias_miercoles.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_miercoles">Miércoles</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_jueves" id="id_dias_jueves" {% if form.dias_jueves.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_jueves">Jueves</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_viernes" id="id_dias_viernes" {% if form.dias_viernes.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_viernes">Viernes</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_sabado" id="id_dias_sabado" {% if form.dias_sabado.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_sabado">Sábado</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="dias_domingo" id="id_dias_domingo" {% if form.dias_domingo.value %}checked{% endif %}>
+                        <label class="form-check-label" for="id_dias_domingo">Domingo</label>
+                    </div>
+                </div>
+                <small class="text-muted">Selecciona los días en que se juega esta categoría.</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ form.horarios_text.label }}</label>
+                {{ form.horarios_text }}
+                <small class="text-muted">Ingresa los horarios separados por coma, ej: 15:00, 17:00</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ form.campos_permitidos.label }}</label>
+                <div>
+                    <span id="camposDisplay" class="badge bg-info fs-6 me-2">
+                        {% if object.campos_permitidos.all %}{{ object.campos_permitidos.all|join:", " }}{% else %}Todos los campos{% endif %}
+                    </span>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#camposModal">
+                        <i class="bi bi-gear"></i> Gestionar
+                    </button>
+                </div>
+                <small class="text-muted d-block">{{ form.campos_permitidos.help_text }}</small>
+                <div id="camposWrapper" style="display:none">{{ form.campos_permitidos }}</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Categorías compatibles</label>
+                <div>
+                    <span id="compatiblesDisplay" class="badge bg-info fs-6 me-2">
+                        {% if object.categorias_compatibles.all %}{{ object.categorias_compatibles.all|join:", " }}{% else %}Ninguna{% endif %}
+                    </span>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#compatiblesModal">
+                        <i class="bi bi-gear"></i> Gestionar
+                    </button>
+                </div>
+                <small class="text-muted">Selecciona las categorías cuyos jugadores también puedan registrarse en esta categoría.</small>
+                <div id="categoriasCompatiblesWrapper" style="display:none">{{ form.categorias_compatibles }}</div>
+            </div>
+
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'categoria_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="camposModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Gestionar campos permitidos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Selecciona los campos en los que puede jugar <strong>{% if object %}{{ object.nombre }}{% else %}esta categoría{% endif %}</strong>. Si no seleccionas ninguno, puede jugar en cualquier campo.</p>
+                <div id="camposCheckboxesContainer">
+                    {% for campo in campos_disponibles %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input campo-checkbox" type="checkbox" value="{{ campo.id }}" id="campo_{{ campo.id }}"
+                               {% if campo.id in campos_permitidos_ids %}checked{% endif %}>
+                        <label class="form-check-label" for="campo_{{ campo.id }}">{{ campo.nombre }}{% if campo.es_rancheria %} <small class="text-muted">(ranchería)</small>{% endif %}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardarCamposBtn">Guardar campos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="compatiblesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Gestionar categorías compatibles</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Marca las categorías cuyos jugadores también podrán registrarse en <strong>{% if object %}{{ object.nombre }}{% else %}esta categoría{% endif %}</strong>.</p>
+                <div id="checkboxesContainer">
+                    {% for cat in categorias %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input compat-checkbox" type="checkbox" value="{{ cat.id }}" id="compat_{{ cat.id }}"
+                               {% if cat.id in compatibles_ids %}checked{% endif %}>
+                        <label class="form-check-label" for="compat_{{ cat.id }}">{{ cat.nombre }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardarCompatiblesBtn">Guardar compatibilidades</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Categorías compatibles ---
+    const hiddenSelect = document.getElementById('id_categorias_compatibles');
+    const displaySpan = document.getElementById('compatiblesDisplay');
+    const checkboxes = document.querySelectorAll('.compat-checkbox');
+    const guardarBtn = document.getElementById('guardarCompatiblesBtn');
+    const wrapper = document.getElementById('categoriasCompatiblesWrapper');
+    if (wrapper) wrapper.style.display = 'none';
+
+    function actualizarDisplay() {
+        const seleccionadas = [];
+        checkboxes.forEach(function(cb) {
+            if (cb.checked) {
+                seleccionadas.push(cb.closest('.form-check').querySelector('.form-check-label').textContent.trim());
+            }
+        });
+        displaySpan.textContent = seleccionadas.length === 0 ? 'Ninguna' : seleccionadas.join(', ');
+    }
+
+    function sincronizarSelect() {
+        for (let opt of hiddenSelect.options) opt.selected = false;
+        checkboxes.forEach(function(cb) {
+            if (cb.checked) {
+                for (let opt of hiddenSelect.options) {
+                    if (opt.value === cb.value) { opt.selected = true; break; }
+                }
+            }
+        });
+    }
+
+    guardarBtn.addEventListener('click', function() {
+        sincronizarSelect();
+        actualizarDisplay();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('compatiblesModal'));
+        if (modal) modal.hide();
+    });
+
+    // --- Campos permitidos ---
+    const hiddenCamposSelect = document.getElementById('id_campos_permitidos');
+    const camposDisplay = document.getElementById('camposDisplay');
+    const camposCheckboxes = document.querySelectorAll('.campo-checkbox');
+    const guardarCamposBtn = document.getElementById('guardarCamposBtn');
+    const camposWrapper = document.getElementById('camposWrapper');
+    if (camposWrapper) camposWrapper.style.display = 'none';
+
+    function actualizarCamposDisplay() {
+        const seleccionados = [];
+        camposCheckboxes.forEach(function(cb) {
+            if (cb.checked) {
+                const label = cb.closest('.form-check').querySelector('.form-check-label');
+                seleccionados.push(label.textContent.trim().replace(/\s*\(ranchería\)\s*$/, ''));
+            }
+        });
+        camposDisplay.textContent = seleccionados.length === 0 ? 'Todos los campos' : seleccionados.join(', ');
+    }
+
+    function sincronizarCamposSelect() {
+        for (let opt of hiddenCamposSelect.options) opt.selected = false;
+        camposCheckboxes.forEach(function(cb) {
+            if (cb.checked) {
+                for (let opt of hiddenCamposSelect.options) {
+                    if (opt.value === cb.value) { opt.selected = true; break; }
+                }
+            }
+        });
+    }
+
+    guardarCamposBtn.addEventListener('click', function() {
+        sincronizarCamposSelect();
+        actualizarCamposDisplay();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('camposModal'));
+        if (modal) modal.hide();
+    });
+});
+</script>
+{% endblock %}

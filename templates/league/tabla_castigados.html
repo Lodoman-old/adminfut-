@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Castigados - AdminFut{% endblock %}
+{% block extra_head %}
+<style>
+.player-card-small {
+  background: linear-gradient(135deg, #2a1a1a, #5a2a2a);
+  border-radius: 12px;
+  padding: 1rem;
+  color: white;
+  text-align: center;
+  transition: transform 0.2s;
+  border: 1px solid rgba(255,215,0,0.3);
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.player-card-small:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(255,215,0,0.15); }
+.player-card-small .team-logo-bg {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 55px;
+  height: 55px;
+  opacity: 0.4;
+  object-fit: contain;
+  pointer-events: none;
+}
+.player-card-small .team-logo-placeholder {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  border: 2px dashed rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: rgba(255,255,255,0.2);
+  pointer-events: none;
+}
+.player-avatar {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffd700;
+  margin: 0 auto 0.5rem;
+  background: #333;
+}
+.player-avatar-placeholder {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2d5a27, #1a3a15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  border: 2px solid #ffd700;
+  color: #ffd700;
+  font-size: 1.3rem;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-lock text-danger"></i> Jugadores Castigados</h3>
+    <div class="d-flex gap-1">
+    {% if temp_id %}
+        <div class="btn-group btn-group-md">
+            <a href="{% url 'reporte_castigados_pdf' %}?temporada={{ temp_id }}{% if jornada_id %}&jornada={{ jornada_id }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            <a href="{% url 'reporte_castigados_xlsx' %}?temporada={{ temp_id }}{% if jornada_id %}&jornada={{ jornada_id }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-success" target="_blank"><i class="bi bi-table"></i> Excel</a>
+        </div>
+    {% endif %}
+    </div>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="categoria" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las categorías</option>
+            {% for c in categorias %}<option value="{{ c.id }}" {% if cat_id|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="temporada" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las temporadas</option>
+            {% regroup temporadas by finalizada as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                {% for t in grupo.list %}
+                <option value="{{ t.id }}" {% if temp_id|stringformat:"s" == t.id|stringformat:"s" %}selected{% endif %}>{{ t.nombre }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="jornada" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las jornadas</option>
+            {% for j in jornadas %}<option value="{{ j.id }}" {% if jornada_id == j.id %}selected{% endif %}>{{ j.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+</form>
+{% if castigados %}
+<div class="row">
+    {% for c in castigados %}
+    <div class="col-md-4 col-lg-3 col-sm-6 mb-3">
+        <div class="player-card-small">
+            {% if c.equipo.logo %}<img src="{{ c.equipo.logo.url }}" class="team-logo-bg" alt="">{% else %}<div class="team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+            {% if c.jugador.foto %}
+            <img src="{{ c.jugador.foto.url }}" class="player-avatar" alt="">
+            {% else %}
+            <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+            {% endif %}
+            <div class="fw-bold" style="font-size:0.85rem">{{ c.jugador.nombre }} {{ c.jugador.apellido }}</div>
+            <small class="text-white-50">{{ c.equipo.nombre }}</small>
+            <div class="mt-2"><span class="badge bg-danger fs-6">{{ c.suspension_jornadas }} Jornadas</span></div>
+            <small class="text-white-50 d-block mt-2">{{ c.partido.equipo_local }} vs {{ c.partido.equipo_visitante }}</small>
+            <small class="text-white-50 d-block">({{ c.partido.jornada.nombre }})</small>
+            {% if c.pendientes %}
+            <div class="mt-2">
+                <small class="text-white-50">Pendientes ({{ c.restantes }}):</small>
+                <div class="d-flex flex-wrap gap-1 justify-content-center mt-1">
+                    {% for p in c.pendientes %}
+                    <span class="badge bg-warning text-dark" style="white-space:normal;width:100%">{{ p.equipo_local }} vs {{ p.equipo_visitante }}<br><small>{{ p.jornada.nombre }}{% if p.fecha_hora %} {{ p.fecha_hora|date:"d/m" }}{% endif %}</small></span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="mt-2 text-warning small"><i class="bi bi-arrow-right-circle"></i> {{ c.restantes }} pendiente(s) por cumplir (próxima temporada)</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center text-muted">No hay jugadores castigados.</div>
+</div>
+{% endif %}
+{% endblock %}

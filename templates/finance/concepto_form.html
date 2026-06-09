@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Concepto - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-tag text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Concepto</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Concepto</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{{ form.tipo.label }}</label>
+                    {{ form.tipo }}
+                    {% if form.tipo.errors %}<div class="text-danger small">{{ form.tipo.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{{ form.monto_defecto.label }}</label>
+                    {{ form.monto_defecto }}
+                    {% if form.monto_defecto.errors %}<div class="text-danger small">{{ form.monto_defecto.errors }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.descripcion.label }}</label>
+                {{ form.descripcion }}
+                {% if form.descripcion.errors %}<div class="text-danger small">{{ form.descripcion.errors }}</div>{% endif %}
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.requiere_jugador.label }}</label>
+                        {{ form.requiere_jugador }}
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.requiere_equipo.label }}</label>
+                        {{ form.requiere_equipo }}
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.activo.label }}</label>
+                        {{ form.activo }}
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.requiere_categoria.label }}</label>
+                        {{ form.requiere_categoria }}
+                        <div class="form-text small">{{ form.requiere_categoria.help_text }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100">
+                        <label class="form-label d-block">{{ form.excluir_pagados.label }}</label>
+                        {{ form.excluir_pagados }}
+                        <div class="form-text small">{{ form.excluir_pagados.help_text }}</div>
+                    </div>
+                </div>
+            </div>
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'concepto_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Movimientos - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-cash-stack"></i> Movimientos</h3>
+    <div>
+      {% if user|tiene_permiso:"ingreso_pos" %}
+      <a href="{% url 'ingreso_pos' %}" class="btn btn-success me-2"><i class="bi bi-cash-register"></i> Punto de Venta</a>
+      {% endif %}
+      {% if user|tiene_permiso:"ingreso_crear" %}
+      <a href="{% url 'ingreso_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+      {% endif %}
+      <a href="{% url 'reporte_ingresos' %}" class="btn btn-outline-info"><i class="bi bi-bar-chart"></i> Reportes</a>
+    </div>
+</div>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Concepto</th><th>Tipo</th><th>Cant</th><th>Monto</th><th>Fecha</th><th>Equipo</th><th>Pagado a</th><th>Registrado por</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for i in ingresos %}
+        <tr>
+            <td>{{ i.concepto }}</td>
+            <td>{% if i.es_ingreso %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}</td>
+            <td>{% if i.cantidad > 1 %}{{ i.cantidad }}{% else %}1{% endif %}</td>
+            <td><strong class="{% if i.es_ingreso %}text-success{% else %}text-danger{% endif %}">{% if not i.es_ingreso %}-{% endif %}${{ i.monto|floatformat:2 }}</strong></td>
+            <td>{{ i.fecha|date:"d/m/Y" }}</td>
+            <td>{{ i.equipo|default:"-" }}</td>
+            <td>{{ i.pagado_a|default:"-" }}</td>
+            <td>{{ i.registrado_por|default:"-" }}</td>
+            <td>
+                {% if user|tiene_permiso:"ingreso_editar" %}
+                <a href="{% url 'ingreso_update' i.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if user|tiene_permiso:"ingreso_eliminar" %}
+                <a href="{% url 'ingreso_delete' i.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="9" class="text-center text-muted">No hay movimientos registrados.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

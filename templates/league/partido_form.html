@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Partido - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-balloon-heart text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Partido</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Partido</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger py-2">{% for e in form.non_field_errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.temporada.label }}</label>
+                    {{ form.temporada }}
+                    {% if form.temporada.errors %}<div class="text-danger small">{{ form.temporada.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.jornada.label }}</label>
+                    {{ form.jornada }}
+                    {% if form.jornada.errors %}<div class="text-danger small">{{ form.jornada.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.estado.label }}</label>
+                    {{ form.estado }}
+                    {% if form.estado.errors %}<div class="text-danger small">{{ form.estado.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.equipo_local.label }}</label>
+                    {{ form.equipo_local }}
+                    {% if form.equipo_local.errors %}<div class="text-danger small">{{ form.equipo_local.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.equipo_visitante.label }}</label>
+                    {{ form.equipo_visitante }}
+                    {% if form.equipo_visitante.errors %}<div class="text-danger small">{{ form.equipo_visitante.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.campo.label }}</label>
+                    {{ form.campo }}
+                    {% if form.campo.errors %}<div class="text-danger small">{{ form.campo.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.arbitro.label }}</label>
+                    {{ form.arbitro }}
+                    {% if form.arbitro.errors %}<div class="text-danger small">{{ form.arbitro.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-8 mb-3">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha</label>
+                            {{ form.fecha }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Hora</label>
+                            {{ form.hora }}
+                        </div>
+                    </div>
+                    {% if form.fecha.errors %}<div class="text-danger small">{{ form.fecha.errors }}</div>{% endif %}
+                    {% if form.hora.errors %}<div class="text-danger small">{{ form.hora.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.goles_local.label }}</label>
+                    {{ form.goles_local }}
+                    <div class="form-text small">Se actualiza desde la cédula arbitral</div>
+                    {% if form.goles_local.errors %}<div class="text-danger small">{{ form.goles_local.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.goles_visitante.label }}</label>
+                    {{ form.goles_visitante }}
+                    <div class="form-text small">Se actualiza desde la cédula arbitral</div>
+                    {% if form.goles_visitante.errors %}<div class="text-danger small">{{ form.goles_visitante.errors }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'partido_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

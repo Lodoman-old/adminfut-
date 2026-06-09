@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AdminFut - Liga de Fútbol{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <style>
+    body {
+        background: linear-gradient(135deg, #1a3a15 0%, #2d6b2e 30%, #4a8c4a 60%, #2d6b2e 100%);
+        min-height: 100vh;
+    }
+    .navbar.bg-dark {
+        background: linear-gradient(90deg, #1a3a15 0%, #2d6b2e 100%) !important;
+        border-bottom: 3px solid #ffd700;
+    }
+    .card { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,215,0,0.2); background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
+    .card-header { font-weight: bold; border-radius: 12px 12px 0 0 !important; }
+    .card-header.bg-success { background: linear-gradient(135deg, #2d6b2e, #4a8c4a) !important; }
+    .card-header.bg-primary { background: linear-gradient(135deg, #1a5276, #2e86c1) !important; }
+    .card-header.bg-info { background: linear-gradient(135deg, #1a5276, #3498db) !important; }
+    .card-header.bg-warning { background: linear-gradient(135deg, #b7950b, #ffd700) !important; }
+    .card-header.bg-danger { background: linear-gradient(135deg, #922b21, #e74c3c) !important; }
+    .table { background: rgba(255,255,255,0.95); border-radius: 8px; overflow: hidden; }
+    .alert { border-left: 5px solid; font-weight: 600; font-size: 1.05rem; }
+    .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #721c24; }
+    .alert-warning { background: #fff3cd; color: #856404; border-left-color: #856404; }
+    .alert-success { background: #d4edda; color: #155724; border-left-color: #155724; }
+    .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #0c5460; }
+    .navbar .nav-link { font-size: 1rem; }
+    .navbar .dropdown-item { font-size: 0.95rem; }
+    h3, h4 { color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+    .card h3, .card h4 { color: inherit; text-shadow: none; }
+    .card-header h5 { color: white !important; text-shadow: none; }
+    th { background: rgba(45,107,46,0.9) !important; color: white !important; }
+    .btn-primary { background: linear-gradient(135deg, #1a5276, #2e86c1) !important; border: none !important; }
+    .btn-success { background: linear-gradient(135deg, #2d6b2e, #4a8c4a) !important; border: none !important; }
+    .btn-warning { background: linear-gradient(135deg, #b7950b, #ffd700) !important; border: none !important; }
+    .btn-danger { background: linear-gradient(135deg, #922b21, #e74c3c) !important; border: none !important; }
+    .filter-select { background: rgba(255,255,255,0.2) !important; color: white !important; border: 1px solid rgba(255,215,0,0.3) !important; backdrop-filter: blur(5px); }
+    .filter-select option { background: #2d6b2e; color: white; }
+    .card-body .form-label, .card-body label { color: #1a3a15 !important; font-weight: 600; }
+    .card-body .form-control, .card-body .form-select, .card-body input, .card-body select, .card-body textarea { border: 1px solid #ced4da; border-radius: 6px; padding: 0.45rem 0.75rem; }
+    .card-body .form-control:focus, .card-body .form-select:focus { border-color: #2d5a27; box-shadow: 0 0 0 0.2rem rgba(45,90,39,0.25); }
+    .card-body .form-check-label { color: #333 !important; font-weight: normal; }
+    .card-header .nav-tabs { border-bottom: none; }
+    .card-header .nav-tabs .nav-link { color: rgba(255,255,255,0.8); border: none; border-radius: 8px 8px 0 0; padding: 0.5rem 1rem; font-size: 0.9rem; }
+    .card-header .nav-tabs .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+    .card-header .nav-tabs .nav-link.active { color: #1a3a15; background: white; font-weight: bold; }
+    @media (max-width: 768px) {
+      .hero-section { padding: 1rem !important; }
+      .hero-section h1 { font-size: 1.3rem; }
+      .stat-card .fs-1 { font-size: 1.5rem !important; }
+      .stat-card h3 { font-size: 1.2rem; }
+      .player-card .jersey { width: 36px; height: 44px; font-size: 0.85rem; }
+      .player-avatar, .player-avatar-placeholder { width: 44px; height: 44px; font-size: 1.2rem; }
+      .goal-badge { width: 28px; height: 28px; font-size: 0.75rem; }
+      .match-team-logo { width: 36px; height: 36px; }
+      .match-team-placeholder { width: 36px; height: 36px; font-size: 1rem; }
+      .match-team-col strong { font-size: 0.8rem; }
+      .match-score { font-size: 0.9rem !important; }
+      .match-vs-badge { font-size: 0.6rem; padding: 1px 6px; }
+      .match-info { font-size: 0.65rem; }
+      .match-row { padding: 0.35rem 0.5rem; margin-bottom: 0.5rem; }
+      .table { font-size: 0.8rem; }
+      .table td, .table th { padding: 0.3rem 0.4rem; }
+      .card-body { padding: 0.75rem; }
+      .navbar-brand { font-size: 0.95rem; }
+      .container-fluid { padding-left: 0.5rem; padding-right: 0.5rem; }
+      h3 { font-size: 1.1rem; }
+      h4 { font-size: 1rem; }
+      .btn { font-size: 0.85rem; padding: 0.25rem 0.5rem; }
+      .btn-sm { font-size: 0.75rem; padding: 0.15rem 0.35rem; }
+      .card-body .form-control, .card-body .form-select { font-size: 0.85rem; padding: 0.35rem 0.5rem; }
+      .card-header .nav-tabs .nav-link { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
+      .d-flex.justify-content-between.align-items-center.mb-3 { flex-wrap: wrap; gap: 0.5rem; }
+      .sticky-col { position: sticky; left: 0; z-index: 1; background: inherit; }
+      .sticky-col::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.08); }
+      .table-responsive .sticky-col { background: #fff; }
+      .table-responsive .table-striped tbody tr:nth-of-type(odd) .sticky-col { background: #f9f9f9; }
+      .table-responsive thead .sticky-col { background: #fff; z-index: 2; }
+      .table-responsive thead .sticky-col { border-bottom: 2px solid #dee2e6; }
+    }
+    @media (max-width: 768px) {
+      .cedula-name { text-overflow: clip !important; white-space: normal !important; word-break: break-word; }
+    }
+    @media (max-width: 576px) {
+      .hero-section h1 { font-size: 1.1rem; }
+      .match-team-logo { width: 28px; height: 28px; }
+      .match-team-placeholder { width: 28px; height: 28px; font-size: 0.85rem; }
+      .match-team-col strong { font-size: 0.7rem; }
+      .match-center-col { max-width: 120px; }
+    }
+    select optgroup { color: #ffd700 !important; font-style: normal; font-weight: bold; font-size: 0.85rem; }
+    select optgroup option { color: #212529; }
+    .filter-select optgroup option { color: #fff; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="bi bi-trophy"></i> AdminFut
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'tabla_posiciones' %}">Posiciones</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'tabla_goleo' %}">Goleo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'tabla_tarjetas' %}">Tarjetas</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'tabla_castigados' %}">Castigados</a></li>
+                    {% if user.is_authenticated %}
+                    {% load permisos %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            Gestión
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% if user|tiene_permiso:"gestion_categorias" %}<li><a class="dropdown-item" href="{% url 'categoria_list' %}">Categorías</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_equipos" %}<li><a class="dropdown-item" href="{% url 'equipo_list' %}">Equipos</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_jugadores" %}<li><a class="dropdown-item" href="{% url 'jugador_list' %}">Jugadores</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_campos" %}<li><a class="dropdown-item" href="{% url 'campo_list' %}">Campos</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_temporadas" or user|tiene_permiso:"gestion_jornadas" or user|tiene_permiso:"gestion_partidos" %}<li><hr class="dropdown-divider"></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_temporadas" %}<li><a class="dropdown-item" href="{% url 'temporada_list' %}">Temporadas</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_jornadas" %}<li><a class="dropdown-item" href="{% url 'jornada_list' %}">Jornadas</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_partidos" %}<li><a class="dropdown-item" href="{% url 'partido_list' %}">Partidos</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_periodosaltas" %}<li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'periodoaltas_list' %}">Período de Altas/Bajas</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_arbitros" %}<li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'arbitro_list' %}">Árbitros</a></li>{% endif %}
+                        </ul>
+                    </li>
+                    {% if user|tiene_permiso:"ver_finanzas" %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            Finanzas
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% if user|tiene_permiso:"concepto_crear" or user|tiene_permiso:"concepto_editar" or user|tiene_permiso:"concepto_eliminar" %}<li><a class="dropdown-item" href="{% url 'concepto_list' %}">Conceptos</a></li>{% endif %}
+                            {% if user|tiene_permiso:"ingreso_pos" %}<li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'ingreso_pos' %}"><i class="bi bi-cash-register"></i> Punto de Venta</a></li>{% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'suscripcion_email' %}">Suscripción</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            Reportes
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% if user.is_authenticated and user|tiene_permiso:"ver_finanzas" %}<li><a class="dropdown-item" href="{% url 'reporte_ingresos' %}"><i class="bi bi-cash-stack"></i> Ingresos</a></li>{% endif %}
+                            {% if user.is_authenticated and user|tiene_permiso:"ver_finanzas" %}<li><a class="dropdown-item" href="{% url 'reporte_pagos_temporada' %}"><i class="bi bi-cash-stack"></i> Pagos por Temporada</a></li>{% endif %}
+                            {% if not user.is_authenticated or user|tiene_permiso:"reporte_jornadas" %}<li><a class="dropdown-item" href="{% url 'reporte_jornadas' %}"><i class="bi bi-layout-text-window"></i> Juegos por Jornada</a></li>{% endif %}
+                            {% if not user.is_authenticated or user|tiene_permiso:"reporte_jornadas_completo" %}<li><a class="dropdown-item" href="{% url 'reporte_jornadas_completo' %}"><i class="bi bi-list-columns"></i> Todos los Juegos</a></li>{% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% if not user.is_authenticated or user|tiene_permiso:"reporte_semanal" %}<li><a class="dropdown-item" href="{% url 'reporte_semanal' %}"><i class="bi bi-calendar-week"></i> Juegos de la Semana</a></li>{% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% if user.is_authenticated and user.rol and user.rol.permisos|dict_key:"reporte_suscriptores" %}<li><a class="dropdown-item" href="{% url 'reporte_suscriptores' %}"><i class="bi bi-envelope"></i> Suscriptores</a></li>{% endif %}
+                            {% if user.is_authenticated and user.rol and user.rol.permisos|dict_key:"reporte_horarios" %}<li><a class="dropdown-item" href="{% url 'horarios_fijos_report' %}"><i class="bi bi-clock"></i> Horarios Fijos</a></li>{% endif %}
+                        </ul>
+                    </li>
+                    {% if user.is_authenticated and user|tiene_permiso:"gestion_configuracion" %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'configuracion_liga' %}"><i class="bi bi-gear"></i></a></li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% if user|tiene_permiso:"gestion_usuarios" %}<li><a class="dropdown-item" href="{% url 'usuario_list' %}"><i class="bi bi-people"></i> Usuarios</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_roles" %}<li><a class="dropdown-item" href="{% url 'rol_list' %}"><i class="bi bi-shield-lock"></i> Roles</a></li>{% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-key"></i> Cambiar contraseña</a></li>
+                            <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar sesión</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Iniciar sesión</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        {% load league_extras %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|bootstrap_alert }} alert-dismissible fade show shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr.localize(flatpickr.l10ns.es);
+        function esFecha(nombre) {
+            return /fecha|date|nacimiento/i.test(nombre);
+        }
+        document.querySelectorAll('input[type="date"]:not([type="checkbox"]), input[name*="fecha"]:not([type="checkbox"]), input[name*="date"]:not([type="checkbox"]), input[name*="nacimiento"]:not([type="checkbox"])').forEach(function(el) {
+            if (el.closest('[aria-hidden="true"]')) return;
+            flatpickr(el, { allowInput: true, dateFormat: 'Y-m-d' });
+        });
+        document.querySelectorAll('input[type="datetime-local"]:not(#id_horarios_text), input[name*="hora"]:not(#id_horarios_text):not(#id_hora):not([type="checkbox"])').forEach(function(el) {
+            flatpickr(el, { allowInput: true, enableTime: true, dateFormat: 'Y-m-d H:i', time_24hr: true });
+        });
+    });
+    </script>
+    {% block extra_js %}{% endblock %}
+    {% block extra_modals %}{% endblock %}
+</body>
+</html>

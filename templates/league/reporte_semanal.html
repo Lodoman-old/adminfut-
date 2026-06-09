@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Reporte Semanal - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-calendar-week"></i> Juegos de la Semana</h3>
+<div class="card mt-3 mx-auto" style="max-width:1100px">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Semana del {{ fecha_inicio|date:"d/m/Y" }} al {{ fecha_fin|date:"d/m/Y" }}</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label class="form-label">Categoría</label>
+                <select name="categoria" class="form-select">
+                    <option value="">Todas</option>
+                    {% for c in categorias %}<option value="{{ c.id }}" {% if cat_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Temporada</label>
+                <select name="temporada" class="form-select">
+                    <option value="">Todas</option>
+                    {% regroup temporadas by finalizada as grupos %}
+                    {% for grupo in grupos %}
+                    <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                        {% for t in grupo.list %}
+                        <option value="{{ t.id }}" {% if temp_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha inicio</label>
+                <input type="date" name="inicio" class="form-control" value="{{ fecha_inicio|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha fin</label>
+                <input type="date" name="fin" class="form-control" value="{{ fecha_fin|date:'Y-m-d' }}">
+            </div>
+            <div class="col-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
+                <a href="{% url 'reporte_semanal' %}" class="btn btn-secondary">Limpiar</a>
+                <button type="button" class="btn btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+            </div>
+        </form>
+
+        <hr>
+
+        {% for item in data %}
+        <div class="mb-4">
+            <h5 class="fw-bold text-success border-bottom pb-2">
+                <i class="bi bi-trophy"></i> {{ item.categoria.nombre }}
+                <span class="badge bg-secondary float-end">{{ item.partidos|length }} partido(s)</span>
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Local</th>
+                            <th style="width:50px" class="text-center">vs</th>
+                            <th>Visitante</th>
+                            <th>Campo</th>
+                            <th>Jornada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in item.partidos %}
+                        <tr>
+                            <td>{{ p.fecha_hora|date:"d/m/Y" }}</td>
+                            <td>{{ p.fecha_hora|date:"H:i" }}</td>
+                            <td>{{ p.equipo_local.nombre }}</td>
+                            <td class="text-center">vs</td>
+                            <td>{{ p.equipo_visitante.nombre }}</td>
+                            <td>{{ p.campo.nombre }}</td>
+                            <td>{{ p.jornada.nombre|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="text-muted text-center">Sin partidos esta semana</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">No hay partidos programados para esta semana.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

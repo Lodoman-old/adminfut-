@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Punto de Venta - AdminFut{% endblock %}
+{% block extra_head %}
+<style>
+.pos-container { max-width: 1400px; margin: 0 auto; }
+.pos-form-card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+.pos-form-card .card-body { padding: 1.5rem; }
+.pos-form-card .card-header { border-radius: 12px 12px 0 0; font-size: 1.1rem; padding: 0.75rem 1.5rem; }
+.pos-monto { font-size: 2rem; font-weight: bold; text-align: center; }
+.pos-cambio { font-size: 1.5rem; font-weight: bold; text-align: center; color: #198754; }
+.pos-concepto-btn { min-height: 70px; font-size: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; transition: all 0.2s; cursor: pointer; padding: 0.75rem; }
+.pos-concepto-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.pos-concepto-btn.active { border: 2px solid #ffd700; box-shadow: 0 0 0 2px rgba(255,215,0,0.4); }
+#ingresos .ultimos-list .list-group-item { border-left: 4px solid #2d6b2e; padding: 0.75rem 1rem; }
+#egresos .ultimos-list .list-group-item { border-left: 4px solid #dc3545; padding: 0.75rem 1rem; }
+#egresos .cambio-box { background: #fef0f0; }
+.conceptos-section { margin-bottom: 1.5rem; }
+.cambio-box { background: #f0faf0; border-radius: 10px; padding: 0.75rem; margin-bottom: 1rem; }
+.nav-tabs .nav-link { font-weight: bold; }
+.nav-tabs .nav-link.ingreso-tab { color: #198754; }
+.nav-tabs .nav-link.ingreso-tab.active { color: #fff; background-color: #198754; border-color: #198754; }
+.nav-tabs .nav-link.egreso-tab { color: #dc3545; }
+.nav-tabs .nav-link.egreso-tab.active { color: #fff; background-color: #dc3545; border-color: #dc3545; }
+.cantidad-unit { display: flex; align-items: center; gap: 4px; }
+.cantidad-unit .form-control { text-align: center; }
+.unit-price-label { font-size: 0.75rem; color: #666; margin-top: 2px; }
+@media print {
+  body * { visibility: hidden !important; }
+  #ticketModal, #ticketModal * { visibility: visible !important; }
+  #ticketModal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: white !important;
+    z-index: 9999 !important;
+  }
+  .no-print { display: none !important; }
+  .modal-backdrop { display: none !important; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<h3 class="page-header mb-3"><i class="bi bi-cash-register text-warning"></i> Punto de Venta</h3>
+
+<div class="pos-container">
+  <ul class="nav nav-tabs mb-3" id="posTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link ingreso-tab {% if tipo_filtro == 'INGRESO' %}active{% endif %}" id="ingresos-tab" data-bs-toggle="tab" data-bs-target="#ingresos" type="button" role="tab">
+        <i class="bi bi-cash-coin"></i> Ingresos
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link egreso-tab {% if tipo_filtro == 'EGRESO' %}active{% endif %}" id="egresos-tab" data-bs-toggle="tab" data-bs-target="#egresos" type="button" role="tab">
+        <i class="bi bi-cart-dash"></i> Egresos
+      </button>
+    </li>
+  </ul>
+
+  <form method="post" id="posForm" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="cantidad" id="id_cantidad_hidden" value="1">
+    <!-- Shared real form fields (rendered once, hidden) -->
+    <div style="display:none" aria-hidden="true">
+      {{ form.concepto }}
+      {{ form.monto }}
+      {{ form.fecha }}
+      {{ form.descripcion }}
+      {{ form.billete }}
+      {{ form.pos_categoria }}
+      {{ form.pos_temporada }}
+      {{ form.temporada }}
+    </div>
+    <div class="tab-content" id="posTabContent">
+      <!-- PANEL INGRESOS -->
+      <div class="tab-pane fade {% if tipo_filtro == 'INGRESO' %}show active{% endif %}" id="ingresos" role="tabpanel">
+        <div class="row g-4">
+          <div class="col-md-8">
+            <div class="pos-form-card">
+              <div class="card-header bg-success text-white"><i class="bi bi-grid"></i> Conceptos de Ingreso</div>
+              <div class="card-body">
+                <div class="row g-3 conceptos-section" id="conceptosGridIngreso">
+                  {% for c in conceptos %}
+                  {% if c.tipo == "INGRESO" %}
+                  <div class="col-md-4 col-sm-6">
+                    <div class="pos-concepto-btn btn btn-outline-success w-100" data-concepto="{{ c.id }}" data-monto="{{ c.monto_defecto|floatformat:2 }}" data-tipo="INGRESO" data-jugador="{{ c.requiere_jugador|lower }}" data-equipo="{{ c.requiere_equipo|lower }}" data-requiere-categoria="{{ c.requiere_categoria|lower }}" data-categoria="{{ c.categoria_id|default:'' }}">
+                      <div><small>{{ c.nombre }}</small></div>
+                      <div class="fw-bold">${{ c.monto_defecto|floatformat:2 }}</div>
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% empty %}
+                  <div class="col-12"><p class="text-muted">No hay conceptos de ingreso activos.</p></div>
+                  {% endfor %}
+                </div>
+                <hr class="my-4">
+                <div class="row g-4">
+                  <div class="col-md-4">
+                    <label class="form-label">Concepto</label>
+                    <select class="form-select form-control-lg" id="visualConcepto">
+                      <option value="">--- Seleccionar ---</option>
+                      {% for c in conceptos %}{% if c.tipo == "INGRESO" %}
+                      <option value="{{ c.id }}" data-monto="{{ c.monto_defecto|floatformat:2 }}" data-requiere-categoria="{{ c.requiere_categoria|lower }}" data-categoria="{{ c.categoria_id|default:'' }}">{{ c.nombre }}</option>
+                      {% endif %}{% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Cantidad</label>
+                    <input type="number" min="1" class="form-control form-control-lg cantidad-visual" value="1">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Total $</label>
+                    <input type="number" step="0.01" class="form-control form-control-lg" id="visualMonto" style="font-weight:bold;text-align:center">
+                    <div class="unit-price-label" id="unitPriceLabel">P. unitario: $0.00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" class="form-control form-control-lg" id="visualFecha">
+                  </div>
+                  <div class="col-md-4" id="categoriaField" style="display:none">
+                    <label class="form-label">Categoría <span class="text-danger">*</span></label>
+                    <select class="form-select form-control-lg is-invalid" id="visualCategoria">
+                      <option value="">--- Seleccionar ---</option>
+                      {% for cat in categorias %}
+                      <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                      {% endfor %}
+                    </select>
+                    <div class="invalid-feedback" id="catError">Selecciona una categoría.</div>
+                  </div>
+                  <div class="col-md-4" id="temporadaField" style="display:none">
+                    <label class="form-label">Temporada <span class="text-danger">*</span></label>
+                    <select class="form-select form-control-lg is-invalid" id="visualTemporada">
+                      <option value="">--- Seleccionar ---</option>
+                    </select>
+                    <div class="invalid-feedback" id="tempError">Selecciona una temporada.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Equipo <span class="text-danger">*</span></label>
+                    {{ form.equipo }}
+                    <div class="invalid-feedback" id="equipoError">Selecciona un equipo.</div>
+                  </div>
+                  <div class="col-md-6" id="jugadorField">
+                    <label class="form-label">Jugador</label>
+                    {{ form.jugador }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Descripción</label>
+                    <textarea class="form-control" id="visualDescripcion" rows="1"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="pos-form-card">
+              <div class="card-header bg-primary text-white"><i class="bi bi-receipt"></i> Resumen</div>
+              <div class="card-body">
+                <div class="cambio-box">
+                  <div class="row g-3">
+                    <div class="col-6">
+                      <label class="text-muted small">Total</label>
+                      <div class="pos-monto text-success" id="montoDisplay">$0.00</div>
+                    </div>
+                    <div class="col-6">
+                      <label class="text-muted small">Recibí</label>
+                      <input type="number" step="0.01" class="form-control form-control-lg" id="visualBillete" placeholder="0.00">
+                    </div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-center">
+                    <label class="text-muted small">Cambio</label>
+                    <div class="pos-cambio" id="cambioDisplay">$0.00</div>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-success btn-lg w-100 mb-3" id="btnSubmit">
+                  <i class="bi bi-check-circle"></i> Registrar y abrir ticket
+                </button>
+                <a href="{% url 'ingreso_list' %}" class="btn btn-outline-secondary w-100">
+                  <i class="bi bi-list"></i> Ver movimientos
+                </a>
+              </div>
+            </div>
+            <div class="pos-form-card mt-4">
+              <div class="card-header bg-info text-white"><i class="bi bi-clock-history"></i> Últimos movimientos</div>
+              <div class="card-body p-0">
+                <ul class="list-group list-group-flush ultimos-list" id="ultimosList">
+                  {% for i in ultimos %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted">{{ i.fecha|date:"d/m" }}</small>
+                      <strong>{{ i.concepto.nombre }}</strong>
+                      {% if i.cantidad > 1 %}<br><small class="text-muted">{{ i.cantidad }} x ${{ i.precio_unitario|floatformat:2 }}</small>{% endif %}
+                      {% if i.equipo %}<br><small>{{ i.equipo.nombre }}</small>{% endif %}
+                    </div>
+                    <span class="fw-bold {% if i.es_ingreso %}text-success{% else %}text-danger{% endif %}">{% if not i.es_ingreso %}-{% endif %}${{ i.monto|floatformat:2 }}</span>
+                  </li>
+                  {% empty %}
+                  <li class="list-group-item text-muted text-center">Sin movimientos aún</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL EGRESOS -->
+      <div class="tab-pane fade {% if tipo_filtro == 'EGRESO' %}show active{% endif %}" id="egresos" role="tabpanel">
+        <div class="row g-4">
+          <div class="col-md-8">
+            <div class="pos-form-card">
+              <div class="card-header bg-danger text-white"><i class="bi bi-grid"></i> Conceptos de Egreso</div>
+              <div class="card-body">
+                <div class="row g-3 conceptos-section" id="conceptosGridEgreso">
+                  {% for c in conceptos %}
+                  {% if c.tipo == "EGRESO" %}
+                  <div class="col-md-4 col-sm-6">
+                    <div class="pos-concepto-btn btn btn-outline-danger w-100" data-concepto="{{ c.id }}" data-monto="{{ c.monto_defecto|floatformat:2 }}" data-tipo="EGRESO" data-jugador="{{ c.requiere_jugador|lower }}" data-equipo="{{ c.requiere_equipo|lower }}" data-requiere-categoria="{{ c.requiere_categoria|lower }}" data-categoria="{{ c.categoria_id|default:'' }}">
+                      <div><small>{{ c.nombre }}</small></div>
+                      <div class="fw-bold">${{ c.monto_defecto|floatformat:2 }}</div>
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% empty %}
+                  <div class="col-12"><p class="text-muted">No hay conceptos de egreso activos.</p></div>
+                  {% endfor %}
+                </div>
+                <hr class="my-4">
+                <div class="row g-4">
+                  <div class="col-md-4">
+                    <label class="form-label">Concepto</label>
+                    <select class="form-select form-control-lg" id="visualConceptoEgreso">
+                      <option value="">--- Seleccionar ---</option>
+                      {% for c in conceptos %}{% if c.tipo == "EGRESO" %}
+                      <option value="{{ c.id }}" data-monto="{{ c.monto_defecto|floatformat:2 }}" data-requiere-categoria="{{ c.requiere_categoria|lower }}" data-categoria="{{ c.categoria_id|default:'' }}">{{ c.nombre }}</option>
+                      {% endif %}{% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Cantidad</label>
+                    <input type="number" min="1" class="form-control form-control-lg cantidad-visual" value="1">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Total $</label>
+                    <input type="number" step="0.01" class="form-control form-control-lg" id="visualMontoEgreso" style="font-weight:bold;text-align:center">
+                    <div class="unit-price-label" id="unitPriceLabelEgreso">P. unitario: $0.00</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" class="form-control form-control-lg" id="visualFechaEgreso">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Pagado a</label>
+                    {{ form.pagado_a }}
+                  </div>
+                  <div class="col-md-6" id="jugadorFieldEgreso">
+                    <label class="form-label">Jugador (opcional)</label>
+                    {{ form.jugador }}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Descripción</label>
+                    <textarea class="form-control" id="visualDescripcionEgreso" rows="1"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="pos-form-card">
+              <div class="card-header bg-danger text-white"><i class="bi bi-receipt"></i> Resumen de Egreso</div>
+              <div class="card-body">
+                <div class="cambio-box">
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="text-muted small">Total a pagar</label>
+                      <div class="pos-monto text-danger" id="montoDisplayEgreso">$0.00</div>
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-danger btn-lg w-100 mb-3">
+                  <i class="bi bi-check-circle"></i> Registrar egreso
+                </button>
+                <a href="{% url 'ingreso_list' %}" class="btn btn-outline-secondary w-100">
+                  <i class="bi bi-list"></i> Ver movimientos
+                </a>
+              </div>
+            </div>
+            <div class="pos-form-card mt-4">
+              <div class="card-header bg-info text-white"><i class="bi bi-clock-history"></i> Últimos movimientos</div>
+              <div class="card-body p-0">
+                <ul class="list-group list-group-flush ultimos-list">
+                  {% for i in ultimos %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <small class="text-muted">{{ i.fecha|date:"d/m" }}</small>
+                      <strong>{{ i.concepto.nombre }}</strong>
+                      {% if i.cantidad > 1 %}<br><small class="text-muted">{{ i.cantidad }} x ${{ i.precio_unitario|floatformat:2 }}</small>{% endif %}
+                      {% if i.pagado_a %}<br><small>{{ i.pagado_a }}</small>{% endif %}
+                    </div>
+                    <span class="fw-bold {% if i.es_ingreso %}text-success{% else %}text-danger{% endif %}">{% if not i.es_ingreso %}-{% endif %}${{ i.monto|floatformat:2 }}</span>
+                  </li>
+                  {% empty %}
+                  <li class="list-group-item text-muted text-center">Sin movimientos aún</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Ticket Modal -->
+{% if ticket_ingreso %}
+<div class="modal fade" id="ticketModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:{% if config.ticket_ancho_mm == 58 %}400px{% else %}500px{% endif %}">
+    <div class="modal-content">
+      <div class="modal-body p-0" id="ticketContent">
+        {% include "finance/ingreso_ticket_content.html" with ingreso=ticket_ingreso config=config %}
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 no-print">
+        <button onclick="window.print()" class="btn btn-success"><i class="bi bi-printer"></i> Imprimir</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-check-lg"></i> Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+// Cascade data preloaded from server
+var cascadeData = {{ cascade_data_json|safe }};
+var todosEquipos = {{ todos_equipos_json|safe }};
+var equipoSelect = document.querySelector('select[name="equipo"]');
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Hidden real form fields
+  const montoInput = document.getElementById('id_monto_pos');
+  const conceptoHidden = document.getElementById('id_concepto_pos');
+  const fechaHidden = document.getElementById('id_fecha');
+  const descripcionHidden = document.getElementById('id_descripcion');
+  const billeteHidden = document.getElementById('id_billete');
+  const cantidadHidden = document.getElementById('id_cantidad_hidden');
+  const categoriaHidden = document.querySelector('select[name="pos_categoria"]');
+  const temporadaHidden = document.querySelector('select[name="pos_temporada"]');
+  const temporadaModelHidden = document.querySelector('select[name="temporada"]');
+
+  // Visual fields - Ingresos
+  const montoDisplay = document.getElementById('montoDisplay');
+  const montoDisplayEgreso = document.getElementById('montoDisplayEgreso');
+  const cambioDisplay = document.getElementById('cambioDisplay');
+  const visualConcepto = document.getElementById('visualConcepto');
+  const visualMonto = document.getElementById('visualMonto');
+  const visualFecha = document.getElementById('visualFecha');
+  const visualDescripcion = document.getElementById('visualDescripcion');
+  const visualBillete = document.getElementById('visualBillete');
+  const unitPriceLabel = document.getElementById('unitPriceLabel');
+
+  // Visual fields - Egresos
+  const visualConceptoEgreso = document.getElementById('visualConceptoEgreso');
+  const visualMontoEgreso = document.getElementById('visualMontoEgreso');
+  const visualFechaEgreso = document.getElementById('visualFechaEgreso');
+  const visualDescripcionEgreso = document.getElementById('visualDescripcionEgreso');
+  const unitPriceLabelEgreso = document.getElementById('unitPriceLabelEgreso');
+
+  const jugadorField = document.getElementById('jugadorField');
+  const jugadorFieldEgreso = document.getElementById('jugadorFieldEgreso');
+
+  // Cascade fields
+  const categoriaField = document.getElementById('categoriaField');
+  const temporadaField = document.getElementById('temporadaField');
+  const visualCategoria = document.getElementById('visualCategoria');
+  const visualTemporada = document.getElementById('visualTemporada');
+  var selectedCategoria = '';
+  var selectedTemporada = '';
+  var currentCategoriaConcepto = '';
+
+  // Store concept data for auto-fill
+  var conceptData = {};
+  var currentUnitPrice = 0;
+
+  document.querySelectorAll('.pos-concepto-btn').forEach(function(btn) {
+    var id = btn.dataset.concepto;
+    conceptData[id] = {
+      monto: parseFloat(btn.dataset.monto) || 0,
+      jugador: btn.dataset.jugador === 'true',
+      equipo: btn.dataset.equipo === 'true',
+      tipo: btn.dataset.tipo,
+      requiere_categoria: btn.dataset.requiereCategoria === 'true',
+      categoria: btn.dataset.categoria || ''
+    };
+  });
+
+  // Sync visual fecha to hidden
+  function syncFecha() {
+    var val;
+    var visF = document.querySelector('#visualFecha, #visualFechaEgreso');
+    if (visF && visF.offsetParent !== null) val = visF.value;
+    if (!val) {
+      var ingTab = document.getElementById('ingresos');
+      if (ingTab && ingTab.classList.contains('active')) val = visualFecha.value;
+      else val = visualFechaEgreso.value;
+    }
+    if (fechaHidden) fechaHidden.value = val || '';
+  }
+
+  // Sync visual descripcion to hidden
+  function syncDescripcion() {
+    var val = '';
+    var ingTab = document.getElementById('ingresos');
+    if (ingTab && ingTab.classList.contains('show')) val = visualDescripcion.value;
+    else val = visualDescripcionEgreso.value;
+    if (descripcionHidden) descripcionHidden.value = val;
+  }
+
+  // Sync visual concepto to hidden
+  function syncConcepto() {
+    var ingTab = document.getElementById('ingresos');
+    var val;
+    if (ingTab && ingTab.classList.contains('show')) val = visualConcepto.value;
+    else val = visualConceptoEgreso.value;
+    if (conceptoHidden) conceptoHidden.value = val;
+    loadConcept(val);
+  }
+
+  // Sync visual billete to hidden
+  function syncBillete() {
+    if (billeteHidden && visualBillete) billeteHidden.value = visualBillete.value;
+  }
+
+  function syncCantidad() {
+    var val = 1;
+    document.querySelectorAll('.cantidad-visual').forEach(function(el) {
+      if (el.offsetParent !== null) {
+        val = parseInt(el.value) || 1;
+      }
+    });
+    cantidadHidden.value = val;
+    return val;
+  }
+
+  function calcularTotal() {
+    const qty = syncCantidad();
+    if (currentUnitPrice > 0) {
+      const total = qty * currentUnitPrice;
+      montoInput.value = total.toFixed(2);
+    }
+    updateMonto();
+  }
+
+  function updateMonto() {
+    const val = parseFloat(montoInput.value) || 0;
+    if (montoDisplay) montoDisplay.textContent = '$' + val.toFixed(2);
+    if (montoDisplayEgreso) montoDisplayEgreso.textContent = '$' + val.toFixed(2);
+    if (visualMonto) visualMonto.value = val.toFixed(2);
+    if (visualMontoEgreso) visualMontoEgreso.value = val.toFixed(2);
+    var ulEl = document.getElementById('unitPriceLabel');
+    var ulElE = document.getElementById('unitPriceLabelEgreso');
+    if (currentUnitPrice > 0) {
+      var txt = 'P. unitario: $' + currentUnitPrice.toFixed(2);
+      if (ulEl) ulEl.textContent = txt;
+      if (ulElE) ulElE.textContent = txt;
+    } else {
+      if (ulEl) ulEl.textContent = 'P. unitario: $0.00';
+      if (ulElE) ulElE.textContent = 'P. unitario: $0.00';
+    }
+    calcCambio();
+  }
+
+  function calcCambio() {
+    if (!cambioDisplay) return;
+    const total = parseFloat(montoInput.value) || 0;
+    const pago = parseFloat(visualBillete ? visualBillete.value : 0) || 0;
+    const cambio = pago - total;
+    cambioDisplay.textContent = (cambio >= 0 ? '$' + cambio.toFixed(2) : '$0.00');
+    cambioDisplay.style.color = (cambio >= 0 ? '#198754' : '#dc3545');
+  }
+
+  // === CASCADE: Categoria -> Temporada -> Equipo ===
+  function actualizarTemporadas(catId) {
+    visualTemporada.innerHTML = '<option value="">--- Seleccionar ---</option>';
+    if (!catId) return;
+    var temps = cascadeData.temporadas.filter(function(t) { return t.categoria_id == catId; });
+    temps.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.nombre;
+      visualTemporada.appendChild(opt);
+    });
+    temporadaField.style.display = temps.length ? 'block' : 'none';
+  }
+
+  function actualizarEquipos(tempId, conceptoId) {
+    if (!equipoSelect) return;
+    equipoSelect.innerHTML = '<option value="">---------</option>';
+    if (!tempId) return;
+    var eqIds = cascadeData.equipos_por_temporada[tempId] || [];
+    var excludeIds = [];
+    if (conceptoId && cascadeData.ids_pagados && cascadeData.ids_pagados[conceptoId]) {
+      excludeIds = cascadeData.ids_pagados[conceptoId][tempId] || [];
+    }
+    todosEquipos.forEach(function(eq) {
+      if (eqIds.indexOf(eq.id) !== -1 && excludeIds.indexOf(eq.id) === -1) {
+        var opt = document.createElement('option');
+        opt.value = eq.id;
+        opt.textContent = eq.nombre;
+        equipoSelect.appendChild(opt);
+      }
+    });
+  }
+
+  visualCategoria.addEventListener('change', function() {
+    selectedCategoria = this.value;
+    if (categoriaHidden) categoriaHidden.value = selectedCategoria;
+    selectedTemporada = '';
+    if (temporadaHidden) temporadaHidden.value = '';
+    actualizarTemporadas(selectedCategoria);
+    actualizarEquipos(null);
+  });
+
+  visualTemporada.addEventListener('change', function() {
+    selectedTemporada = this.value;
+    if (temporadaHidden) temporadaHidden.value = selectedTemporada;
+    if (temporadaModelHidden) temporadaModelHidden.value = selectedTemporada;
+    var concId = conceptoHidden ? conceptoHidden.value : '';
+    actualizarEquipos(selectedTemporada, concId);
+  });
+
+  function mostrarCascade(categoriaId, forceShow) {
+    if (categoriaId) {
+      categoriaField.style.display = 'block';
+      visualCategoria.value = categoriaId;
+      selectedCategoria = categoriaId;
+      if (categoriaHidden) categoriaHidden.value = categoriaId;
+      temporadaField.style.display = 'block';
+      actualizarTemporadas(categoriaId);
+    } else if (forceShow) {
+      // Show all categories, no pre-selection
+      categoriaField.style.display = 'block';
+      temporadaField.style.display = 'block';
+      visualCategoria.value = '';
+      visualTemporada.value = '';
+      selectedCategoria = '';
+      selectedTemporada = '';
+      if (categoriaHidden) categoriaHidden.value = '';
+      if (temporadaHidden) temporadaHidden.value = '';
+      if (temporadaModelHidden) temporadaModelHidden.value = '';
+      actualizarEquipos(null);
+    } else {
+      categoriaField.style.display = 'none';
+      temporadaField.style.display = 'none';
+      visualCategoria.value = '';
+      selectedCategoria = '';
+      selectedTemporada = '';
+      if (categoriaHidden) categoriaHidden.value = '';
+      if (temporadaHidden) temporadaHidden.value = '';
+      if (temporadaModelHidden) temporadaModelHidden.value = '';
+      if (equipoSelect) {
+        equipoSelect.innerHTML = '<option value="">---------</option>';
+        todosEquipos.forEach(function(eq) {
+          var opt = document.createElement('option');
+          opt.value = eq.id;
+          opt.textContent = eq.nombre;
+          equipoSelect.appendChild(opt);
+        });
+      }
+    }
+  }
+
+  // === END CASCADE ===
+
+  // Sync events
+  if (visualConcepto) visualConcepto.addEventListener('change', function() { syncConcepto(); syncDescripcion(); });
+  if (visualConceptoEgreso) visualConceptoEgreso.addEventListener('change', function() { syncConcepto(); syncDescripcion(); });
+  if (visualFecha) visualFecha.addEventListener('change', syncFecha);
+  if (visualFechaEgreso) visualFechaEgreso.addEventListener('change', syncFecha);
+  if (visualDescripcion) visualDescripcion.addEventListener('input', syncDescripcion);
+  if (visualDescripcionEgreso) visualDescripcionEgreso.addEventListener('input', syncDescripcion);
+  if (visualBillete) visualBillete.addEventListener('input', function() { syncBillete(); calcCambio(); });
+  function syncMontoFromVisual() {
+    var ingTab = document.getElementById('ingresos');
+    var val;
+    if (ingTab && ingTab.classList.contains('show')) val = visualMonto.value;
+    else val = visualMontoEgreso.value;
+    montoInput.value = val;
+    updateMonto();
+  }
+  if (visualMonto) visualMonto.addEventListener('input', syncMontoFromVisual);
+  if (visualMontoEgreso) visualMontoEgreso.addEventListener('input', syncMontoFromVisual);
+
+  montoInput.addEventListener('input', updateMonto);
+  document.querySelectorAll('.cantidad-visual').forEach(function(el) {
+    el.addEventListener('input', calcularTotal);
+  });
+
+  function toggleCampos(conceptoId) {
+    var data = conceptData[conceptoId];
+    if (!data) return;
+    var isEgreso = data.tipo === 'EGRESO';
+    if (jugadorField) jugadorField.style.display = (!isEgreso && data.jugador) ? 'block' : 'none';
+    if (jugadorFieldEgreso) jugadorFieldEgreso.style.display = isEgreso ? 'block' : 'none';
+    if (categoriaField) {
+      // Show cascade if concept requires categoria
+      mostrarCascade(data.categoria, data.requiere_categoria);
+      // Re-filter equipos with current concept if temporada is selected
+      if (selectedTemporada) {
+        actualizarEquipos(selectedTemporada, conceptoId);
+      }
+    }
+    // Reset validation state
+    [visualCategoria, visualTemporada, equipoSelect].forEach(function(el) {
+      if (el) el.classList.remove('is-invalid');
+    });
+    // Highlight equipo field when required
+    var eqLabel = document.querySelector('label[for="id_equipo"]');
+    if (eqLabel) {
+      var eqCol = eqLabel.closest('.col-md-4');
+      if (eqCol) {
+        if (!isEgreso && data.equipo) {
+          eqCol.style.border = '2px solid #dc3545';
+          eqCol.style.borderRadius = '6px';
+          eqCol.style.padding = '4px';
+        } else {
+          eqCol.style.border = 'none';
+          eqCol.style.padding = '0';
+        }
+      }
+    }
+  }
+
+  function loadConcept(conceptoId) {
+    if (!conceptoId || !conceptData[conceptoId]) return;
+    var data = conceptData[conceptoId];
+    currentUnitPrice = data.monto;
+    document.querySelectorAll('.cantidad-visual').forEach(function(el) { el.value = 1; el.dispatchEvent(new Event('input')); });
+    cantidadHidden.value = 1;
+    toggleCampos(conceptoId);
+    updateMonto();
+  }
+
+  // Init date
+  function initDate() {
+    var today = new Date().toISOString().split('T')[0];
+    if (fechaHidden && !fechaHidden.value) fechaHidden.value = today;
+    if (visualFecha && !visualFecha.value) visualFecha.value = today;
+    if (visualFechaEgreso && !visualFechaEgreso.value) visualFechaEgreso.value = today;
+  }
+  initDate();
+
+  // On page load, if there are validation errors, restore visual state from hidden fields
+  var conceptoVal = conceptoHidden ? conceptoHidden.value : '';
+  if (conceptoVal) {
+    if (visualConcepto) visualConcepto.value = conceptoVal;
+    if (visualConceptoEgreso) visualConceptoEgreso.value = conceptoVal;
+    if (conceptData[conceptoVal] && conceptData[conceptoVal].requiere_categoria) {
+      mostrarCascade('', true);
+      loadConcept(conceptoVal);
+      var catVal = categoriaHidden ? categoriaHidden.value : '';
+      if (catVal) {
+        visualCategoria.value = catVal;
+        selectedCategoria = catVal;
+        actualizarTemporadas(catVal);
+        var tempVal = temporadaHidden ? temporadaHidden.value : '';
+        if (tempVal) {
+          visualTemporada.value = tempVal;
+          selectedTemporada = tempVal;
+          actualizarEquipos(tempVal, conceptoVal);
+        }
+      }
+    }
+  }
+
+  // Concept button clicks
+  document.querySelectorAll('.pos-concepto-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const conceptoId = this.dataset.concepto;
+      var visSelect = this.closest('.tab-pane').id === 'ingresos' ? visualConcepto : visualConceptoEgreso;
+      if (visSelect) visSelect.value = conceptoId;
+      syncConcepto();
+      document.querySelectorAll('.pos-concepto-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      var visCant = this.closest('.tab-pane').querySelector('.cantidad-visual');
+      if (visCant) visCant.focus();
+    });
+  });
+
+  // Tab switch
+  document.querySelectorAll('#posTabs .nav-link').forEach(function(tab) {
+    tab.addEventListener('shown.bs.tab', function(e) {
+      var tipo = e.target.id === 'ingresos-tab' ? 'INGRESO' : 'EGRESO';
+      currentUnitPrice = 0;
+      conceptoHidden.value = '';
+      montoInput.value = '';
+      document.querySelectorAll('.cantidad-visual').forEach(function(el) { el.value = 1; });
+      cantidadHidden.value = 1;
+      if (visualBillete) visualBillete.value = '';
+      if (billeteHidden) billeteHidden.value = '';
+      document.querySelectorAll('.pos-concepto-btn').forEach(b => b.classList.remove('active'));
+      mostrarCascade('');
+      updateMonto();
+      syncFecha();
+      syncDescripcion();
+      var url = new URL(window.location);
+      url.searchParams.set('tipo', tipo);
+      window.history.replaceState({}, '', url);
+    });
+  });
+
+  // Initial sync
+  syncFecha();
+  syncDescripcion();
+
+  const ticketModal = document.getElementById('ticketModal');
+  if (ticketModal) {
+    var modal = new bootstrap.Modal(ticketModal);
+    modal.show();
+    ticketModal.addEventListener('hidden.bs.modal', function() {
+      window.location.href = "{% url 'ingreso_pos' %}";
+    });
+  }
+
+  // Client-side validation on submit
+  document.getElementById('posForm').addEventListener('submit', function(e) {
+    var conceptoId = conceptoHidden ? conceptoHidden.value : '';
+    var data = conceptoId ? conceptData[conceptoId] : null;
+    // Sync cascade hidden fields
+    if (categoriaHidden) categoriaHidden.value = visualCategoria.value;
+    if (temporadaHidden) temporadaHidden.value = visualTemporada.value;
+    if (temporadaModelHidden) temporadaModelHidden.value = visualTemporada.value;
+    var valid = true;
+    // Reset errors
+    [visualCategoria, visualTemporada, equipoSelect].forEach(function(el) {
+      if (el) { el.classList.remove('is-invalid'); }
+    });
+    if (data && (data.requiere_categoria || data.equipo)) {
+      if (!visualCategoria.value && data.requiere_categoria) {
+        visualCategoria.classList.add('is-invalid');
+        valid = false;
+      }
+      if (!visualTemporada.value && data.requiere_categoria) {
+        visualTemporada.classList.add('is-invalid');
+        valid = false;
+      }
+      if (!equipoSelect.value && (data.requiere_categoria || data.equipo)) {
+        equipoSelect.classList.add('is-invalid');
+        valid = false;
+      }
+    }
+    if (!valid) e.preventDefault();
+  });
+});
+</script>
+{% endblock %}

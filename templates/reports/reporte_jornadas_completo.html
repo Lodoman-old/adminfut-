@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Todos los Juegos - AdminFut{% endblock %}
+{% block extra_head %}
+<style>
+.agregado { font-size: 0.65rem; color: #6c757d; font-weight: normal; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width:1100px">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-list-columns"></i> Todos los Juegos</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Temporada</label>
+                <select name="temporada" class="form-select" required>
+                    <option value="">-- Seleccionar --</option>
+                    {% regroup temporadas by finalizada as grupos %}
+                    {% for grupo in grupos %}
+                    <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                        {% for t in grupo.list %}
+                        <option value="{{ t.id }}" {% if temp and temp.id == t.id %}selected{% endif %}>
+                            {{ t.nombre }} ({{ t.categoria.nombre }})
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
+            </div>
+        </form>
+
+        {% if partidos is not None %}
+        <hr>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h6 class="fw-bold mb-0">Temporada: {{ temp.nombre }}</h6>
+            <div class="d-flex gap-2">
+                <a href="{% url 'reporte_jornadas_completo_pdf' %}?temporada={{ temp.id }}" class="btn btn-danger btn-sm" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+                <a href="{% url 'reporte_jornadas_completo_xlsx' %}?temporada={{ temp.id }}" class="btn btn-success btn-sm"><i class="bi bi-table"></i> Excel</a>
+            </div>
+        </div>
+        <p class="text-muted">{{ temp.categoria.nombre }} | {{ partidos|length }} partido(s)</p>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Jornada</th>
+                        <th>Local</th>
+                        <th style="width:50px" class="text-center">Goles</th>
+                        <th style="width:40px" class="text-center">vs</th>
+                        <th style="width:50px" class="text-center">Goles</th>
+                        <th>Visitante</th>
+                        <th>Campo</th>
+                        <th>Fecha/Hora</th>
+                        <th>Árbitro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in partidos %}
+                    {% with agregado=p.agregado_info %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ p.jornada.numero }}</td>
+                        <td class="{% if agregado and agregado.avanza_local == True %}table-success fw-bold{% endif %}">{{ p.equipo_local.nombre }}</td>
+                        <td class="text-center fw-bold">{{ p.goles_local|default:"-" }}{% if agregado %}<br><span class="agregado">({{ agregado.total_local }})</span>{% endif %}</td>
+                        <td class="text-center">vs</td>
+                        <td class="text-center fw-bold">{{ p.goles_visitante|default:"-" }}{% if agregado %}<br><span class="agregado">({{ agregado.total_visitante }})</span>{% endif %}</td>
+                        <td class="{% if agregado and agregado.avanza_local == False %}table-success fw-bold{% endif %}">{{ p.equipo_visitante.nombre }}</td>
+                        <td>{{ p.campo.nombre }}</td>
+                        <td>{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+                        <td>{% if p.arbitro %}{{ p.arbitro.nombre_completo }}{% else %}---{% endif %}</td>
+                    </tr>
+                    {% endwith %}
+                    {% empty %}
+                    <tr><td colspan="10" class="text-muted text-center">No hay partidos registrados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if partidos %}
+        <div class="d-flex gap-2 mt-3">
+            <a href="{% url 'reporte_jornadas_completo_pdf' %}?temporada={{ temp.id }}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            <a href="{% url 'reporte_jornadas_completo_xlsx' %}?temporada={{ temp.id }}" class="btn btn-success"><i class="bi bi-table"></i> Excel</a>
+        </div>
+        <div class="mt-2 text-muted small">Mostrando {{ partidos|length }} partido(s)</div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

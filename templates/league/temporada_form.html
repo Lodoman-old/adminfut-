@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nueva{% endif %} Temporada - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-calendar-range text-warning"></i> {% if object %}Editar{% else %}Nueva{% endif %} Temporada</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos de la Temporada</h5></div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.categoria.label }}</label>
+                    {{ form.categoria }}
+                    {% if form.categoria.errors %}<div class="text-danger small">{{ form.categoria.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.fecha_inicio.label }}</label>
+                    {{ form.fecha_inicio }}
+                    {% if form.fecha_inicio.errors %}<div class="text-danger small">{{ form.fecha_inicio.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.fecha_fin.label }}</label>
+                    {{ form.fecha_fin }}
+                    {% if form.fecha_fin.errors %}<div class="text-danger small">{{ form.fecha_fin.errors }}</div>{% endif %}
+                    <div class="form-text">Si se deja vacío se calcula automáticamente.</div>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+                    <div class="w-100 d-flex justify-content-around">
+                        <div class="text-center">
+                            <label class="form-label d-block">{{ form.activa.label }}</label>
+                            {{ form.activa }}
+                            {% if form.activa.errors %}<div class="text-danger small">{{ form.activa.errors }}</div>{% endif %}
+                        </div>
+                        <div class="text-center">
+                            <label class="form-label d-block">{{ form.es_prueba.label }}</label>
+                            {{ form.es_prueba }}
+                            {% if form.es_prueba.errors %}<div class="text-danger small">{{ form.es_prueba.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <small class="text-muted d-block text-center mt-1">Modo prueba: permite capturar resultados sin restricción de fechas</small>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.jornadas_limite_pago.label }}</label>
+                    {{ form.jornadas_limite_pago }}
+                    {% if form.jornadas_limite_pago.errors %}<div class="text-danger small">{{ form.jornadas_limite_pago.errors }}</div>{% endif %}
+                    <div class="form-text">Si un equipo no paga antes de esta jornada, pierde por default.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.goles_default.label }}</label>
+                    {{ form.goles_default }}
+                    {% if form.goles_default.errors %}<div class="text-danger small">{{ form.goles_default.errors }}</div>{% endif %}
+                    <div class="form-text">Goles que recibe el equipo que pierde por default (ej. 3-0).</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.min_jugadores.label }}</label>
+                    {{ form.min_jugadores }}
+                    {% if form.min_jugadores.errors %}<div class="text-danger small">{{ form.min_jugadores.errors }}</div>{% endif %}
+                    <div class="form-text">Mínimo de jugadores que deben aparecer en cédula para que el partido sea válido.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.cambios_permitidos.label }}</label>
+                    {{ form.cambios_permitidos }}
+                    {% if form.cambios_permitidos.errors %}<div class="text-danger small">{{ form.cambios_permitidos.errors }}</div>{% endif %}
+                    <div class="form-text">Máximo de cambios (suplentes) por equipo por partido.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.max_titulares.label }}</label>
+                    {{ form.max_titulares }}
+                    {% if form.max_titulares.errors %}<div class="text-danger small">{{ form.max_titulares.errors }}</div>{% endif %}
+                    <div class="form-text">Máximo de jugadores titulares por equipo en cédula. Si se excede, el partido se pierde por default por alineación indebida.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.tipo_rol.label }}</label>
+                    {{ form.tipo_rol }}
+                    {% if form.tipo_rol.errors %}<div class="text-danger small">{{ form.tipo_rol.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.vueltas.label }}</label>
+                    {{ form.vueltas }}
+                    {% if form.vueltas.errors %}<div class="text-danger small">{{ form.vueltas.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3" id="div_num_grupos">
+                    <label class="form-label">{{ form.num_grupos.label }}</label>
+                    {{ form.num_grupos }}
+                    {% if form.num_grupos.errors %}<div class="text-danger small">{{ form.num_grupos.errors }}</div>{% endif %}
+                    <div class="form-text">Solo aplica cuando el tipo de rol es "Por Grupos".</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.tipo_competencia.label }}</label>
+                    {{ form.tipo_competencia }}
+                    {% if form.tipo_competencia.errors %}<div class="text-danger small">{{ form.tipo_competencia.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-4 mb-3" id="div_num_clasificados">
+                    <label class="form-label">{{ form.num_clasificados.label }}</label>
+                    {{ form.num_clasificados }}
+                    {% if form.num_clasificados.errors %}<div class="text-danger small">{{ form.num_clasificados.errors }}</div>{% endif %}
+                    <div class="form-text">Total de clasificados. Si hay grupos, se reparten equitativamente entre ellos.</div>
+                </div>
+                <div class="col-12"><hr><h6>Opciones de Liguilla y desempate</h6></div>
+                <div class="col-md-4 mb-3" id="div_ida_vuelta">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0">{{ form.ida_vuelta.label }}</label>
+                        {{ form.ida_vuelta }}
+                    </div>
+                    <div class="form-text">Genera partidos de ida y vuelta en todas las rondas.</div>
+                </div>
+                <div class="col-md-4 mb-3" id="div_final_ida_vuelta">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0">{{ form.final_ida_vuelta.label }}</label>
+                        {{ form.final_ida_vuelta }}
+                    </div>
+                    <div class="form-text">La final será a ida y vuelta (aunque las rondas previas sean a un partido).</div>
+                </div>
+                <div class="col-md-4 mb-3 div_liguilla_desempate">
+                    <label class="form-label">{{ form.criterio_liguilla.label }}</label>
+                    {{ form.criterio_liguilla }}
+                    {% if form.criterio_liguilla.errors %}<div class="text-danger small">{{ form.criterio_liguilla.errors }}</div>{% endif %}
+                    <div class="form-text">{{ form.criterio_liguilla.help_text }}</div>
+                </div>
+                <div class="col-md-4 mb-3 div_liguilla_desempate">
+                    <label class="form-label">{{ form.min_porcentaje_liguilla.label }}</label>
+                    {{ form.min_porcentaje_liguilla }}
+                    {% if form.min_porcentaje_liguilla.errors %}<div class="text-danger small">{{ form.min_porcentaje_liguilla.errors }}</div>{% endif %}
+                    <div class="form-text">{{ form.min_porcentaje_liguilla.help_text }}</div>
+                </div>
+                <div class="col-md-4 mb-3 div_clasif_grupos" id="div_clasif_grupos">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0">{{ form.clasificacion_por_grupos.label }}</label>
+                        {{ form.clasificacion_por_grupos }}
+                    </div>
+                    <div class="form-text">{{ form.clasificacion_por_grupos.help_text }}</div>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tipoRol = document.getElementById('{{ form.tipo_rol.id_for_label }}');
+    var divNumGrupos = document.getElementById('div_num_grupos');
+    function toggleNumGrupos() {
+        var show = tipoRol && tipoRol.value === 'GRUPOS';
+        divNumGrupos.style.display = show ? 'block' : 'none';
+    }
+    if (tipoRol) {
+        tipoRol.addEventListener('change', toggleNumGrupos);
+        toggleNumGrupos();
+    }
+
+    var tipoComp = document.getElementById('{{ form.tipo_competencia.id_for_label }}');
+    var divNumClasificados = document.getElementById('div_num_clasificados');
+    var divIdaVuelta = document.getElementById('div_ida_vuelta');
+    var divFinalIdaVuelta = document.getElementById('div_final_ida_vuelta');
+    function toggleLiguillaOpts() {
+        var show = tipoComp && tipoComp.value === 'LIGUILLA';
+        if (divNumClasificados) divNumClasificados.style.display = show ? 'block' : 'none';
+        if (divIdaVuelta) divIdaVuelta.style.display = show ? 'block' : 'none';
+        if (divFinalIdaVuelta) divFinalIdaVuelta.style.display = show ? 'block' : 'none';
+    }
+    if (tipoComp) {
+        tipoComp.addEventListener('change', toggleLiguillaOpts);
+        toggleLiguillaOpts();
+    }
+
+    var divClasifGrupos = document.getElementById('div_clasif_grupos');
+    function toggleClasifGrupos() {
+        var show = tipoRol && tipoRol.value === 'GRUPOS' && tipoComp && tipoComp.value === 'LIGUILLA';
+        if (divClasifGrupos) divClasifGrupos.style.display = show ? 'block' : 'none';
+    }
+    if (tipoRol) {
+        tipoRol.addEventListener('change', toggleClasifGrupos);
+    }
+    if (tipoComp) {
+        tipoComp.addEventListener('change', toggleClasifGrupos);
+    }
+    toggleClasifGrupos();
+
+    // Mostrar opcion de desempate liguilla solo cuando tipo_competencia = LIGUILLA
+    var divsLiguillaDesempate = document.querySelectorAll('.div_liguilla_desempate');
+    function toggleLiguillaDesempate() {
+        var show = tipoComp && tipoComp.value === 'LIGUILLA';
+        divsLiguillaDesempate.forEach(function(el) {
+            el.style.display = show ? 'block' : 'none';
+        });
+    }
+    if (tipoComp) {
+        tipoComp.addEventListener('change', toggleLiguillaDesempate);
+        toggleLiguillaDesempate();
+    }
+});
+</script>
+{% endblock %}

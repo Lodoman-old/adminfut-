@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Roles - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-shield-lock"></i> Roles y Permisos</h3>
+    <a href="{% url 'rol_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo Rol</a>
+</div>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Rol</th><th>Usuarios</th><th>Permisos</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for r in roles %}
+        <tr>
+            <td><strong>{{ r.nombre }}</strong></td>
+            <td>{{ r.usuarios.count }}</td>
+            <td>
+                {% with activos=r.permisos.items|dictsort:0 %}
+                {% for key, val in activos %}
+                {% if val %}<span class="badge bg-success me-1">{{ key }}</span>{% endif %}
+                {% endfor %}
+                {% endwith %}
+            </td>
+            <td>
+                <a href="{% url 'rol_update' r.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                <a href="{% url 'rol_delete' r.pk %}" class="btn btn-sm btn-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="4" class="text-center text-muted">No hay roles registrados.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+<a href="{% url 'usuario_list' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver a Usuarios</a>
+{% endblock %}

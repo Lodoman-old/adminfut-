@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Partidos - AdminFut{% endblock %}
+{% block extra_head %}
+<style>
+.agregado { font-size: 0.75rem; color: #6c757d; font-weight: normal; }
+.table td, .table th { vertical-align: middle; }
+.vs-cell { white-space: nowrap; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-balloon-heart"></i> Partidos</h3>
+    <div>
+        {% if user|tiene_permiso:"partido_indisponibilidad" %}
+        <a href="{% url 'gestionar_indisponibilidad' %}" class="btn btn-danger me-2"><i class="bi bi-geo-alt"></i> Indisponibilidad</a>
+        {% endif %}
+        {% if user|tiene_permiso:"partido_crear" %}
+        <a href="{% url 'partido_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+        {% endif %}
+    </div>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto"><select name="temporada" class="form-select" onchange="this.form.submit()">
+        <option value="">Todas las temporadas</option>
+        {% regroup temporadas by finalizada as grupos %}
+        {% for grupo in grupos %}
+        <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+            {% for t in grupo.list %}
+            <option value="{{ t.id }}" {% if request.GET.temporada == t.id|stringformat:"s" %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </optgroup>
+        {% endfor %}
+    </select></div>
+    <div class="col-auto"><select name="jornada" class="form-select" onchange="this.form.submit()">
+        <option value="">Todas las jornadas</option>
+        {% for j in jornadas %}<option value="{{ j.id }}" {% if request.GET.jornada == j.id|stringformat:"s" %}selected{% endif %}>{{ j.nombre }}</option>{% endfor %}
+    </select></div>
+</form>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Jornada</th><th>Grupo</th><th>Local</th><th class="text-center">vs</th><th>Visitante</th><th>Campo</th><th>Árbitro</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for p in partidos %}
+        {% with agregado=p.agregado_info %}
+        <tr>
+            <td>{% if p.jornada %}{{ p.jornada.nombre }}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-info text-dark">IDA</span>{% endif %}{% else %}-{% endif %}</td>
+            <td>{% if p.grupo %}<span class="badge bg-secondary">Grupo {{ p.grupo }}</span>{% else %}-{% endif %}</td>
+            <td class="{% if agregado and agregado.avanza_local == True %}table-success fw-bold{% endif %}">{{ p.equipo_local }}</td>
+            <td class="text-center vs-cell"><strong>{{ p.goles_local }}-{{ p.goles_visitante }}</strong>{% if agregado %}&nbsp;<span class="agregado">({{ agregado.total_local }}-{{ agregado.total_visitante }})</span>{% endif %}</td>
+            <td class="{% if agregado and agregado.avanza_local == False %}table-success fw-bold{% endif %}">{{ p.equipo_visitante }}</td>
+            <td>{{ p.campo|default:"-" }}</td>
+            <td>{% if p.arbitro %}{{ p.arbitro }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td><span class="badge {% if p.estado == 'FIN' %}bg-success{% elif p.estado == 'JUG' %}bg-warning{% elif p.estado == 'SUSP' %}bg-danger{% else %}bg-secondary{% endif %}">{{ p.get_estado_display }}</span></td>
+            <td>
+                {% if p.estado == 'FIN' and not user|tiene_permiso:"partido_aperturar" %}
+                    <span class="text-muted small" title="Partido finalizado"><i class="bi bi-lock"></i></span>
+                {% else %}
+                    {% if user|tiene_permiso:"partido_editar" %}
+                    <a href="{% url 'partido_update' p.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                    {% endif %}
+                    {% if user|tiene_permiso:"partido_cedula" %}
+                    <a href="{% url 'cedula_arbitral' p.pk %}" class="btn btn-sm btn-info" title="Cédula Arbitral"><i class="bi bi-clipboard-data"></i></a>
+                    {% endif %}
+                    {% if user|tiene_permiso:"partido_reagendar" %}
+                    {% if p.estado == 'PEND' or p.estado == 'SUSP' %}
+                    <a href="{% url 'reagendar_partido' p.pk %}" class="btn btn-sm btn-warning" title="Reagendar"><i class="bi bi-calendar-event"></i></a>
+                    {% endif %}
+                    {% endif %}
+                    {% if user|tiene_permiso:"partido_observaciones" %}
+                    <button type="button" class="btn btn-sm btn-secondary" title="Observaciones" data-bs-toggle="modal" data-bs-target="#obsModal{{ p.pk }}"><i class="bi bi-chat-dots"></i></button>
+                    {% endif %}
+                    {% if user|tiene_permiso:"partido_eliminar" %}
+                    <a href="{% url 'partido_delete' p.pk %}" class="btn btn-sm btn-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
+                    {% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% endwith %}
+        {% empty %}<tr><td colspan="10" class="text-center text-muted">No hay partidos.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% for p in partidos %}
+<div class="modal fade" id="obsModal{{ p.pk }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'guardar_observaciones' p.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-chat-dots"></i> Observaciones</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-bold small">{{ p.equipo_local.nombre }} vs {{ p.equipo_visitante.nombre }}</p>
+                    <textarea class="form-control" name="observaciones" rows="5" placeholder="Ej: Pelea entre jugadores, expulsión por juego brusco grave, doble amarilla, etc.">{% if p.observaciones %}{{ p.observaciones }}{% endif %}</textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

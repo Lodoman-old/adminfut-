@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Tabla de Posiciones - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-list-ol text-warning"></i> Tabla de Posiciones</h3>
+    <div class="d-flex gap-1">
+    {% if temp_id %}
+        <div class="btn-group btn-group-md">
+            <a href="{% url 'reporte_posiciones_pdf' %}?temporada={{ temp_id }}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            <a href="{% url 'reporte_posiciones_xlsx' %}?temporada={{ temp_id }}{% if cat_id %}&categoria={{ cat_id }}{% endif %}" class="btn btn-success" target="_blank"><i class="bi bi-table"></i> Excel</a>
+        </div>
+        {% if user.is_authenticated and user|tiene_permiso:"jornada_publicar" %}
+        <a href="{% url 'publicar_posiciones_facebook' temp_id %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarPosicionesModal" data-href="{% url 'publicar_posiciones_facebook' temp_id %}"><i class="bi bi-facebook"></i> Publicar</a>
+        {% endif %}
+    {% endif %}
+    </div>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="categoria" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Todas las categorías</option>
+            {% for c in categorias %}<option value="{{ c.id }}" {% if cat_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="temporada" class="form-select filter-select" onchange="this.form.submit()">
+            <option value="">Seleccionar temporada</option>
+            {% regroup temporadas by finalizada as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                {% for t in grupo.list %}
+                <option value="{{ t.id }}" {% if temp_id == t.id %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+{% if tablas_por_grupo %}
+{% for grupo_letra, grupo_tabla in tablas_por_grupo %}
+<div class="card mb-3">
+<div class="card-header"><strong>Grupo {{ grupo_letra }}</strong></div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-sm mb-0">
+    <thead class="table-dark"><tr>
+        <th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DIF</th><th>PTS</th>
+    </tr></thead>
+    <tbody>
+        {% for t in grupo_tabla %}
+        <tr class="{% if forloop.counter <= por_grupo %}table-success{% endif %}">
+            <td><strong>{{ t.pos }}</strong></td>
+            <td><strong>{% if forloop.counter <= por_grupo %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
+            <td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
+            <td>{{ t.gf }}</td><td>{{ t.gc }}</td>
+            <td>{% if t.dif > 0 %}+{% endif %}{{ t.dif }}</td>
+            <td><strong><span class="badge bg-warning text-dark fs-6">{{ t.pts }}</span></strong></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+</div>
+{% endfor %}
+{% elif tabla %}
+<div class="card">
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-sm mb-0">
+    <thead class="table-dark"><tr>
+        <th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DIF</th><th>PTS</th>
+    </tr></thead>
+    <tbody>
+        {% for t in tabla %}
+        <tr class="{% if temporada and forloop.counter <= temporada.num_clasificados %}table-success{% endif %}">
+            <td><strong>{{ t.pos }}</strong></td>
+            <td><strong>{% if temporada and forloop.counter <= temporada.num_clasificados %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
+            <td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
+            <td>{{ t.gf }}</td><td>{{ t.gc }}</td>
+            <td>{% if t.dif > 0 %}+{% endif %}{{ t.dif }}</td>
+            <td><strong><span class="badge bg-warning text-dark fs-6">{{ t.pts }}</span></strong></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+</div>
+{% elif temp_id %}
+<div class="card"><div class="card-body text-center text-muted">No hay partidos finalizados en esta temporada.</div></div>
+{% else %}
+<div class="card"><div class="card-body text-center text-muted">Selecciona una temporada para ver la tabla.</div></div>
+{% endif %}
+
+<!-- Modal Publicar Posiciones en Facebook -->
+<div class="modal fade" id="publicarPosicionesModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color:#1877F2;color:#fff">
+                <h5 class="modal-title"><i class="bi bi-facebook"></i> Publicar en Facebook</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-bar-chart-line" style="font-size:3rem;color:#1877F2"></i>
+                <p class="mt-3 mb-0">¿Publicar la tabla de posiciones en Facebook?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" class="btn btn-primary" id="confirmarPubPosicionesBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('publicarPosicionesModal');
+    var btn = document.getElementById('confirmarPubPosicionesBtn');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function(event) {
+            btn.href = event.relatedTarget.getAttribute('data-href');
+        });
+    }
+});
+</script>
+{% endblock %}

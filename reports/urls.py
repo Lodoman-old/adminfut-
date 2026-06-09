@@ -1,0 +1,30 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("posiciones/pdf/", views.reporte_posiciones_pdf, name="reporte_posiciones_pdf"),
+    path("posiciones/xlsx/", views.reporte_posiciones_xlsx, name="reporte_posiciones_xlsx"),
+    path("goleo/pdf/", views.reporte_goleo_pdf, name="reporte_goleo_pdf"),
+    path("goleo/xlsx/", views.reporte_goleo_xlsx, name="reporte_goleo_xlsx"),
+    path("tarjetas/pdf/", views.reporte_tarjetas_pdf, name="reporte_tarjetas_pdf"),
+    path("tarjetas/xlsx/", views.reporte_tarjetas_xlsx, name="reporte_tarjetas_xlsx"),
+    path("castigados/pdf/", views.reporte_castigados_pdf, name="reporte_castigados_pdf"),
+    path("castigados/xlsx/", views.reporte_castigados_xlsx, name="reporte_castigados_xlsx"),
+    path("ingresos/", views.reporte_ingresos, name="reporte_ingresos"),
+    path("ingresos/pdf/", views.reporte_ingresos_pdf, name="reporte_ingresos_pdf"),
+    path("ingresos/xlsx/", views.reporte_ingresos_xlsx, name="reporte_ingresos_xlsx"),
+    path("pagos/", views.reporte_pagos_temporada, name="reporte_pagos_temporada"),
+    path("pagos/pdf/", views.reporte_pagos_pdf, name="reporte_pagos_pdf"),
+    path("pagos/xlsx/", views.reporte_pagos_xlsx, name="reporte_pagos_xlsx"),
+    path("jornadas/", views.reporte_jornadas, name="reporte_jornadas"),
+    path("jornadas/pdf/", views.reporte_jornadas_pdf, name="reporte_jornadas_pdf"),
+    path("jornadas/xlsx/", views.reporte_jornadas_xlsx, name="reporte_jornadas_xlsx"),
+    path("jornadas/completo/", views.reporte_jornadas_completo, name="reporte_jornadas_completo"),
+    path("jornadas/completo/pdf/", views.reporte_jornadas_completo_pdf, name="reporte_jornadas_completo_pdf"),
+    path("jornadas/completo/xlsx/", views.reporte_jornadas_completo_xlsx, name="reporte_jornadas_completo_xlsx"),
+    path("cedula/<int:partido_id>/pdf/", views.reporte_cedula_arbitral_pdf, name="reporte_cedula_arbitral_pdf"),
+    path("cedula/<int:partido_id>/xlsx/", views.reporte_cedula_arbitral_xlsx, name="reporte_cedula_arbitral_xlsx"),
+    path("suscriptores/", views.reporte_suscriptores, name="reporte_suscriptores"),
+    path("suscriptores/pdf/", views.reporte_suscriptores_pdf, name="reporte_suscriptores_pdf"),
+    path("suscriptores/xlsx/", views.reporte_suscriptores_xlsx, name="reporte_suscriptores_xlsx"),
+]

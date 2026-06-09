@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{% if reabrir %}Reabrir{% else %}Finalizar{% endif %} Temporada - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi {% if reabrir %}bi-unlock{% else %}bi-flag{% endif %} text-warning"></i> {% if reabrir %}Reabrir{% else %}Finalizar{% endif %} Temporada</h3>
+<div class="card mt-3" style="max-width:700px;margin:0 auto">
+    <div class="card-header bg-warning text-white"><h5 class="mb-0">{% if reabrir %}¿Reabrir temporada?{% else %}¿Finalizar temporada?{% endif %}</h5></div>
+    <div class="card-body">
+        {% if reabrir %}
+        <p>Se va a reabrir la temporada <strong>{{ temporada.nombre }}</strong> ({{ temporada.categoria.nombre }}).</p>
+        <p>La temporada volverá a estar <strong>activa</strong> para edición. La información de partidos, pagos y estadísticas se conserva.</p>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Esto es útil si necesitas hacer ajustes después de finalizar.
+        </div>
+        {% else %}
+        <p>Se va a finalizar la temporada <strong>{{ temporada.nombre }}</strong> ({{ temporada.categoria.nombre }}).</p>
+        <p>La temporada quedará como <strong>finalizada</strong> y toda la información (partidos, pagos, estadísticas) se conservará para trazabilidad.</p>
+        {% if es_anticipado %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> La fecha de fin programada es <strong>{{ temporada.fecha_fin|date:"d/m/Y" }}</strong> y aún no ha llegado. Esta será una <strong>finalización anticipada</strong>. Indica el motivo.
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> La temporada ha llegado a su fecha de fin o no tiene fecha definida. Puedes finalizarla sin motivo.
+        </div>
+        {% endif %}
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            {% if reabrir %}
+            {% else %}
+            {% if es_anticipado %}
+            <div class="mb-3">
+                <label class="form-label fw-bold">Motivo de finalización anticipada</label>
+                <textarea name="motivo" class="form-control" rows="3" required placeholder="Ej: Temporada cancelada por falta de equipos, condiciones climáticas, etc."></textarea>
+            </div>
+            {% else %}
+            <div class="mb-3">
+                <label class="form-label">Comentarios (opcional)</label>
+                <textarea name="motivo" class="form-control" rows="2" placeholder="Observaciones adicionales..."></textarea>
+            </div>
+            {% endif %}
+            {% endif %}
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-warning me-2"><i class="bi {% if reabrir %}bi-unlock{% else %}bi-flag{% endif %}"></i> {% if reabrir %}Reabrir temporada{% else %}Finalizar temporada{% endif %}</button>
+                <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load league_extras %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Jugador - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-person text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Jugador</h3>
+{% if object and object.suspendido_pago %}
+<div class="alert alert-danger mt-2">
+    <strong><i class="bi bi-lock"></i> Suspendido por multa:</strong>
+    Este jugador está suspendido por adeudo de multa. Debe liquidar la multa en el módulo de Ingresos (POS) para poder ser registrado en alguna categoría.
+</div>
+{% endif %}
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Jugador</h5></div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" id="jugador-form">
+            {% csrf_token %}
+            {{ form.secondary_data }}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.apellido.label }}</label>
+                    {{ form.apellido }}
+                    {% if form.apellido.errors %}<div class="text-danger small">{{ form.apellido.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.curp.label }}</label>
+                    {{ form.curp }}
+                    {% if form.curp.errors %}<div class="text-danger small">{{ form.curp.errors }}</div>{% endif %}
+                    <div class="form-text text-muted">Clave Única de Registro de Población (18 caracteres). Evita duplicados.</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.fecha_nacimiento.label }}</label>
+                    {{ form.fecha_nacimiento }}
+                    {% if form.fecha_nacimiento.errors %}<div class="text-danger small">{{ form.fecha_nacimiento.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.dorsal.label }}</label>
+                    {{ form.dorsal }}
+                    {% if form.dorsal.errors %}<div class="text-danger small">{{ form.dorsal.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.posicion.label }}</label>
+                    {{ form.posicion }}
+                    {% if form.posicion.errors %}<div class="text-danger small">{{ form.posicion.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3 d-flex align-items-end pb-3">
+                    <div>
+                        <label class="form-label d-block">{{ form.activo.label }}</label>
+                        {{ form.activo }}
+                        {% if form.activo.errors %}<div class="text-danger small">{{ form.activo.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="flex-grow-1">
+                            <label class="form-label">{{ form.foto.label }}</label>
+                            {{ form.foto }}
+                            {% if form.foto.errors %}<div class="text-danger small">{{ form.foto.errors }}</div>{% endif %}
+                        </div>
+                        {% if object and object.foto %}
+                        <div class="flex-shrink-0 text-center">
+                            <img src="{{ object.foto.url }}" class="border rounded" style="width:70px;height:70px;object-fit:cover" alt="Foto">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if form.equipo %}
+                <div class="col-12 mb-3">
+                    <label class="form-label">{{ form.equipo.label }} <span class="text-danger">*</span></label>
+                    {{ form.equipo }}
+                    {% if form.equipo.errors %}<div class="text-danger small">{{ form.equipo.errors }}</div>{% endif %}
+                </div>
+                {% endif %}
+
+                <div class="col-12 mb-2 mt-2">
+                    <hr>
+                    <h6 class="text-muted"><i class="bi bi-arrow-left-right"></i> Categorías Compatibles</h6>
+                    <small class="text-muted d-block mb-2">Selecciona equipos adicionales en categorías compatibles (opcional).</small>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#secondaryModal">
+                        <i class="bi bi-gear"></i> Gestionar equipos secundarios
+                    </button>
+                    <div id="secondary-summary" class="mt-2 text-muted small"></div>
+                    {% if form.secondary_data.errors %}<div class="text-danger small">{{ form.secondary_data.errors }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'jugador_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="secondaryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Equipos secundarios</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="secondary-modal-body">
+                <p class="text-muted" id="secondary-loading">Cargando categorías disponibles...</p>
+                <div id="secondary-categories"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="secondary-save-btn" data-bs-dismiss="modal">
+                    <i class="bi bi-check-lg"></i> Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var equipoSelect = document.getElementById('id_equipo_principal');
+    var hiddenField = document.getElementById('id_secondary_data');
+    var modalBody = document.getElementById('secondary-categories');
+    var summaryDiv = document.getElementById('secondary-summary');
+    var loadingDiv = document.getElementById('secondary-loading');
+    var jugadorId = '{{ object.id|default:"" }}';
+    var apiData = null;
+
+    function buildUrl() {
+        var eqId = equipoSelect ? equipoSelect.value : '';
+        if (!eqId) return null;
+        var url = '/api/equipos-categoria/?equipo_id=' + eqId;
+        if (jugadorId) url += '&jugador_id=' + jugadorId;
+        return url;
+    }
+
+    function updateSummary() {
+        if (!apiData || !apiData.compatibles || apiData.compatibles.length === 0) {
+            summaryDiv.textContent = 'No hay categorías compatibles disponibles.';
+            return;
+        }
+        var current = getCurrentData();
+        var selected = apiData.compatibles.filter(function(c) {
+            return current.some(function(s) { return s.categoria_id === c.id; });
+        });
+        if (selected.length === 0) {
+            summaryDiv.textContent = 'Sin equipos secundarios seleccionados.';
+        } else {
+            var names = selected.map(function(c) { return c.nombre; });
+            summaryDiv.textContent = names.length + ' categoría(s): ' + names.join(', ');
+        }
+    }
+
+    function getCurrentData() {
+        try {
+            return JSON.parse(hiddenField.value || '[]');
+        } catch(e) {
+            return [];
+        }
+    }
+
+    function setCurrentData(data) {
+        hiddenField.value = JSON.stringify(data);
+    }
+
+    function isCompatibleWithAll(catId, checkedIds, fwd, rev) {
+        // catId must be compatible with all other checked IDs (bidirectional)
+        var allOthers = checkedIds.filter(function(id) { return id !== catId; });
+        for (var i = 0; i < allOthers.length; i++) {
+            var otherId = allOthers[i];
+            var catFwd = fwd[catId] || [];
+            var catRev = rev[catId] || [];
+            if (catFwd.indexOf(otherId) === -1 && catRev.indexOf(otherId) === -1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function renderModal(data) {
+        apiData = data;
+        modalBody.innerHTML = '';
+        loadingDiv.style.display = 'none';
+        if (!data || !data.compatibles || data.compatibles.length === 0) {
+            modalBody.innerHTML = '<p class="text-muted text-center">No hay categorías compatibles disponibles para este equipo.</p>';
+            return;
+        }
+
+        var current = getCurrentData();
+        var registros = data.registros || {};
+        var fwd = data.forward_map || {};
+        var rev = data.reverse_map || {};
+        var mainCatId = data.categoria_actual;
+        var tempsActivas = data.temporadas_activas || [];
+        var periodosAbiertos = data.periodos_abiertos || {};
+
+        // Build cards
+        data.compatibles.forEach(function(cat) {
+            var catId = cat.id;
+            var existing = current.find(function(s) { return s.categoria_id === catId; });
+            var selectedTeamId = existing ? existing.equipo_id : (registros[catId] || '');
+            var hasExistingReg = registros[catId] !== undefined;
+            var seasonActive = tempsActivas.indexOf(catId) >= 0;
+            var periodoAbierto = periodosAbiertos[catId] || false;
+
+            var haJugado = data.ha_jugado[catId] || false;
+
+            // Con temporada activa: permitir cambio solo si período abierto y sin partidos jugados
+            var canChange = true;
+            if (seasonActive) {
+                if (hasExistingReg) {
+                    canChange = !haJugado && periodoAbierto;
+                } else {
+                    canChange = periodoAbierto;
+                }
+            }
+
+            var card = document.createElement('div');
+            card.className = 'card mb-2 compat-card';
+            card.dataset.catId = catId;
+
+            var header = document.createElement('div');
+            header.className = 'card-header py-2 d-flex align-items-center';
+
+            var check = document.createElement('input');
+            check.type = 'checkbox';
+            check.className = 'form-check-input me-2 cat-checkbox';
+            check.checked = !!existing || hasExistingReg;
+            check.dataset.catId = catId;
+            if (!canChange) {
+                check.disabled = true;
+                card.title = hasExistingReg ? 'Cambio solo posible con período de altas activo y sin partidos jugados' : 'No hay período de altas activo';
+            }
+
+            var label = document.createElement('span');
+            label.className = 'fw-medium';
+            label.textContent = cat.nombre;
+            if (seasonActive) {
+                var badge = ' <span class="badge bg-warning text-dark">Temporada en curso</span>';
+                if (periodoAbierto) {
+                    badge += ' <span class="badge bg-info text-dark">Período de altas abierto</span>';
+                }
+                label.innerHTML += badge;
+            }
+
+            header.appendChild(check);
+            header.appendChild(label);
+            card.appendChild(header);
+
+            var body = document.createElement('div');
+            body.className = 'card-body py-2';
+            body.style.display = (check.checked) ? 'block' : 'none';
+
+            var select = document.createElement('select');
+            select.className = 'form-select form-select-sm team-select';
+
+            var emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '-- Seleccionar equipo --';
+            select.appendChild(emptyOpt);
+
+            cat.equipos.forEach(function(eq) {
+                var opt = document.createElement('option');
+                opt.value = eq.id;
+                opt.textContent = eq.nombre;
+                if (eq.id == selectedTeamId) opt.selected = true;
+                if (seasonActive && hasExistingReg && eq.id != registros[catId]) {
+                    opt.disabled = true;
+                }
+                select.appendChild(opt);
+            });
+
+            if (hasExistingReg && !existing) {
+                select.value = registros[catId];
+            }
+
+            if (!canChange && hasExistingReg) {
+                select.disabled = true;
+            }
+
+            body.appendChild(select);
+            card.appendChild(body);
+            modalBody.appendChild(card);
+
+            check.addEventListener('change', function() {
+                body.style.display = this.checked ? 'block' : 'none';
+                if (!this.checked) {
+                    select.value = '';
+                }
+                enforceCompatibility();
+            });
+
+            select.addEventListener('change', enforceCompatibility);
+        });
+
+        enforceCompatibility();
+    }
+
+    function enforceCompatibility() {
+        if (!apiData) return;
+        var fwd = apiData.forward_map || {};
+        var rev = apiData.reverse_map || {};
+        var mainCatId = apiData.categoria_actual;
+
+        // Get currently checked IDs
+        var checkedIds = [mainCatId];
+        modalBody.querySelectorAll('.compat-card').forEach(function(card) {
+            var checkbox = card.querySelector('.cat-checkbox');
+            if (checkbox.checked) {
+                checkedIds.push(parseInt(card.dataset.catId));
+            }
+        });
+
+        // For each unchecked card, check if it would be compatible if checked
+        modalBody.querySelectorAll('.compat-card').forEach(function(card) {
+            var catId = parseInt(card.dataset.catId);
+            var checkbox = card.querySelector('.cat-checkbox');
+            var select = card.querySelector('.team-select');
+
+            if (checkbox.checked) {
+                // Check if this checked category is compatible with all others
+                var compat = isCompatibleWithAll(catId, checkedIds, fwd, rev);
+                if (!compat) {
+                    card.classList.add('border-danger');
+                    card.classList.remove('border-success');
+                    checkbox.checked = false;
+                    select.value = '';
+                    var body = card.querySelector('.card-body');
+                    if (body) body.style.display = 'none';
+                } else {
+                    card.classList.remove('border-danger');
+                    card.classList.add('border-success');
+                    select.disabled = false;
+                }
+            } else {
+                // Check if this unchecked category COULD be checked
+                var wouldBeChecked = checkedIds.concat([catId]);
+                var compat = isCompatibleWithAll(catId, wouldBeChecked, fwd, rev);
+                if (!compat) {
+                    checkbox.disabled = true;
+                    card.classList.add('opacity-50');
+                    card.title = 'Incompatible con las categorías seleccionadas actualmente';
+                } else {
+                    checkbox.disabled = false;
+                    card.classList.remove('opacity-50');
+                    card.title = '';
+                }
+            }
+        });
+    }
+
+    function loadModal() {
+        var url = buildUrl();
+        if (!url) {
+            modalBody.innerHTML = '<p class="text-muted text-center">Selecciona un equipo principal primero.</p>';
+            loadingDiv.style.display = 'none';
+            return;
+        }
+        loadingDiv.style.display = 'block';
+        modalBody.innerHTML = '';
+
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                renderModal(data);
+                updateSummary();
+            })
+            .catch(function() {
+                modalBody.innerHTML = '<p class="text-danger text-center">Error al cargar categorías disponibles.</p>';
+                loadingDiv.style.display = 'none';
+            });
+    }
+
+    // Save button: serialize modal state to hidden field
+    document.getElementById('secondary-save-btn').addEventListener('click', function() {
+        var selected = [];
+        modalBody.querySelectorAll('.compat-card').forEach(function(card) {
+            var checkbox = card.querySelector('.cat-checkbox');
+            var select = card.querySelector('.team-select');
+            if (checkbox.checked && select.value) {
+                selected.push({
+                    categoria_id: parseInt(card.dataset.catId),
+                    equipo_id: parseInt(select.value)
+                });
+            }
+        });
+        setCurrentData(selected);
+        updateSummary();
+    });
+
+    // When main team changes, clear selections
+    if (equipoSelect) {
+        equipoSelect.addEventListener('change', function() {
+            setCurrentData([]);
+            apiData = null;
+            summaryDiv.textContent = 'Sin equipos secundarios seleccionados.';
+        });
+    }
+
+    // Reload modal data each time it opens
+    var modalEl = document.getElementById('secondaryModal');
+    modalEl.addEventListener('show.bs.modal', loadModal);
+});
+</script>
+{% endblock %}

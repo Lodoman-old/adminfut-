@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Campos - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-geo-alt"></i> Campos</h3>
+    {% if user|tiene_permiso:"campo_crear" %}
+    <a href="{% url 'campo_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+    {% endif %}
+</div>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Nombre</th><th>Dirección</th><th>Teléfono</th><th>Ranchería</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for c in campos %}
+        <tr>
+            <td>{{ c.nombre }}</td><td>{{ c.direccion|default:"-" }}</td><td>{{ c.telefono_contacto|default:"-" }}</td>
+            <td>{% if c.es_rancheria %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+            <td>{% if c.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            <td>
+                {% if user|tiene_permiso:"campo_editar" %}
+                <a href="{% url 'campo_update' c.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if user|tiene_permiso:"campo_eliminar" %}
+                <a href="{% url 'campo_delete' c.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="text-center text-muted">No hay campos.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

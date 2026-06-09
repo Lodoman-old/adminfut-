@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px}.container{max-width:600px;margin:auto;background:white;border-radius:10px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}h1{color:#2d5a27;border-bottom:3px solid #ffd700;padding-bottom:10px}h2{color:#333}h3{color:#2d5a27;margin-top:25px}.jornada-fecha{color:#666;font-size:14px;margin-top:-5px;margin-bottom:15px}table{width:100%;border-collapse:collapse;margin:15px 0}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #ddd}th{background:#2d5a27;color:white}.pos{color:#2d5a27;font-weight:bold}.marcador{text-align:center;font-weight:bold;font-size:1.1em;color:#2d5a27}.vs{text-align:center;color:#999}.campo{color:#555;font-size:0.9em}.fecha{color:#888;font-size:0.85em}.footer{margin-top:20px;font-size:12px;color:#666;text-align:center}</style></head>
+<body>
+<div class="container">
+    <h1>⚽ {{ config.nombre_liga }}</h1>
+    <h2>Jornada {{ jornada.numero }} - {{ temporada.nombre }}</h2>
+    {% if jornada_fecha %}<div class="jornada-fecha">📅 {{ jornada_fecha|date:"l d \d\e F \d\e\l Y" }}</div>{% endif %}
+
+    <h3>📋 Partidos</h3>
+    <table>
+        <tr><th>Local</th><th>vs</th><th>Visitante</th><th>Campo</th><th>Fecha/Hora</th></tr>
+        {% for p in partidos %}
+        <tr>
+            <td>{{ p.equipo_local.nombre }}</td>
+            <td class="{% if p.estado == 'FIN' %}marcador{% else %}vs{% endif %}">
+                {% if p.estado == "FIN" %}{{ p.goles_local }}-{{ p.goles_visitante }}{% else %}vs{% endif %}
+            </td>
+            <td>{{ p.equipo_visitante.nombre }}</td>
+            <td class="campo">{{ p.campo.nombre|default:"-" }}</td>
+            <td class="fecha">{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3>🏆 Tabla de Posiciones</h3>
+    {% if tablas_por_grupo %}
+    {% for grupo_letra, grupo_tabla in tablas_por_grupo %}
+    <h4 style="color:#2d5a27;margin-top:15px">Grupo {{ grupo_letra }}</h4>
+    <table>
+        <tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>PTS</th></tr>
+        {% for t in grupo_tabla %}
+        <tr{% if forloop.counter <= por_grupo %} style="background:#d4edda"{% endif %}>
+            <td class="pos">{{ forloop.counter }}</td>
+            <td>{% if forloop.counter <= por_grupo %}✅ {% endif %}{{ t.nombre }}</td><td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
+            <td>{{ t.gf }}</td><td>{{ t.gc }}</td><td><strong>{{ t.pts }}</strong></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endfor %}
+    {% else %}
+    <table>
+        <tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>PTS</th></tr>
+        {% for t in tabla %}
+        <tr{% if forloop.counter <= temporada.num_clasificados %} style="background:#d4edda"{% endif %}>
+            <td class="pos">{{ forloop.counter }}</td>
+            <td>{% if forloop.counter <= temporada.num_clasificados %}✅ {% endif %}{{ t.nombre }}</td><td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
+            <td>{{ t.gf }}</td><td>{{ t.gc }}</td><td><strong>{{ t.pts }}</strong></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if goleadores %}
+    <h3>⚽ Máximos Goleadores (Top 10)</h3>
+    <table>
+        <tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th></tr>
+        {% for g in goleadores %}
+        <tr><td>{{ forloop.counter }}</td><td>{{ g.jugador__nombre }} {{ g.jugador__apellido }}</td><td>{{ g.equipo__nombre }}</td><td><strong>{{ g.total }}</strong></td></tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if castigados %}
+    <h3>🟥 Jugadores Castigados</h3>
+    <table>
+        <tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Expulsado</th><th>Suspensión</th><th>Pendientes</th></tr>
+        {% for c in castigados %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ c.jugador.nombre }} {{ c.jugador.apellido }}</td>
+            <td>{{ c.equipo.nombre }}</td>
+            <td>{{ c.expulsion_partido.jornada.nombre }}</td>
+            <td>{{ c.suspension_jornadas }} jornada{{ c.suspension_jornadas|pluralize:"s" }}</td>
+            <td>{% if c.pendientes %}{{ c.restantes }} restante{{ c.restantes|pluralize:"s" }}: {% for p in c.pendientes %}{{ p.equipo_local }} vs {{ p.equipo_visitante }} ({{ p.jornada.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}{% else %}Cumplida{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <div class="footer">
+        <p>Recibes este correo porque estás suscrito a {{ config.nombre_liga }}.</p>
+        <p><a href="{{ site_url }}/suscripcion/?token={{ unsubscribe_token }}">Cancelar suscripción</a></p>
+    </div>
+</div>
+</body>
+</html>

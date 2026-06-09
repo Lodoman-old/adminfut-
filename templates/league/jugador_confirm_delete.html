@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Eliminar Jugador - AdminFut{% endblock %}
+{% block content %}
+<div class="card border-danger">
+    <div class="card-header text-bg-danger"><h5>Confirmar eliminación</h5></div>
+    <div class="card-body">
+        <p>¿Estás seguro de eliminar al jugador <strong>{{ object }}</strong>?</p>
+        <form method="post">{% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+            <a href="{% url 'jugador_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

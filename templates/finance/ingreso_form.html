@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Movimiento - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-cash-stack text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Movimiento</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Movimiento</h5></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                {% for field in form %}
+                {% if field.widget_type == 'checkbox' %}
+                <div class="col-md-6 mb-3 d-flex align-items-end pb-3">
+                    <div class="form-check form-switch ps-0 w-100">
+                        <label class="form-label d-block">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'ingreso_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

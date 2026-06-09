@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Jornadas - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-list-stars"></i> Jornadas</h3>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="temporada" class="form-select" onchange="this.form.submit()">
+            <option value="">Todas las temporadas</option>
+            {% regroup temporadas by finalizada as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                {% for t in grupo.list %}
+                <option value="{{ t.id }}" {% if request.GET.temporada == t.id|stringformat:"s" %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    {% if request.GET.temporada %}
+    <div class="col-auto">
+        {% if user|tiene_permiso:"jornada_publicar" %}
+        <a href="{% url 'publicar_rol_facebook' request.GET.temporada %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarRolFacebookModal" data-href="{% url 'publicar_rol_facebook' request.GET.temporada %}">
+            <i class="bi bi-facebook"></i> Publicar en Facebook
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</form>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>#</th><th>Nombre</th><th>Desde</th><th>Hasta</th><th>Temporada</th><th>Partidos</th><th>Acciones</th></tr></thead>
+        <tbody>
+            {% for j in jornadas %}
+            <tr{% if j.pendientes %} class="table-warning"{% endif %}>
+                <td>{{ j.numero }}</td>
+                <td>{{ j.nombre }}</td>
+                <td>{% if j.min_fecha %}{{ j.min_fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                <td>{% if j.max_fecha %}{{ j.max_fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                <td>{{ j.temporada }}</td>
+                <td><a href="{% url 'partido_list' %}?jornada={{ j.id }}" class="btn btn-sm btn-outline-info">{{ j.partidos.count }} partidos</a></td>
+                <td>
+                    {% if user|tiene_permiso:"temporada_enviar" and j.temporada.iniciada %}
+                    <button data-href="{% url 'enviar_rol_jornada' j.id %}" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#enviarJornadaModal" title="Enviar rol + estadísticas de esta jornada">
+                        <i class="bi bi-envelope"></i>
+                    </button>
+                    <button data-href="{% url 'publicar_jornada_facebook' j.id %}" class="btn btn-sm btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarJornadaModal" title="Publicar en Facebook">
+                        <i class="bi bi-facebook"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}<tr><td colspan="7" class="text-center text-muted">No hay jornadas.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+
+<!-- Modal Enviar Jornada -->
+<div class="modal fade" id="enviarJornadaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-envelope"></i> Enviar por Correo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-envelope-open text-info" style="font-size:3rem"></i>
+                <p class="mt-3 mb-0">¿Enviar el rol de juegos + tabla de posiciones + goleadores + castigados por correo a los suscriptores?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" class="btn btn-info" id="confirmarJornadaBtn"><i class="bi bi-send"></i> Sí, enviar</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Publicar Jornada en Facebook -->
+<div class="modal fade" id="publicarJornadaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color:#1877F2;color:#fff">
+                <h5 class="modal-title"><i class="bi bi-facebook"></i> Publicar en Facebook</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-facebook" style="font-size:3rem;color:#1877F2"></i>
+                <p class="mt-3 mb-0">¿Publicar el rol de juegos + tabla de posiciones + castigados en Facebook?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" class="btn btn-primary" id="confirmarPubJornadaBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Publicar Rol en Facebook -->
+<div class="modal fade" id="publicarRolFacebookModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color:#1877F2;color:#fff">
+                <h5 class="modal-title"><i class="bi bi-facebook"></i> Publicar en Facebook</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-facebook" style="font-size:3rem;color:#1877F2"></i>
+                <p class="mt-3 mb-0">¿Publicar el rol de juegos en Facebook?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" class="btn btn-primary" id="confirmarPubRolFbBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var envModal = document.getElementById('enviarJornadaModal');
+    var envBtn = document.getElementById('confirmarJornadaBtn');
+    if (envModal) {
+        envModal.addEventListener('show.bs.modal', function(event) {
+            envBtn.href = event.relatedTarget.getAttribute('data-href');
+        });
+    }
+    var pubModal = document.getElementById('publicarJornadaModal');
+    var pubBtn = document.getElementById('confirmarPubJornadaBtn');
+    if (pubModal) {
+        pubModal.addEventListener('show.bs.modal', function(event) {
+            pubBtn.href = event.relatedTarget.getAttribute('data-href');
+        });
+    }
+    var pubRolModal = document.getElementById('publicarRolFacebookModal');
+    var pubRolBtn = document.getElementById('confirmarPubRolFbBtn');
+    if (pubRolModal) {
+        pubRolModal.addEventListener('show.bs.modal', function(event) {
+            pubRolBtn.href = event.relatedTarget.getAttribute('data-href');
+        });
+    }
+});
+</script>
+{% endblock %}

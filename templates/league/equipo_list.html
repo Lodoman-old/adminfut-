@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Equipos - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-shield"></i> Equipos</h3>
+    {% if user|tiene_permiso:"equipo_crear" %}
+    <a href="{% url 'equipo_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo</a>
+    {% endif %}
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto"><select name="categoria" class="form-select" onchange="this.form.submit()">
+        <option value="">Todas las categorías</option>
+        {% for c in categorias %}<option value="{{ c.id }}" {% if request.GET.categoria == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+    </select></div>
+    <div class="col-auto">
+        <input type="text" name="q" class="form-control" placeholder="Buscar equipo (3+ letras)" value="{{ request.GET.q }}" minlength="3" style="width:250px">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
+        {% if request.GET.q or request.GET.categoria %}
+        <a href="{% url 'equipo_list' %}" class="btn btn-outline-secondary">Limpiar</a>
+        {% endif %}
+    </div>
+</form>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Nombre</th><th>Categoría</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for e in equipos %}
+        <tr>
+            <td>{{ e.nombre }}</td><td>{{ e.categoria }}</td>
+            <td>{% if e.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            <td>
+                {% if user|tiene_permiso:"equipo_editar" %}
+                <a href="{% url 'equipo_update' e.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if user|tiene_permiso:"equipo_eliminar" %}
+                <a href="{% url 'equipo_delete' e.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="4" class="text-center text-muted">No hay equipos.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

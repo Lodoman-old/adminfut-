@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load league_extras %}
+{% block title %}Reporte de Movimientos - AdminFut{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width:1100px">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Reporte de Movimientos</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-2">
+                <label class="form-label">Categoría</label>
+                <select name="categoria" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for c in categorias %}<option value="{{ c.id }}" {% if cat_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Temporada</label>
+                <select name="temporada" class="form-select">
+                    <option value="">Todas</option>
+                    {% regroup temporadas by finalizada as grupos %}
+                    {% for grupo in grupos %}
+                    <optgroup label="{% if grupo.grouper %}-- Finalizados --{% else %}Activos{% endif %}">
+                        {% for t in grupo.list %}
+                        <option value="{{ t.id }}" {% if temp_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Concepto</label>
+                <select name="concepto" class="form-select">
+                    <option value="">Todos</option>
+                    {% for c in conceptos %}<option value="{{ c.id }}" {% if concepto_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tipo</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="INGRESO" {% if tipo_filtro == "INGRESO" %}selected{% endif %}>Ingresos</option>
+                    <option value="EGRESO" {% if tipo_filtro == "EGRESO" %}selected{% endif %}>Egresos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+            </div>
+            <div class="col-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
+                <a href="{% url 'reporte_ingresos' %}" class="btn btn-secondary">Limpiar</a>
+                <a href="{% url 'reporte_ingresos_xlsx' %}?{% if temp_id %}temporada={{ temp_id }}{% endif %}{% if concepto_id %}&concepto={{ concepto_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}" class="btn btn-success" target="_blank"><i class="bi bi-table"></i> Excel</a>
+                <a href="{% url 'reporte_ingresos_pdf' %}?{% if temp_id %}temporada={{ temp_id }}{% endif %}{% if concepto_id %}&concepto={{ concepto_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if cat_id %}&categoria={{ cat_id }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+            </div>
+            <div class="col-12 d-flex gap-1 mt-1">
+                <span class="text-muted small me-2 align-self-center">Corte rápido:</span>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setRango('hoy')">Hoy</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setRango('semana')">Esta Semana</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setRango('mes')">Este Mes</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setRango('anio')">Este Año</button>
+            </div>
+        </form>
+
+        <script>
+        function setRango(tipo) {
+            var d = new Date();
+            var desde, hasta;
+            function fmt(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+            switch(tipo) {
+                case 'hoy':
+                    desde = hasta = fmt(d);
+                    break;
+                case 'semana':
+                    var dia = d.getDay();
+                    var diff = d.getDate() - dia + (dia === 0 ? -6 : 1);
+                    desde = fmt(new Date(d.setDate(diff)));
+                    hasta = fmt(new Date(d.setDate(diff + 6)));
+                    break;
+                case 'mes':
+                    desde = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+                    hasta = fmt(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+                    break;
+                case 'anio':
+                    desde = d.getFullYear() + '-01-01';
+                    hasta = d.getFullYear() + '-12-31';
+                    break;
+            }
+            document.querySelector('input[name="fecha_desde"]').value = desde;
+            document.querySelector('input[name="fecha_hasta"]').value = hasta;
+            document.querySelector('form').submit();
+        }
+        </script>
+
+        <hr>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-1 mb-2">
+            <h6 class="fw-bold mb-0 text-muted">
+                {% if temp_sel %}{{ temp_sel.nombre }}{% endif %}
+                {% if concepto_sel %} | {{ concepto_sel.nombre }}{% endif %}
+                {% if not temp_sel and not concepto_sel %}TODOS LOS MOVIMIENTOS{% endif %}
+            </h6>
+            <div>
+                <span class="fs-6 me-3 fw-bold text-success">Ingresos: ${{ total_ingresos|floatformat:2 }}</span>
+                <span class="fs-6 me-3 fw-bold text-danger">Egresos: -${{ total_egresos|floatformat:2 }}</span>
+                <span class="fs-6 fw-bold {% if neto >= 0 %}text-success{% else %}text-danger{% endif %}">Neto: ${{ neto|floatformat:2 }}</span>
+            </div>
+        </div>
+        {% if ingresos %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Cant</th>
+                        <th>Monto</th>
+                        <th>Equipo</th>
+                        <th>Pagado a</th>
+                        <th>Temporada</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in ingresos %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ i.fecha|date:"d/m/Y" }}</td>
+                        <td>{% if i.es_ingreso %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}</td>
+                        <td>{{ i.concepto.nombre }}</td>
+                        <td>{% if i.cantidad > 1 %}{{ i.cantidad }}{% else %}1{% endif %}</td>
+                        <td class="fw-bold {% if i.es_ingreso %}text-success{% else %}text-danger{% endif %}">{% if not i.es_ingreso %}-{% endif %}${{ i.monto|floatformat:2 }}</td>
+                        <td>{{ i.equipo.nombre|default:"-" }}</td>
+                        <td>{{ i.pagado_a|default:"-" }}</td>
+                        <td>{{ i.temporada.nombre|default:"-" }}</td>
+                        <td>{{ i.registrado_por.username|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="10" class="text-center text-muted">No se encontraron movimientos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center">No hay movimientos registrados.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

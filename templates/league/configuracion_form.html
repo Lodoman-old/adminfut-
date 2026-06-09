@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Configuración de Liga - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-gear text-warning"></i> Configuración de la Liga</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+  <div class="card-header bg-success text-white">
+    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="liga-tab" data-bs-toggle="tab" data-bs-target="#liga" type="button" role="tab"><i class="bi bi-info-circle"></i> Datos de la Liga</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="smtp-tab" data-bs-toggle="tab" data-bs-target="#smtp" type="button" role="tab"><i class="bi bi-envelope"></i> Correo SMTP</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="ticket-tab" data-bs-toggle="tab" data-bs-target="#ticket" type="button" role="tab"><i class="bi bi-receipt"></i> Ticket</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="autoenvio-tab" data-bs-toggle="tab" data-bs-target="#autoenvio" type="button" role="tab"><i class="bi bi-send"></i> Envío Automático</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="social-tab" data-bs-toggle="tab" data-bs-target="#social" type="button" role="tab"><i class="bi bi-facebook"></i> Redes Sociales</button>
+      </li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="liga" role="tabpanel">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Nombre de la Liga</label>
+              {{ form.nombre_liga }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Logo</label>
+              {{ form.logo }}
+              {% if config.logo %}<br><img src="{{ config.logo.url }}" height="80" class="mt-2">{% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Dirección</label>
+              {{ form.direccion }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Teléfonos</label>
+              {{ form.telefonos }}
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="smtp" role="tabpanel">
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Servidor SMTP</label>
+              {{ form.email_smtp_host }}
+            </div>
+            <div class="col-md-2 mb-3">
+              <label class="form-label">Puerto</label>
+              {{ form.email_smtp_port }}
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Usuario</label>
+              {{ form.email_smtp_user }}
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Contraseña</label>
+              {{ form.email_smtp_password }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Correo From</label>
+              {{ form.email_from }}
+            </div>
+            <div class="col-md-2 mb-3 d-flex align-items-end pb-3">
+              <div class="w-100">
+                <label class="form-label d-block">Usar TLS</label>
+                {{ form.email_use_tls }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="ticket" role="tabpanel">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Ancho del ticket (mm)</label>
+              {{ form.ticket_ancho_mm }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Encabezado del ticket</label>
+            {{ form.ticket_encabezado }}
+            <div class="form-text">Texto que aparece arriba del ticket (ej. nombre de la liga, dirección).</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pie del ticket</label>
+            {{ form.ticket_pie }}
+            <div class="form-text">Mensaje de despedida al final del ticket.</div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="autoenvio" role="tabpanel">
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Configura cómo se envían los correos automáticos a los suscriptores.
+            Los comandos programados (vía cron / tarea programada) ejecutarán el envío según estas opciones.
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3 d-flex align-items-end pb-3">
+              <div class="w-100">
+                <label class="form-label d-block">Enviar solo jornada actual</label>
+                {{ form.enviar_solo_jornada_actual }}
+                <div class="form-text">Al enviar roles, enviar solo los partidos de la jornada actual o próxima pendiente.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="social" role="tabpanel">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Correo electrónico de contacto</label>
+              {{ form.correo_electronico }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Redes sociales</label>
+            {{ form.redes_sociales }}
+            <div class="form-text">Enlaces a redes sociales (uno por línea). Se muestran en el pie de los PDF.</div>
+          </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-facebook"></i> Publicación en Facebook</h6>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Configura estos datos para poder publicar automáticamente los roles de juego y tablas de posiciones
+            en tu página de Facebook. Si tu liga no usa Facebook, puedes dejar estos campos vacíos.
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">ID de página de Facebook</label>
+              {{ form.facebook_page_id }}
+              <div class="form-text">Ej: 123456789012345 (lo encuentras en la sección "About" de tu página de Facebook).</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Access Token de Facebook</label>
+              {{ form.facebook_access_token }}
+              <div class="form-text">
+                Token de página de Facebook Graph API. Para obtenerlo:
+                <ol class="mt-1 mb-0 ps-3 small">
+                  <li>Crea una App en <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a></li>
+                  <li>Ve a "Graph API Explorer", selecciona tu app y página</li>
+                  <li>Genera un Page Access Token con permisos <code>pages_manage_posts</code> y <code>pages_read_engagement</code></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-3 pt-2 border-top">
+        <button type="submit" class="btn btn-success me-2"><i class="bi bi-save"></i> Guardar Configuración</button>
+        <a href="{% url 'home' %}" class="btn btn-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

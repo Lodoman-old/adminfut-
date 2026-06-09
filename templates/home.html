@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_head %}
+<style>
+:root {
+  --pitch-green: #4a8c4a;
+  --pitch-light: #5da65d;
+  --grass-dark: #2d6b2e;
+  --gold: #ffd700;
+}
+body {
+  background: linear-gradient(135deg, #1a3a15 0%, #2d6b2e 30%, #4a8c4a 60%, #2d6b2e 100%);
+  min-height: 100vh;
+}
+.navbar.bg-dark {
+  background: linear-gradient(90deg, #1a3a15 0%, #2d6b2e 100%) !important;
+  border-bottom: 3px solid var(--gold);
+}
+.card {
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,215,0,0.2);
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+}
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+  font-weight: bold;
+}
+.card-header.bg-primary { background: linear-gradient(135deg, #1a5276, #2e86c1) !important; }
+.card-header.bg-success { background: linear-gradient(135deg, #2d6b2e, #4a8c4a) !important; }
+.card-header.bg-warning { background: linear-gradient(135deg, #b7950b, var(--gold)) !important; }
+.card-header.bg-danger { background: linear-gradient(135deg, #922b21, #e74c3c) !important; }
+.card-header.bg-info { background: linear-gradient(135deg, #1a5276, #3498db) !important; }
+.hero-section {
+  background: linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.1)),
+              url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect fill="%234a8c4a" width="800" height="600"/><rect fill="%235da65d" x="50" y="50" width="700" height="500" rx="20"/><circle fill="none" stroke="white" stroke-width="3" cx="400" cy="300" r="80"/><line x1="400" y1="50" x2="400" y2="550" stroke="white" stroke-width="3"/><rect fill="none" stroke="white" stroke-width="3" x="50" y="150" width="80" height="300" rx="10"/><rect fill="none" stroke="white" stroke-width="3" x="670" y="150" width="80" height="300" rx="10"/><circle fill="white" cx="400" cy="300" r="8"/><rect fill="none" stroke="white" stroke-width="3" x="340" y="50" width="120" height="50" rx="10"/></svg>');
+  background-size: cover;
+  background-position: center;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid rgba(255,215,0,0.3);
+  position: relative;
+  overflow: hidden;
+}
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 40px,
+    rgba(255,255,255,0.03) 40px,
+    rgba(255,255,255,0.03) 42px
+  );
+}
+.stat-card {
+  transition: transform 0.2s;
+  cursor: default;
+}
+.stat-card:hover { transform: translateY(-5px); }
+.player-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: 12px;
+  padding: 1rem;
+  color: white;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s;
+  border: 1px solid rgba(255,215,0,0.2);
+}
+.player-card:hover { transform: translateY(-8px) scale(1.02); }
+.player-card .team-bg {
+  position: absolute;
+  top: -20px; right: -20px;
+  font-size: 80px;
+  opacity: 0.08;
+  font-weight: bold;
+}
+.player-card .team-logo-bg {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 55px;
+  height: 55px;
+  opacity: 1;
+  object-fit: contain;
+  pointer-events: none;
+}
+.player-card .jersey {
+  width: 50px;
+  height: 60px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0 auto 0.5rem;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.25);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.player-card .jersey::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 25px solid transparent;
+  border-right: 25px solid transparent;
+  border-top: 8px solid var(--jersey-color, #333);
+}
+.player-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gold);
+  margin: 0 auto 0.5rem;
+  background: #333;
+}
+.player-avatar-placeholder {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a8c4a, #2d6b2e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  border: 2px solid var(--gold);
+  font-size: 1.5rem;
+  color: var(--gold);
+}
+.goal-badge {
+  background: var(--gold);
+  color: #000;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.3rem auto;
+  font-size: 0.9rem;
+}
+.match-row {
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.1);
+  border-left: 4px solid var(--gold);
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 10px 10px 0;
+  transition: all 0.3s;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+.match-row:hover { background: rgba(255,255,255,0.12); transform: translateX(4px); }
+.match-team-col { text-align: center; min-width: 0; }
+.match-team-col strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-center-col { text-align: center; max-width: 160px; word-break: break-word; }
+.match-team-logo { width: 56px; height: 56px; object-fit: contain; }
+.match-team-placeholder {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #e9ecef;
+  border: 2px dashed #adb5bd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  font-size: 1.5rem;
+  color: #6c757d;
+}
+.match-vs-badge {
+  background: var(--gold);
+  color: #1a3a15;
+  font-weight: bold;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+}
+.match-score {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--gold);
+}
+.match-vs {
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+.match-info {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 2px;
+  font-weight: 600;
+  white-space: normal;
+}
+.avanzado strong { color: #2ecc71; }
+.avanzado::after { content: " ✓"; color: #2ecc71; font-weight: bold; font-size: 1rem; }
+.agregado { font-size: 0.75rem; color: #aab; font-weight: normal; }
+}
+.cat-selector {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,215,0,0.3);
+  color: white;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  position: relative;
+  z-index: 10;
+  cursor: pointer;
+}
+.cat-selector option { background: #2d6b2e; color: white; }
+</style>
+{% endblock %}
+{% block content %}
+{% load static %}
+
+<!-- Hero / selector -->
+<div class="hero-section">
+  <div class="row align-items-center">
+    <div class="col-md-8">
+      <h1 class="text-white fw-bold mb-2">
+        <i class="bi bi-trophy text-warning"></i> AdminFut
+      </h1>
+      <p class="text-white-50 mb-0">Sistema de Administración de Liga de Fútbol</p>
+    </div>
+    <div class="col-md-4">
+      <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+        <i class="bi bi-funnel text-warning"></i>
+        <select name="categoria" class="form-select cat-selector flex-grow-1" onchange="this.form.submit()">
+          {% for c in categorias %}
+          <option value="{{ c.id }}" {% if categoria_sel.id == c.id %}selected{% endif %}>
+            {{ c.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if categoria_sel %}
+<!-- Stats row -->
+{% with s=stats|dictsort:0 %}
+{% for cat, st in stats.items %}
+{% if cat.id == categoria_sel.id %}
+<div class="row mb-4">
+  <div class="col-md-3 mb-3">
+    <div class="card stat-card text-bg-primary">
+      <div class="card-body text-center">
+        <i class="bi bi-shield fs-1"></i>
+        <h3 class="mb-0">{{ st.equipos }}</h3>
+        <small>Equipos</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card stat-card text-bg-success">
+      <div class="card-body text-center">
+        <i class="bi bi-check-circle fs-1"></i>
+        <h3 class="mb-0">{{ st.partidos_fin }}</h3>
+        <small>Partidos Jugados</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card stat-card text-bg-warning">
+      <div class="card-body text-center">
+        <i class="bi bi-calendar-event fs-1"></i>
+        <h3 class="mb-0">{{ st.partidos_pend }}</h3>
+        <small>Partidos Pendientes</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card stat-card text-bg-info">
+      <div class="card-body text-center">
+        <i class="bi bi-people fs-1"></i>
+        <h3 class="mb-0">{{ st.jugadores }}</h3>
+        <small>Jugadores</small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endwith %}
+
+<!-- Main content row: matches + top scorers -->
+<div class="row">
+  <!-- Left: Matches -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-calendar-event"></i> Próximos Partidos - {{ categoria_sel.nombre }}
+      </div>
+      <div class="card-body">
+        {% if proximos %}
+        {% for p in proximos %}
+        <div class="match-row">
+          <div class="match-team-col">
+            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_local.nombre }}</strong>
+          </div>
+          <div class="match-center-col">
+            <div class="match-vs-badge">VS</div>
+            <div class="match-score" style="font-size:0.85rem;margin-top:2px">{{ p.fecha_hora|date:"d/m/Y" }} {{ p.fecha_hora|date:"H:i" }}</div>
+            <div class="match-info"><i class="bi bi-calendar-range"></i> {{ p.jornada.nombre }}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
+            <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
+          </div>
+          <div class="match-team-col">
+            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_visitante.nombre }}</strong>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted text-center my-3">No hay partidos programados.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent results -->
+    <div class="card mt-3">
+      <div class="card-header bg-info text-white">
+        <i class="bi bi-check-circle"></i> Resultados Recientes
+      </div>
+      <div class="card-body">
+        {% if resultados %}
+        {% for p in resultados %}
+        <div class="match-row" style="border-left-color:var(--pitch-light)">
+          {% with agregado=p.agregado_info %}
+          <div class="match-team-col{% if agregado and agregado.avanza_local == True %} avanzado{% endif %}">
+            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_local.nombre }}</strong>
+          </div>
+          <div class="match-center-col">
+            <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
+            {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
+            <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
+          </div>
+          <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
+            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_visitante.nombre }}</strong>
+          </div>
+          {% endwith %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted text-center my-3">No hay resultados aún.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Top scorers cards -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-trophy"></i> Máximos Goleadores - {{ categoria_sel.nombre }}
+        <a href="{% url 'tabla_goleo' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
+      </div>
+      <div class="card-body">
+        <ul class="nav nav-tabs nav-fill mb-3" id="goleadoresTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="regular-tab" data-bs-toggle="tab" data-bs-target="#regular" type="button" role="tab" aria-controls="regular" aria-selected="true">
+              <i class="bi bi-calendar-check"></i> Temporada Regular
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="finales-tab" data-bs-toggle="tab" data-bs-target="#finales" type="button" role="tab" aria-controls="finales" aria-selected="false">
+              <i class="bi bi-trophy"></i> Finales / Liguilla
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content" id="goleadoresTabContent">
+          <div class="tab-pane fade show active" id="regular" role="tabpanel" aria-labelledby="regular-tab">
+            {% if top_goleadores %}
+            <div class="row">
+              {% for g in top_goleadores %}
+              <div class="col-md-6 col-lg-4 mb-3">
+                <div class="player-card">
+                  <div class="team-bg">{{ g.equipo__nombre|first }}</div>
+                  {% if g.equipo__logo %}<img src="{{ MEDIA_URL }}{{ g.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.jugador__foto %}
+                  <img src="{{ MEDIA_URL }}{{ g.jugador__foto }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  {% else %}
+                  <div class="player-avatar-placeholder">
+                    <i class="bi bi-person-fill"></i>
+                  </div>
+                  {% endif %}
+                  <div class="jersey" style="background: #333; color: white;">
+                    {{ g.jugador__dorsal|default:'?' }}
+                  </div>
+                  <small class="text-white-50">{{ g.equipo__nombre }}</small>
+                  <div class="fw-bold mt-1" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
+                  <div class="goal-badge">{{ g.total }}</div>
+                  <small style="color: var(--gold)">GOLES</small>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted text-center my-3">Sin goles en temporada regular.</p>
+            {% endif %}
+          </div>
+          <div class="tab-pane fade" id="finales" role="tabpanel" aria-labelledby="finales-tab">
+            {% if top_goleadores_finales %}
+            <div class="row">
+              {% for g in top_goleadores_finales %}
+              <div class="col-md-6 col-lg-4 mb-3">
+                <div class="player-card">
+                  <div class="team-bg">{{ g.equipo__nombre|first }}</div>
+                  {% if g.equipo__logo %}<img src="{{ MEDIA_URL }}{{ g.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.jugador__foto %}
+                  <img src="{{ MEDIA_URL }}{{ g.jugador__foto }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  {% else %}
+                  <div class="player-avatar-placeholder">
+                    <i class="bi bi-person-fill"></i>
+                  </div>
+                  {% endif %}
+                  <div class="jersey" style="background: #333; color: white;">
+                    {{ g.jugador__dorsal|default:'?' }}
+                  </div>
+                  <small class="text-white-50">{{ g.equipo__nombre }}</small>
+                  <div class="fw-bold mt-1" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
+                  <div class="goal-badge">{{ g.total }}</div>
+                  <small style="color: var(--gold)">GOLES</small>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted text-center my-3">Sin goles en finales / liguilla.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tarjetas row -->
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-warning">
+        <i class="bi bi-exclamation-triangle"></i> Tarjetas Amarillas
+        <a href="{% url 'tabla_tarjetas' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
+      </div>
+      <div class="card-body">
+        {% if top_amarillas %}
+        <div class="row">
+          {% for t in top_amarillas %}
+          <div class="col-md-4 mb-3">
+            <div class="player-card" style="background: linear-gradient(135deg, #3d2a1a, #5a3d2a);">
+              <div class="team-bg">{{ t.equipo__nombre|first }}</div>
+              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto %}
+              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="jersey" style="--jersey-color: {{ t.equipo__color|default:'#333' }}; background: {{ t.equipo__color|default:'#333' }}; color: white;">
+                {{ t.jugador__dorsal|default:'?' }}
+              </div>
+              <small class="text-white-50">{{ t.equipo__nombre }}</small>
+              <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>
+              <span class="badge bg-warning text-dark mt-2">{{ t.total }} Amarillas</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center my-3">Sin tarjetas amarillas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-danger text-white">
+        <i class="bi bi-x-circle"></i> Tarjetas Rojas
+      </div>
+      <div class="card-body">
+        {% if top_rojas %}
+        <div class="row">
+          {% for t in top_rojas %}
+          <div class="col-md-4 mb-3">
+            <div class="player-card" style="background: linear-gradient(135deg, #2a1a1a, #5a2a2a);">
+              <div class="team-bg">{{ t.equipo__nombre|first }}</div>
+              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto %}
+              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="jersey" style="--jersey-color: {{ t.equipo__color|default:'#333' }}; background: {{ t.equipo__color|default:'#333' }}; color: white;">
+                {{ t.jugador__dorsal|default:'?' }}
+              </div>
+              <small class="text-white-50">{{ t.equipo__nombre }}</small>
+              <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>
+              <span class="badge bg-danger mt-2">{{ t.total }} Rojas</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center my-3">Sin tarjetas rojas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Castigados row -->
+{% if castigados %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header bg-dark text-white">
+        <i class="bi bi-lock"></i> Castigados
+        <a href="{% url 'tabla_castigados' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          {% for t in castigados %}
+          <div class="col-md-3 col-lg-2 mb-3">
+            <div class="player-card" style="background: linear-gradient(135deg, #1a1a1a, #3a2a2a);">
+              {% if t.equipo.logo %}<img src="{{ t.equipo.logo.url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador.foto %}
+              <img src="{{ t.jugador.foto.url }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador.nombre }} {{ t.jugador.apellido }}</div>
+              <small class="text-white-50">{{ t.equipo.nombre }}</small>
+              <div><span class="badge bg-danger mt-2">{{ t.suspension_jornadas }} Jornadas</span></div>
+              <small class="text-muted">{{ t.partido.equipo_local }} vs {{ t.partido.equipo_visitante }}</small>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-warning text-center">
+  <h5><i class="bi bi-exclamation-circle"></i> No hay categorías disponibles</h5>
+  <p class="mb-0">Crea una categoría desde el panel de administración para comenzar.</p>
+</div>
+{% endif %}
+
+{% if finanzas_visible and ingresos_data %}
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <div class="card border-warning">
+      <div class="card-header text-bg-warning">
+        <i class="bi bi-cash-coin"></i> Ingresos del Mes <span class="badge bg-dark float-end">${{ ingresos_data.total_mes|floatformat:2 }}</span>
+      </div>
+      <div class="card-body">
+        {% if ingresos_data.por_concepto %}
+        <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Concepto</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for c in ingresos_data.por_concepto %}
+            <tr><td>{{ c.concepto__nombre }}</td><td><strong>${{ c.total|floatformat:2 }}</strong></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Sin ingresos este mes.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

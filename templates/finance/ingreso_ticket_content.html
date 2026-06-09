@@ -1,0 +1,112 @@
+<style>
+@page { margin: 0; }
+.ticket-wrap {
+  font-family: 'Courier New', Courier, monospace;
+  {% if config.ticket_ancho_mm == 58 %}
+  font-size: 14px;
+  width: 310px;
+  {% else %}
+  font-size: 16px;
+  width: 450px;
+  {% endif %}
+  margin: 0 auto;
+  padding: 12px 16px;
+  color: #000;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+.ticket-wrap .header { text-align: center; margin-bottom: 8px; }
+.ticket-wrap .header h2 { font-size: 1.15em; margin-bottom: 4px; }
+.ticket-wrap .header p { font-size: 0.75em; color: #333; }
+.ticket-wrap hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+.ticket-wrap .encabezado { text-align: center; font-size: 0.8em; margin-bottom: 6px; white-space: pre-line; }
+.ticket-wrap .info-line { display: flex; justify-content: space-between; font-size: 0.75em; margin-bottom: 4px; }
+.ticket-wrap .detalle { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 0.75em; }
+.ticket-wrap .detalle th { text-align: left; border-bottom: 1px dashed #000; padding: 3px 0; background: transparent !important; color: #000 !important; }
+.ticket-wrap .detalle td { padding: 3px 0; vertical-align: top; }
+.ticket-wrap .monto-final { font-size: 1.15em; font-weight: bold; text-align: center; margin: 8px 0; }
+.ticket-wrap .pie { text-align: center; font-size: 0.75em; margin-top: 6px; white-space: pre-line; }
+.ticket-wrap .footer-line { text-align: center; font-size: 0.65em; color: #666; margin-top: 4px; }
+@media print {
+  .ticket-wrap {
+    {% if config.ticket_ancho_mm == 58 %}
+    font-size: 11px;
+    width: 58mm;
+    {% else %}
+    font-size: 13px;
+    width: 80mm;
+    {% endif %}
+    padding: 3mm;
+    border: none;
+    border-radius: 0;
+  }
+  .ticket-wrap .header h2 { font-size: 1.2em; }
+  .ticket-wrap .header p { font-size: 0.7em; }
+  .ticket-wrap .encabezado { font-size: 0.75em; }
+  .ticket-wrap .info-line { font-size: 0.7em; }
+  .ticket-wrap .detalle { font-size: 0.7em; }
+  .ticket-wrap .detalle th { padding: 2px 0; }
+  .ticket-wrap .detalle td { padding: 2px 0; }
+  .ticket-wrap .monto-final { font-size: 1.1em; }
+  .ticket-wrap .pie { font-size: 0.7em; }
+  .ticket-wrap .footer-line { font-size: 0.6em; }
+  .no-print { display: none; }
+}
+</style>
+<div class="ticket-wrap">
+  {% if config.ticket_encabezado %}
+  <div class="encabezado">{{ config.ticket_encabezado }}</div>
+  {% endif %}
+
+  <div class="header">
+    <h2>{{ config.nombre_liga }}</h2>
+    {% if config.direccion %}<p>{{ config.direccion }}</p>{% endif %}
+    {% if config.telefonos %}<p>{{ config.telefonos }}</p>{% endif %}
+  </div>
+
+  <hr>
+
+  <div class="info-line"><span>Folio: #{{ ingreso.pk }}</span><span>{{ ingreso.fecha|date:"d/m/Y" }}</span></div>
+  <div class="info-line"><span>Hora: {{ ingreso.fecha_registro|date:"H:i" }}</span><span>Operador: {{ ingreso.registrado_por|default:"-" }}</span></div>
+  <div class="info-line"><span>Tipo:</span><span>{% if ingreso.es_ingreso %}INGRESO{% else %}EGRESO{% endif %}</span></div>
+
+  {% if ingreso.equipo %}
+  <div class="info-line"><span>Equipo:</span><span>{{ ingreso.equipo.nombre }}</span></div>
+  {% endif %}
+  {% if ingreso.jugador %}
+  <div class="info-line"><span>Jugador:</span><span>{{ ingreso.jugador.nombre }} {{ ingreso.jugador.apellido }}</span></div>
+  {% endif %}
+  {% if ingreso.pagado_a %}
+  <div class="info-line"><span>Pagado a:</span><span>{{ ingreso.pagado_a }}</span></div>
+  {% endif %}
+
+  <hr>
+
+  <table class="detalle">
+    <thead><tr><th>Concepto</th><th style="text-align:right">Monto</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>{{ ingreso.concepto.nombre }}{% if ingreso.cantidad > 1 %} ({{ ingreso.cantidad }} x ${{ ingreso.precio_unitario|floatformat:2 }}){% else %} (1 x ${{ ingreso.precio_unitario|floatformat:2 }}){% endif %}</td>
+        <td style="text-align:right">${{ ingreso.monto|floatformat:2 }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <div class="monto-final">TOTAL: ${{ ingreso.monto|floatformat:2 }}</div>
+
+  {% if ingreso.descripcion %}
+  <div style="font-size:0.75em;margin-top:4px;">Nota: {{ ingreso.descripcion }}</div>
+  {% endif %}
+
+  <hr>
+
+  {% if config.ticket_pie %}
+  <div class="pie">{{ config.ticket_pie }}</div>
+  {% endif %}
+
+  <div class="footer-line">AdminFut - Sistema de Administración</div>
+  <div class="footer-line">Generado el {{ ingreso.fecha_registro|date:"d/m/Y H:i" }}</div>
+</div>
