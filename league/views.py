@@ -753,7 +753,6 @@ def _obtener_jornada_actual(temporada):
 
 def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_extra, request=None):
     """Envía un correo a una lista de suscriptores. Retorna el conteo."""
-    from django.core.mail import EmailMultiAlternatives, get_connection
     from django.template.loader import render_to_string
     from django.utils.html import strip_tags
 
@@ -765,6 +764,28 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
     if request:
         site_url = f"{request.scheme}://{request.get_host()}"
 
+    use_sendgrid_api = config.email_provider == "sendgrid"
+    count = 0
+
+    for sus in suscriptores:
+        ctx = {**ctx_extra, "suscriptor_email": sus.email, "unsubscribe_token": sus.token, "config": config, "site_url": site_url}
+        html = render_to_string(template, ctx)
+        text = strip_tags(html)
+
+        try:
+            if use_sendgrid_api:
+                _enviar_sendgrid_api(smtp, subject, html, text, [sus.email])
+            else:
+                _enviar_smtp(smtp, subject, html, text, [sus.email])
+            count += 1
+        except Exception as e:
+            if request:
+                messages.warning(request, f"Error al enviar a {sus.email}: {e}")
+    return count
+
+
+def _enviar_smtp(smtp, subject, html, text, to_emails):
+    from django.core.mail import EmailMultiAlternatives, get_connection
     use_ssl = smtp["port"] == 465
     conn = get_connection(
         host=smtp["host"],
@@ -775,26 +796,28 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
         use_ssl=use_ssl,
         timeout=15,
     )
-    count = 0
-    for sus in suscriptores:
-        ctx = {**ctx_extra, "suscriptor_email": sus.email, "unsubscribe_token": sus.token, "config": config, "site_url": site_url}
-        html = render_to_string(template, ctx)
-        text = strip_tags(html)
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=text,
-            from_email=smtp["from_email"] or smtp["user"],
-            to=[sus.email],
-            connection=conn,
-        )
-        msg.attach_alternative(html, "text/html")
-        try:
-            msg.send(fail_silently=False)
-            count += 1
-        except Exception as e:
-            if request:
-                messages.warning(request, f"Error al enviar a {sus.email}: {e}")
-    return count
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text,
+        from_email=smtp["from_email"] or smtp["user"],
+        to=to_emails,
+        connection=conn,
+    )
+    msg.attach_alternative(html, "text/html")
+    msg.send(fail_silently=False)
+
+
+def _enviar_sendgrid_api(smtp, subject, html, text, to_emails):
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, Email, Content, To
+    message = Mail(
+        from_email=Email(smtp["from_email"] or smtp["user"]),
+        to_emails=[To(email) for email in to_emails],
+        subject=subject,
+        html_content=Content("text/html", html),
+    )
+    sg = SendGridAPIClient(smtp["password"])
+    sg.send(message)
 
 
 def _tabla_hasta_jornada(temporada, jornada_numero):
