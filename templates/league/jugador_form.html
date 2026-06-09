@@ -392,12 +392,11 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSummary();
     });
 
-    // When main team changes, clear selections
+    // When main team changes, refresh summary placeholder only
     if (equipoSelect) {
         equipoSelect.addEventListener('change', function() {
-            setCurrentData([]);
             apiData = null;
-            summaryDiv.textContent = 'Sin equipos secundarios seleccionados.';
+            updateSummary();
         });
     }
 
