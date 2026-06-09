@@ -9,3 +9,5 @@ reportlab
 openpyxl
 pillow
 djangorestframework
+cloudinary
+django-cloudinary-storage
