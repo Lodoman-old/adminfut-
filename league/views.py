@@ -764,6 +764,7 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
         username=config.email_smtp_user,
         password=config.email_smtp_password,
         use_tls=config.email_use_tls,
+        timeout=15,
     )
     count = 0
     for sus in suscriptores:
