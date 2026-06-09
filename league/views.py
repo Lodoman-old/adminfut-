@@ -758,12 +758,14 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
     if request:
         site_url = f"{request.scheme}://{request.get_host()}"
 
+    use_ssl = config.email_smtp_port == 465
     conn = get_connection(
         host=config.email_smtp_host,
         port=config.email_smtp_port,
         username=config.email_smtp_user,
         password=config.email_smtp_password,
-        use_tls=config.email_use_tls,
+        use_tls=config.email_use_tls and not use_ssl,
+        use_ssl=use_ssl,
         timeout=15,
     )
     count = 0
