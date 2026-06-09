@@ -70,7 +70,7 @@ class Equipo(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.logo and self.logo.path:
+        if self.logo:
             try:
                 img = Image.open(self.logo.path)
                 if max(img.width, img.height) > 300:
@@ -153,7 +153,7 @@ class Jugador(models.Model):
                 equipo=self.equipo,
                 defaults={"es_principal": True},
             )
-        if self.foto and self.foto.path:
+        if self.foto:
             try:
                 img = Image.open(self.foto.path)
                 if max(img.width, img.height) > 400:
