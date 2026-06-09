@@ -1521,8 +1521,40 @@ class ConfiguracionLiga(models.Model):
 
     @classmethod
     def obtener(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
-        return obj
+        from django.db import connection, ProgrammingError
+        try:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            return obj
+        except ProgrammingError as e:
+            if "does not exist" in str(e):
+                with connection.cursor() as cur:
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_provider varchar(20) NOT NULL DEFAULT 'google';
+                    """)
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_sendgrid_host varchar(200) NOT NULL DEFAULT '';
+                    """)
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_sendgrid_port integer NOT NULL DEFAULT 587;
+                    """)
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_sendgrid_user varchar(200) NOT NULL DEFAULT '';
+                    """)
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_sendgrid_password varchar(200) NOT NULL DEFAULT '';
+                    """)
+                    cur.execute("""
+                        ALTER TABLE league_configuracionliga
+                        ADD COLUMN IF NOT EXISTS email_sendgrid_use_tls boolean NOT NULL DEFAULT true;
+                    """)
+                obj, _ = cls.objects.get_or_create(pk=1)
+                return obj
+            raise
 
     def save(self, *args, **kwargs):
         self.pk = 1
