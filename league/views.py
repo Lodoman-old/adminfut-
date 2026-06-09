@@ -656,12 +656,18 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "logo": djforms.FileInput(attrs={"class": "form-control"}),
             "direccion": djforms.TextInput(attrs={"class": "form-control"}),
             "telefonos": djforms.TextInput(attrs={"class": "form-control"}),
+            "email_provider": djforms.Select(attrs={"class": "form-select"}),
             "email_smtp_host": djforms.TextInput(attrs={"class": "form-control"}),
             "email_smtp_port": djforms.NumberInput(attrs={"class": "form-control"}),
             "email_smtp_user": djforms.TextInput(attrs={"class": "form-control"}),
             "email_smtp_password": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
             "email_from": djforms.EmailInput(attrs={"class": "form-control"}),
             "email_use_tls": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "email_sendgrid_host": djforms.TextInput(attrs={"class": "form-control"}),
+            "email_sendgrid_port": djforms.NumberInput(attrs={"class": "form-control"}),
+            "email_sendgrid_user": djforms.TextInput(attrs={"class": "form-control"}),
+            "email_sendgrid_password": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
+            "email_sendgrid_use_tls": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "enviar_solo_jornada_actual": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "ticket_ancho_mm": djforms.NumberInput(attrs={"class": "form-control", "min": 40, "max": 100, "step": 1}),
             "ticket_encabezado": djforms.Textarea(attrs={"class": "form-control", "rows": 3}),
@@ -751,20 +757,21 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
     from django.template.loader import render_to_string
     from django.utils.html import strip_tags
 
-    if not config.email_smtp_host:
+    smtp = config.get_active_smtp_config()
+    if not smtp["host"]:
         return 0
 
     site_url = "https://adminfut.onrender.com"
     if request:
         site_url = f"{request.scheme}://{request.get_host()}"
 
-    use_ssl = config.email_smtp_port == 465
+    use_ssl = smtp["port"] == 465
     conn = get_connection(
-        host=config.email_smtp_host,
-        port=config.email_smtp_port,
-        username=config.email_smtp_user,
-        password=config.email_smtp_password,
-        use_tls=config.email_use_tls and not use_ssl,
+        host=smtp["host"],
+        port=smtp["port"],
+        username=smtp["user"],
+        password=smtp["password"],
+        use_tls=smtp["use_tls"] and not use_ssl,
         use_ssl=use_ssl,
         timeout=15,
     )
@@ -776,7 +783,7 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
         msg = EmailMultiAlternatives(
             subject=subject,
             body=text,
-            from_email=config.email_from or config.email_smtp_user,
+            from_email=smtp["from_email"] or smtp["user"],
             to=[sus.email],
             connection=conn,
         )

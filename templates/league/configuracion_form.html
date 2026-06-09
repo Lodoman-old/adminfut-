@@ -48,31 +48,71 @@
           </div>
         </div>
         <div class="tab-pane fade" id="smtp" role="tabpanel">
-          <div class="row">
-            <div class="col-md-4 mb-3">
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Puedes guardar ambas configuraciones (Google y SendGrid) y alternar entre ellas
+            con el selector "Proveedor activo" sin perder las credenciales.
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Proveedor activo</label>
+              {{ form.email_provider }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Correo From (para ambos)</label>
+              {{ form.email_from }}
+            </div>
+          </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-google"></i> Google SMTP</h6>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4 mb-2">
               <label class="form-label">Servidor SMTP</label>
               {{ form.email_smtp_host }}
             </div>
-            <div class="col-md-2 mb-3">
+            <div class="col-md-2 mb-2">
               <label class="form-label">Puerto</label>
               {{ form.email_smtp_port }}
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-2">
               <label class="form-label">Usuario</label>
               {{ form.email_smtp_user }}
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-2">
               <label class="form-label">Contraseña</label>
               {{ form.email_smtp_password }}
             </div>
-            <div class="col-md-4 mb-3">
-              <label class="form-label">Correo From</label>
-              {{ form.email_from }}
-            </div>
-            <div class="col-md-2 mb-3 d-flex align-items-end pb-3">
+            <div class="col-md-2 mb-2 d-flex align-items-end pb-3">
               <div class="w-100">
                 <label class="form-label d-block">Usar TLS</label>
                 {{ form.email_use_tls }}
+              </div>
+            </div>
+          </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-send"></i> SendGrid</h6>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4 mb-2">
+              <label class="form-label">Servidor SMTP</label>
+              {{ form.email_sendgrid_host }}
+            </div>
+            <div class="col-md-2 mb-2">
+              <label class="form-label">Puerto</label>
+              {{ form.email_sendgrid_port }}
+            </div>
+            <div class="col-md-3 mb-2">
+              <label class="form-label">Usuario</label>
+              {{ form.email_sendgrid_user }}
+              <div class="form-text small">SendGrid usa "apikey" fijo</div>
+            </div>
+            <div class="col-md-3 mb-2">
+              <label class="form-label">API Key</label>
+              {{ form.email_sendgrid_password }}
+            </div>
+            <div class="col-md-2 mb-2 d-flex align-items-end pb-3">
+              <div class="w-100">
+                <label class="form-label d-block">Usar TLS</label>
+                {{ form.email_sendgrid_use_tls }}
               </div>
             </div>
           </div>

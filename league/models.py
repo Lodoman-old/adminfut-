@@ -1477,12 +1477,24 @@ class ConfiguracionLiga(models.Model):
     logo = models.ImageField(upload_to="ligas/", blank=True, null=True)
     direccion = models.TextField(blank=True)
     telefonos = models.TextField(blank=True, help_text="Teléfonos de contacto separados por coma")
+    email_provider = models.CharField(
+        max_length=20, default="google",
+        choices=[("google", "Google SMTP"), ("sendgrid", "SendGrid")],
+        verbose_name="Proveedor de correo"
+    )
+    # Google SMTP
     email_smtp_host = models.CharField(max_length=200, blank=True, default="")
     email_smtp_port = models.IntegerField(default=587)
     email_smtp_user = models.CharField(max_length=200, blank=True, default="")
     email_smtp_password = models.CharField(max_length=200, blank=True, default="")
-    email_from = models.EmailField(blank=True, default="")
     email_use_tls = models.BooleanField(default=True)
+    email_from = models.EmailField(blank=True, default="")
+    # SendGrid
+    email_sendgrid_host = models.CharField(max_length=200, blank=True, default="smtp.sendgrid.net")
+    email_sendgrid_port = models.IntegerField(default=587)
+    email_sendgrid_user = models.CharField(max_length=200, blank=True, default="apikey")
+    email_sendgrid_password = models.CharField(max_length=200, blank=True, default="")
+    email_sendgrid_use_tls = models.BooleanField(default=True, verbose_name="Usar TLS (SendGrid)")
     enviar_solo_jornada_actual = models.BooleanField(
         default=False, verbose_name="Enviar solo la jornada actual",
         help_text="Al enviar roles por correo, enviar solo los partidos de la jornada actual o próxima pendiente"
@@ -1515,6 +1527,25 @@ class ConfiguracionLiga(models.Model):
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
+
+    def get_active_smtp_config(self):
+        if self.email_provider == "sendgrid":
+            return {
+                "host": self.email_sendgrid_host or "smtp.sendgrid.net",
+                "port": self.email_sendgrid_port or 587,
+                "user": self.email_sendgrid_user or "apikey",
+                "password": self.email_sendgrid_password,
+                "use_tls": self.email_sendgrid_use_tls,
+                "from_email": self.email_from,
+            }
+        return {
+            "host": self.email_smtp_host,
+            "port": self.email_smtp_port,
+            "user": self.email_smtp_user,
+            "password": self.email_smtp_password,
+            "use_tls": self.email_use_tls,
+            "from_email": self.email_from,
+        }
 
 
 class SuscripcionEmail(models.Model):
