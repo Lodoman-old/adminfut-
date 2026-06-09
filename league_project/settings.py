@@ -3,13 +3,13 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-only')
+SECRET_KEY = os.environ.get('SECRET_KEY') or os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-only')
 
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = (os.environ.get('DEBUG', 'False') == 'True') or (os.environ.get('DJANGO_DEBUG', 'False') == 'True')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = (os.environ.get('ALLOWED_HOSTS', '') or os.environ.get('DJANGO_ALLOWED_HOSTS', '*')).split(',')
 
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else []
+CSRF_TRUSTED_ORIGINS = (os.environ.get('CSRF_TRUSTED_ORIGINS', '') or os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')).split(',') if (os.environ.get('CSRF_TRUSTED_ORIGINS') or os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS')) else []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
