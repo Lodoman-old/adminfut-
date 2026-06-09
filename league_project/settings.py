@@ -98,7 +98,7 @@ STORAGES = {
 
 CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')
 
-MEDIA_URL = 'media/'
+MEDIA_URL = ''
 MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = '/accounts/login/'
