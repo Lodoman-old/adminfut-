@@ -97,8 +97,11 @@ STORAGES = {
 }
 
 CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')
+CLOUDINARY_STORAGE = {
+    'PREFIX': '',
+}
 
-MEDIA_URL = ''
+MEDIA_URL = 'https://res.cloudinary.com/donvyblde/image/upload/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = '/accounts/login/'
