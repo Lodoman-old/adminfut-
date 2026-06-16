@@ -1581,81 +1581,163 @@ def reporte_credenciales_pdf(request):
     response["Content-Disposition"] = f"attachment; filename=credenciales_{equipo.nombre}.pdf"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
-    margin = 20
 
-    card_w = (w - 2 * margin - 10) / 2
-    card_h = 100
+    # Tamaño credencial de elector: 85.6 mm × 54 mm ≈ 243 pt × 153 pt
+    card_w = 243
+    card_h = 153
+    gap_x = 40
+    gap_y = 30
+    cols = 2
+    rows = 4
+    total_w = cols * card_w + (cols - 1) * gap_x
+    total_h = rows * card_h + (rows - 1) * gap_y
+    offset_x = (w - total_w) / 2
+    top_y = h - (h - total_h) / 2
 
     cfg = ConfiguracionLiga.obtener()
     name_font = "Helvetica-Bold"
     data_font = "Helvetica"
 
-    for idx, j in enumerate(jugadores):
-        col = idx % 2
-        row = idx // 2
-        x = margin + col * (card_w + 10)
-        y = h - margin - (row + 1) * card_h
-
-        if y < margin:
-            p.showPage()
-            y = h - margin - card_h
-
-        # Card background
-        p.setFillColor(colors.white)
-        p.setStrokeColor(colors.HexColor("#2d6b2e"))
-        p.setLineWidth(2)
-        p.roundRect(x, y, card_w, card_h - 4, 5, fill=1, stroke=1)
-
-        # Green left bar
-        p.setFillColor(colors.HexColor("#2d6b2e"))
-        p.roundRect(x, y, 8, card_h - 4, 5, fill=1, stroke=0)
-        p.setFillColor(colors.white)
-        p.setFont(name_font, 8)
+    def draw_field_bg():
         p.saveState()
-        p.translate(x + 4, y + (card_h - 4) / 2)
-        p.rotate(90)
-        p.drawCentredString(0, -3, equipo.nombre.upper())
+        p.setFillColor(colors.HexColor("#eaf7ea"))
+        p.rect(0, 0, w, h, fill=1, stroke=0)
+
+        # Cancha de fútbol
+        pitch_margin = 40
+        p.setStrokeColor(colors.HexColor("#c8e6c9"))
+        p.setLineWidth(1)
+        pitch_h = 200
+        pitch_y = (h - pitch_h) / 2
+        p.rect(pitch_margin, pitch_y, w - 2 * pitch_margin, pitch_h, fill=0, stroke=1)
+        p.line(w / 2, pitch_y, w / 2, pitch_y + pitch_h)
+        p.circle(w / 2, pitch_y + pitch_h / 2, 35, fill=0, stroke=1)
+
+        # Áreas
+        for left in [True, False]:
+            sign = 1 if left else -1
+            cx = pitch_margin if left else w - pitch_margin
+            p.rect(cx - sign * 100, pitch_y + (pitch_h - 50) / 2, 100, 50, fill=0, stroke=1)
+            p.rect(cx - sign * 40, pitch_y + (pitch_h - 24) / 2, 40, 24, fill=0, stroke=1)
+
+        # Balones en esquinas
+        p.setFillColor(colors.HexColor("#d5f0d5"))
+        for px, py in [(60, h - 50), (w - 60, h - 50), (60, 50), (w - 60, 50)]:
+            p.circle(px, py, 16, fill=1, stroke=0)
+            # Pentágono central
+            p.setFillColor(colors.HexColor("#c8e6c9"))
+            p.circle(px, py, 6, fill=1, stroke=0)
+
         p.restoreState()
 
-        # Player photo or placeholder
-        photo_x = x + 14
-        photo_y = y + (card_h - 4 - 50) / 2
-        photo_size = 50
+    for idx, j in enumerate(jugadores):
+        pos = idx % (cols * rows)
+        if pos == 0:
+            if idx > 0:
+                p.showPage()
+            draw_field_bg()
+
+        col = pos % cols
+        row = pos // cols
+        x = offset_x + col * (card_w + gap_x)
+        y = top_y - (row + 1) * card_h - row * gap_y
+
+        # Sombra
+        p.setFillColor(colors.HexColor("#00000015"))
+        p.roundRect(x + 2, y - 2, card_w, card_h, 6, fill=1, stroke=0)
+
+        # Fondo blanco con borde verde
+        p.setFillColor(colors.white)
+        p.setStrokeColor(colors.HexColor("#2d6b2e"))
+        p.setLineWidth(2.5)
+        p.roundRect(x, y, card_w, card_h, 6, fill=1, stroke=1)
+
+        # Barra verde superior con nombre del equipo
+        bar_h = 22
+        p.setFillColor(colors.HexColor("#2d6b2e"))
+        path = p.beginPath()
+        path.moveTo(x + 6, y + card_h)
+        path.lineTo(x + card_w - 6, y + card_h)
+        path.lineTo(x + card_w, y + card_h - 6)
+        path.lineTo(x + card_w, y + card_h - bar_h)
+        path.lineTo(x, y + card_h - bar_h)
+        path.lineTo(x, y + card_h - 6)
+        path.close()
+        p.drawPath(path, fill=1, stroke=0)
+
+        p.setFillColor(colors.white)
+        p.setFont(name_font, 9)
+        team_label = equipo.nombre.upper()
+        max_w = card_w - 20
+        while p.stringWidth(team_label, name_font, 9) > max_w and len(team_label) > 3:
+            team_label = team_label[:-1]
+        p.drawCentredString(x + card_w / 2, y + card_h - bar_h + 4, team_label)
+
+        # Foto del jugador (izquierda, centrada verticalmente)
+        photo_size = 72
+        photo_x = x + 12
+        photo_y = y + (card_h - bar_h - photo_size) / 2 + 4
+        # Círculo de fondo
+        p.setFillColor(colors.HexColor("#f0f8f0"))
+        p.setStrokeColor(colors.HexColor("#2d6b2e"))
+        p.setLineWidth(1.5)
+        p.circle(photo_x + photo_size / 2, photo_y + photo_size / 2, photo_size / 2 + 2, fill=1, stroke=1)
+
         if j.foto:
             try:
                 p.drawImage(j.foto.url, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
             except Exception:
-                p.setFillColor(colors.HexColor("#eee"))
-                p.roundRect(photo_x, photo_y, photo_size, photo_size, 25, fill=1, stroke=0)
-                p.setFillColor(colors.HexColor("#999"))
-                p.setFont(data_font, 20)
-                p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 3, f"{j.nombre[0]}{j.apellido[0]}")
+                p.setFillColor(colors.HexColor("#ddd"))
+                p.circle(photo_x + photo_size / 2, photo_y + photo_size / 2, photo_size / 2, fill=1, stroke=0)
+                p.setFillColor(colors.HexColor("#888"))
+                p.setFont(data_font, 26)
+                p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 2 - 9, f"{j.nombre[0]}{j.apellido[0]}")
         else:
             p.setFillColor(colors.HexColor("#eee"))
-            p.roundRect(photo_x, photo_y, photo_size, photo_size, 25, fill=1, stroke=0)
+            p.circle(photo_x + photo_size / 2, photo_y + photo_size / 2, photo_size / 2, fill=1, stroke=0)
             p.setFillColor(colors.HexColor("#999"))
-            p.setFont(data_font, 20)
+            p.setFont(data_font, 26)
             initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
-            p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 3, initials)
+            p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 2 - 9, initials)
 
-        # Player info
-        text_x = photo_x + photo_size + 6
-        text_y = y + card_h - 16
-        p.setFillColor(colors.black)
+        # Info del jugador (derecha)
+        text_x = photo_x + photo_size + 10
+        avail_w = x + card_w - text_x - 10
+
+        p.setFillColor(colors.HexColor("#1a3a15"))
         p.setFont(name_font, 10)
-        p.drawString(text_x, text_y, f"{j.nombre} {j.apellido}")
+        label = f"{j.nombre} {j.apellido}"
+        while p.stringWidth(label, name_font, 10) > avail_w and len(label) > 3:
+            label = label[:-1]
+        p.drawString(text_x, y + card_h - bar_h - 16, label)
 
-        p.setFont(data_font, 8)
-        text_y -= 14
-        p.drawString(text_x, text_y, f"Núm: #{j.dorsal or '-'}")
+        # Categoría
+        p.setFillColor(colors.HexColor("#e8f5e9"))
+        p.setStrokeColor(colors.HexColor("#2d6b2e"))
+        p.setLineWidth(0.5)
+        cat_text = equipo.categoria.nombre
+        cat_w = p.stringWidth(cat_text, data_font, 6.5) + 8
+        if cat_w > avail_w:
+            cat_w = avail_w
+        p.roundRect(text_x, y + card_h - bar_h - 31, cat_w, 13, 3, fill=1, stroke=1)
+        p.setFillColor(colors.HexColor("#2d6b2e"))
+        p.setFont(data_font, 6.5)
+        p.drawCentredString(text_x + cat_w / 2, y + card_h - bar_h - 29, cat_text)
 
-        text_y -= 12
+        # Datos
+        p.setFillColor(colors.HexColor("#333"))
+        y_data = y + card_h - bar_h - 48
+        p.setFont(data_font, 9)
+        p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal or '-'}")
+
+        y_data -= 14
         pos_map = dict(Jugador.POSICIONES)
-        p.drawString(text_x, text_y, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
+        p.drawString(text_x, y_data, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
 
-        text_y -= 12
+        y_data -= 14
         p.setFont(data_font, 7)
-        p.drawString(text_x, text_y, f"Liga: {cfg.nombre_liga}")
+        p.setFillColor(colors.HexColor("#666"))
+        p.drawString(text_x, y_data, cfg.nombre_liga)
         p.setFillColor(colors.black)
 
     p.showPage()
