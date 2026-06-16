@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.timezone import localtime
@@ -1537,6 +1538,126 @@ def reporte_suscriptores_pdf(request):
     tw, th = table.wrap(0, 0)
     table.drawOn(p, (w - tw) / 2, h - 120 - th)
     draw_footer(p, w, h, 14)
+    p.showPage()
+    p.save()
+    return response
+
+
+def reporte_credenciales(request):
+    if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("credenciales_ver", False):
+        messages.error(request, "No tienes permiso para generar credenciales.")
+        return redirect("home")
+    categorias = Categoria.objects.all().order_by("nombre")
+    cat_id = request.GET.get("categoria")
+    equipo_id = request.GET.get("equipo")
+    equipos = []
+    equipo = None
+    jugadores = []
+    if cat_id:
+        equipos = Equipo.objects.filter(categoria_id=cat_id, activo=True).order_by("nombre")
+    if equipo_id:
+        equipo = get_object_or_404(Equipo, pk=equipo_id)
+        jugadores = Jugador.objects.filter(equipo=equipo, activo=True).order_by("dorsal")
+    return render(request, "reports/reporte_credenciales.html", {
+        "categorias": categorias,
+        "equipos": equipos,
+        "equipo": equipo,
+        "cat_id": int(cat_id) if cat_id else None,
+        "equipo_id": int(equipo_id) if equipo_id else None,
+        "jugadores": jugadores,
+    })
+
+
+def reporte_credenciales_pdf(request):
+    if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("credenciales_ver", False):
+        return redirect("login")
+    equipo_id = request.GET.get("equipo")
+    if not equipo_id:
+        return redirect("reporte_credenciales")
+    equipo = get_object_or_404(Equipo.objects.select_related("categoria"), pk=equipo_id)
+    jugadores = list(Jugador.objects.filter(equipo=equipo, activo=True).order_by("dorsal"))
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f"attachment; filename=credenciales_{equipo.nombre}.pdf"
+    p = canvas.Canvas(response, pagesize=letter)
+    w, h = letter
+    margin = 20
+
+    card_w = (w - 2 * margin - 10) / 2
+    card_h = 100
+
+    cfg = ConfiguracionLiga.obtener()
+    name_font = "Helvetica-Bold"
+    data_font = "Helvetica"
+
+    for idx, j in enumerate(jugadores):
+        col = idx % 2
+        row = idx // 2
+        x = margin + col * (card_w + 10)
+        y = h - margin - (row + 1) * card_h
+
+        if y < margin:
+            p.showPage()
+            y = h - margin - card_h
+
+        # Card background
+        p.setFillColor(colors.white)
+        p.setStrokeColor(colors.HexColor("#2d6b2e"))
+        p.setLineWidth(2)
+        p.roundRect(x, y, card_w, card_h - 4, 5, fill=1, stroke=1)
+
+        # Green left bar
+        p.setFillColor(colors.HexColor("#2d6b2e"))
+        p.roundRect(x, y, 8, card_h - 4, 5, fill=1, stroke=0)
+        p.setFillColor(colors.white)
+        p.setFont(name_font, 8)
+        p.saveState()
+        p.translate(x + 4, y + (card_h - 4) / 2)
+        p.rotate(90)
+        p.drawCentredString(0, -3, equipo.nombre.upper())
+        p.restoreState()
+
+        # Player photo or placeholder
+        photo_x = x + 14
+        photo_y = y + (card_h - 4 - 50) / 2
+        photo_size = 50
+        if j.foto:
+            try:
+                p.drawImage(j.foto.url, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
+            except Exception:
+                p.setFillColor(colors.HexColor("#eee"))
+                p.roundRect(photo_x, photo_y, photo_size, photo_size, 25, fill=1, stroke=0)
+                p.setFillColor(colors.HexColor("#999"))
+                p.setFont(data_font, 20)
+                p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 3, f"{j.nombre[0]}{j.apellido[0]}")
+        else:
+            p.setFillColor(colors.HexColor("#eee"))
+            p.roundRect(photo_x, photo_y, photo_size, photo_size, 25, fill=1, stroke=0)
+            p.setFillColor(colors.HexColor("#999"))
+            p.setFont(data_font, 20)
+            initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
+            p.drawCentredString(photo_x + photo_size / 2, photo_y + photo_size / 3, initials)
+
+        # Player info
+        text_x = photo_x + photo_size + 6
+        text_y = y + card_h - 16
+        p.setFillColor(colors.black)
+        p.setFont(name_font, 10)
+        p.drawString(text_x, text_y, f"{j.nombre} {j.apellido}")
+
+        p.setFont(data_font, 8)
+        text_y -= 14
+        p.drawString(text_x, text_y, f"Núm: #{j.dorsal or '-'}")
+
+        text_y -= 12
+        pos_map = dict(Jugador.POSICIONES)
+        p.drawString(text_x, text_y, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
+
+        text_y -= 12
+        p.setFont(data_font, 7)
+        p.drawString(text_x, text_y, f"Liga: {cfg.nombre_liga}")
+        p.setFillColor(colors.black)
+
     p.showPage()
     p.save()
     return response

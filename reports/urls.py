@@ -27,4 +27,6 @@ urlpatterns = [
     path("suscriptores/", views.reporte_suscriptores, name="reporte_suscriptores"),
     path("suscriptores/pdf/", views.reporte_suscriptores_pdf, name="reporte_suscriptores_pdf"),
     path("suscriptores/xlsx/", views.reporte_suscriptores_xlsx, name="reporte_suscriptores_xlsx"),
+    path("credenciales/", views.reporte_credenciales, name="reporte_credenciales"),
+    path("credenciales/pdf/", views.reporte_credenciales_pdf, name="reporte_credenciales_pdf"),
 ]

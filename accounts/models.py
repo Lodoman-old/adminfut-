@@ -108,6 +108,9 @@ PERMISOS_MENU = {
             ("reporte_suscriptores", "Reporte de Suscriptores", False),
             ("reporte_horarios", "Reporte de Horarios Fijos", False),
         ],
+        "Credenciales": [
+            ("credenciales_ver", "Generar Credenciales", False),
+        ],
     },
 }
 
