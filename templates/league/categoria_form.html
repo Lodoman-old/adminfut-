@@ -5,7 +5,7 @@
 <div class="card mt-3" style="max-width:1100px;margin:0 auto">
     <div class="card-header bg-success text-white"><h5 class="mb-0">Datos de la Categoría</h5></div>
     <div class="card-body">
-        <form method="post" id="categoriaForm">
+        <form method="post" id="categoriaForm" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="row">
                 <div class="col-md-4 mb-3">
@@ -101,6 +101,17 @@
                 <label class="form-label fw-bold">{{ form.horarios_text.label }}</label>
                 {{ form.horarios_text }}
                 <small class="text-muted">Ingresa los horarios separados por coma, ej: 15:00, 17:00</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ form.fondo_credencial.label }}</label>
+                {{ form.fondo_credencial }}
+                <small class="text-muted">{{ form.fondo_credencial.help_text }}</small>
+                {% if object and object.fondo_credencial %}
+                <div class="mt-2">
+                    <img src="{{ object.fondo_credencial.url }}" alt="Fondo actual" class="img-thumbnail" style="max-height:100px">
+                </div>
+                {% endif %}
             </div>
 
             <div class="mb-3">

@@ -36,6 +36,11 @@ class Categoria(models.Model):
         verbose_name="Campos permitidos",
         help_text="Únicos campos donde puede jugar esta categoría. Si no seleccionas ninguno, puede jugar en cualquier campo."
     )
+    fondo_credencial = models.ImageField(
+        upload_to="fondos_credencial/", blank=True, null=True,
+        verbose_name="Fondo para credenciales",
+        help_text="Imagen de fondo que aparecerá en las credenciales de esta categoría."
+    )
 
     class Meta:
         verbose_name = "Categoría"

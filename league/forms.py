@@ -723,7 +723,7 @@ class PartidoForm(forms.ModelForm):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "activo", "es_principal", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos"]
+        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "activo", "es_principal", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos", "fondo_credencial"]
         widgets = {
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -737,6 +737,7 @@ class CategoriaForm(forms.ModelForm):
             "max_jugadores": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "categorias_compatibles": forms.SelectMultiple(attrs={"class": "form-select", "size": 4}),
             "campos_permitidos": forms.SelectMultiple(attrs={"class": "form-select", "size": 6}),
+            "fondo_credencial": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
         }
 
     dias_lunes = forms.BooleanField(required=False, label="Lunes")
