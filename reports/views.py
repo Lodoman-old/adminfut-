@@ -1682,19 +1682,39 @@ def reporte_credenciales_pdf(request):
 
             bar_center_x = x + card_w / 2
             p.setFillColor(colors.white)
-            p.setFont(name_font, 12)
+            bar_text_y = y + card_h - bar_h + 5
             league_label = cfg.nombre_liga.upper()
             max_w_team = card_w - 56
-            while p.stringWidth(league_label, name_font, 12) > max_w_team and len(league_label) > 3:
-                league_label = league_label[:-1]
-            p.drawCentredString(bar_center_x, y + card_h - bar_h + 5, league_label)
+            p.setFont(name_font, 12)
+            if p.stringWidth(league_label, name_font, 12) <= max_w_team:
+                p.drawCentredString(bar_center_x, bar_text_y, league_label)
+            else:
+                p.setFont(name_font, 9)
+                words = league_label.split()
+                line1, line2 = "", ""
+                for w in words:
+                    candidate = (line1 + " " + w).strip()
+                    if p.stringWidth(candidate, name_font, 9) <= max_w_team:
+                        line1 = candidate
+                    else:
+                        line2 = (line2 + " " + w).strip()
+                if not line1:
+                    mid = len(league_label) // 2
+                    line1, line2 = league_label[:mid], league_label[mid:]
+                while p.stringWidth(line1, name_font, 9) > max_w_team and len(line1) > 2:
+                    line1 = line1[:-1]
+                while p.stringWidth(line2, name_font, 9) > max_w_team and len(line2) > 2:
+                    line2 = line2[:-1]
+                p.drawCentredString(bar_center_x, bar_text_y + 4, line1)
+                if line2:
+                    p.drawCentredString(bar_center_x, bar_text_y - 4, line2)
 
             # League logo on the right side, overflows the bar into card background
             if cfg.logo:
                 try:
                     logo_size = 36
                     logo_x = x + card_w - 8 - logo_size
-                    logo_y = y + card_h - bar_h + (bar_h - logo_size) / 2
+                    logo_y = y + card_h - logo_size
                     p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
                 except Exception:
                     pass
@@ -1765,34 +1785,53 @@ def reporte_credenciales_pdf(request):
             curp_text = j.curp if j.curp else "S/C"
             outlined_text(text_x, content_y + content_h - 50, f"CURP: {curp_text}", data_font, 8)
 
-            # Team logo + name at bottom-left
-            team_ofs = 10
-            tl_y = content_y + team_ofs
-            team_logo_size = 16
+            # Team logo bigger at bottom-left corner
+            tl_x = x + 8
+            tl_y = y + 8
+            team_logo_size = 24
             logo_drawn = False
             if j.equipo.logo:
                 try:
-                    p.drawImage(j.equipo.logo.url, text_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(j.equipo.logo.url, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
                     logo_drawn = True
                 except Exception:
                     pass
-            team_name_x = text_x + (team_logo_size + 4 if logo_drawn else 0)
-            outlined_text(team_name_x, tl_y + 3, j.equipo.nombre, data_font, 8)
+            team_name_x = tl_x + (team_logo_size + 5 if logo_drawn else 0)
+            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, data_font, 8)
 
-            # Dorsal badge at bottom-right (jersey patch style)
-            badge_w = 40
-            badge_h = 24
-            badge_x = x + card_w - 12 - badge_w
-            badge_y = content_y + team_ofs
-            badge_cx = badge_x + badge_w / 2
-            badge_cy = badge_y + badge_h / 2
+            # Dorsal jersey badge (replicating dashboard CSS jersey shape)
+            jersey_w = 36
+            jersey_body_h = 30
+            jersey_tail = 7
+            jersey_x = x + card_w - 12 - jersey_w
+            jersey_y = tl_y  # bottom of the tail
+            jersey_body_y = jersey_y + jersey_tail
+            jersey_top = jersey_body_y + jersey_body_h
+            jersey_cx = jersey_x + jersey_w / 2
+            jersey_cy = jersey_body_y + jersey_body_h / 2
 
+            # Tail triangle (the V-shaped bottom of the jersey)
             p.setFillColor(colors.HexColor("#222222"))
-            p.roundRect(badge_x, badge_y, badge_w, badge_h, 4, fill=1, stroke=0)
+            tail = p.beginPath()
+            tail.moveTo(jersey_cx, jersey_y)
+            tail.lineTo(jersey_x + jersey_w, jersey_body_y)
+            tail.lineTo(jersey_x, jersey_body_y)
+            tail.close()
+            p.drawPath(tail, fill=1, stroke=0)
+
+            # Jersey body (rectangle with rounded top corners)
+            p.roundRect(jersey_x, jersey_body_y, jersey_w, jersey_body_h, 5, fill=1, stroke=0)
+
+            # Thin white outline around the body
+            p.setStrokeColor(colors.HexColor("#cccccc"))
+            p.setLineWidth(0.5)
+            p.roundRect(jersey_x, jersey_body_y, jersey_w, jersey_body_h, 5, fill=0, stroke=1)
+
+            # Number centered in body
             p.setFillColor(colors.white)
-            p.setFont(name_font, 14)
+            p.setFont(name_font, 11)
             dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
-            p.drawCentredString(badge_cx, badge_cy - 5, dorsal_str)
+            p.drawCentredString(jersey_cx, jersey_cy - 4, dorsal_str)
 
         p.showPage()
         p.save()
