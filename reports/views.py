@@ -1712,8 +1712,8 @@ def reporte_credenciales_pdf(request):
             # League logo on the left side of the bar, bigger
             if cfg.logo:
                 try:
-                    logo_size = 42
-                    logo_x = x + 8
+                    logo_size = 38
+                    logo_x = x + 4
                     logo_y = y + card_h - logo_size
                     p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
                 except Exception:
@@ -1772,22 +1772,22 @@ def reporte_credenciales_pdf(request):
             label = f"{j.nombre} {j.apellido}"
             while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
                 label = label[:-1]
-            outlined_text(text_x, content_y + content_h - 8, label, name_font, 11)
+            outlined_text(text_x, content_y + content_h - 30, label, name_font, 11)
 
             # Category (8pt)
-            outlined_text(text_x, content_y + content_h - 22, cat.nombre, data_font, 8)
+            outlined_text(text_x, content_y + content_h - 46, cat.nombre, data_font, 8)
 
             # Position (8pt)
             pos_map = dict(Jugador.POSICIONES)
-            outlined_text(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 8)
+            outlined_text(text_x, content_y + content_h - 62, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 8)
 
             # CURP (8pt)
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 50, f"CURP: {curp_text}", data_font, 8)
+            outlined_text(text_x, content_y + content_h - 78, f"CURP: {curp_text}", data_font, 8)
 
             # Team logo at bottom-left corner
-            tl_x = x + 8
-            tl_y = y + 8
+            tl_x = x + 4
+            tl_y = y + 4
             team_logo_size = 30
             logo_drawn = False
             if j.equipo.logo:
@@ -1797,7 +1797,7 @@ def reporte_credenciales_pdf(request):
                 except Exception:
                     pass
             team_name_x = tl_x + (team_logo_size + 5 if logo_drawn else 0)
-            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, data_font, 8)
+            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, name_font, 10)
 
             # Dorsal jersey badge (replicating dashboard CSS jersey shape)
             jersey_w = 36
