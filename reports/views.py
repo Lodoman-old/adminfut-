@@ -1610,9 +1610,8 @@ def reporte_credenciales_pdf(request):
             p.rect(border - sign * 22, cy + (ch - 14) / 2, 22, 14, fill=0, stroke=1)
             p.rect(border - sign * 10, cy + (ch - 8) / 2, 10, 8, fill=0, stroke=1)
 
-    bar_h = 22
-    content_top = bar_h + 2
-    content_h = card_h - bar_h - 4
+    bar_h = 26
+    content_pad = 4
 
     for idx, j in enumerate(jugadores):
         pos = idx % (cols * rows)
@@ -1626,6 +1625,8 @@ def reporte_credenciales_pdf(request):
         row = pos // cols
         x = offset_x + col * (card_w + gap_x)
         y = top_y - (row + 1) * card_h - row * gap_y
+        content_y = y + card_h - bar_h - content_pad
+        content_h = card_h - bar_h - content_pad * 2
 
         # Shadow
         p.setFillColor(colors.HexColor("#d0d0d0"))
@@ -1650,12 +1651,12 @@ def reporte_credenciales_pdf(request):
         p.setLineWidth(2.5)
         p.roundRect(x, y, card_w, card_h, 6, fill=0, stroke=1)
 
-        # Dark text panel (right side, behind text only)
-        text_panel_x = x + 86
-        text_panel_y = y + content_top
-        text_panel_w = card_w - text_panel_x + x - 4
+        # Dark text panel (right side, strictly below green bar)
+        text_panel_x = x + 84
+        text_panel_y = content_y
+        text_panel_w = card_w - 88
         text_panel_h = content_h
-        p.setFillColor(colors.HexColor("#1a3a15ee"))
+        p.setFillColor(colors.HexColor("#1a1a1a"))
         p.roundRect(text_panel_x, text_panel_y, text_panel_w, text_panel_h, 3, fill=1, stroke=0)
 
         # Green top bar with team name
@@ -1671,17 +1672,17 @@ def reporte_credenciales_pdf(request):
         p.drawPath(bar_path, fill=1, stroke=0)
 
         p.setFillColor(colors.white)
-        p.setFont(name_font, 9)
+        p.setFont(name_font, 11)
         team_label = equipo.nombre.upper()
         max_w_team = card_w - 16
-        while p.stringWidth(team_label, name_font, 9) > max_w_team and len(team_label) > 3:
+        while p.stringWidth(team_label, name_font, 11) > max_w_team and len(team_label) > 3:
             team_label = team_label[:-1]
-        p.drawCentredString(x + card_w / 2, y + card_h - bar_h + 4, team_label)
+        p.drawCentredString(x + card_w / 2, y + card_h - bar_h + 5, team_label)
 
         # Player photo circle
-        photo_size = 68
+        photo_size = 64
         photo_x = x + 10
-        photo_y = y + content_top + (content_h - photo_size) / 2
+        photo_y = content_y + (content_h - photo_size) / 2
         cx = photo_x + photo_size / 2
         cy = photo_y + photo_size / 2
         cr = photo_size / 2
@@ -1703,59 +1704,59 @@ def reporte_credenciales_pdf(request):
                 p.setFillColor(colors.HexColor("#ddd"))
                 p.circle(cx, cy, cr, fill=1, stroke=0)
                 p.setFillColor(colors.HexColor("#888"))
-                p.setFont(data_font, 24)
-                p.drawCentredString(cx, cy - 8, initials)
+                p.setFont(data_font, 22)
+                p.drawCentredString(cx, cy - 7, initials)
         else:
             p.setFillColor(colors.HexColor("#eee"))
             p.circle(cx, cy, cr, fill=1, stroke=0)
             p.setFillColor(colors.HexColor("#999"))
-            p.setFont(data_font, 24)
+            p.setFont(data_font, 22)
             initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
-            p.drawCentredString(cx, cy - 8, initials)
+            p.drawCentredString(cx, cy - 7, initials)
 
         # Player info on dark panel
         text_x = text_panel_x + 6
         avail_w = text_panel_w - 12
-        y_line = text_panel_y + text_panel_h - 9
+        y_line = text_panel_y + text_panel_h - 8
 
         # Name (white, larger)
         p.setFillColor(colors.white)
-        p.setFont(name_font, 9)
+        p.setFont(name_font, 11)
         label = f"{j.nombre} {j.apellido}"
-        while p.stringWidth(label, name_font, 9) > avail_w and len(label) > 3:
+        while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
             label = label[:-1]
         p.drawString(text_x, y_line, label)
-        y_line -= 12
+        y_line -= 14
 
-        # Category (lighter green text, no badge)
-        p.setFont(data_font, 6.5)
+        # Category (larger, light green)
+        p.setFont(data_font, 8)
         p.setFillColor(colors.HexColor("#a5d6a7"))
         p.drawString(text_x, y_line, categoria.nombre)
-        y_line -= 13
+        y_line -= 14
 
         # Separator line
-        p.setStrokeColor(colors.HexColor("#4a8c4a"))
+        p.setStrokeColor(colors.HexColor("#555555"))
         p.setLineWidth(0.5)
         p.line(text_x, y_line + 2, text_x + avail_w, y_line + 2)
-        y_line -= 5
+        y_line -= 7
 
         # Data lines (white)
         p.setFillColor(colors.white)
-        p.setFont(data_font, 7.5)
+        p.setFont(data_font, 8)
         p.drawString(text_x, y_line, f"Dorsal: #{j.dorsal or '-'}")
-        y_line -= 11
+        y_line -= 12
 
         pos_map = dict(Jugador.POSICIONES)
         p.drawString(text_x, y_line, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
-        y_line -= 11
+        y_line -= 12
 
         curp_text = j.curp if j.curp else "S/C"
         p.drawString(text_x, y_line, f"CURP: {curp_text}")
-        y_line -= 11
+        y_line -= 12
 
-        # League name (smaller, lighter)
-        p.setFont(data_font, 6)
-        p.setFillColor(colors.HexColor("#a5d6a7"))
+        # League name
+        p.setFont(data_font, 7)
+        p.setFillColor(colors.HexColor("#999999"))
         p.drawString(text_x, y_line, cfg.nombre_liga)
         p.setFillColor(colors.black)
 
