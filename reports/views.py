@@ -1700,6 +1700,7 @@ def reporte_credenciales_pdf(request):
         p.setLineWidth(1.5)
         p.circle(cx, cy, cr + 1, fill=1, stroke=1)
 
+        initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
         if j.foto:
             try:
                 p.saveState()
@@ -1719,7 +1720,6 @@ def reporte_credenciales_pdf(request):
             p.circle(cx, cy, cr, fill=1, stroke=0)
             p.setFillColor(colors.HexColor("#999"))
             p.setFont(data_font, 22)
-            initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
             p.drawCentredString(cx, cy - 7, initials)
 
         # Player info (right of photo)
@@ -1741,9 +1741,12 @@ def reporte_credenciales_pdf(request):
 
         p.setFillColor(colors.HexColor("#222222"))
         p.setFont(name_font, 22)
-        p.drawCentredString(dorsal_cx, dorsal_cy - 7, str(j.dorsal or "?"))
+        p.drawCentredString(dorsal_cx, dorsal_cy - 7, str(j.dorsal) if j.dorsal is not None else "?")
 
-        p.setTextRenderMode(2)
+        try:
+            p.setTextRenderMode(2)
+        except AttributeError:
+            pass
 
         # Name (white fill + dark outline)
         p.setFillColor(colors.white)
@@ -1762,7 +1765,7 @@ def reporte_credenciales_pdf(request):
         # Data
         y_data = content_y + content_h - 34
         p.setFont(data_font, 8)
-        p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal or '-'}")
+        p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal if j.dorsal is not None else '-'}")
         y_data -= 12
 
         pos_map = dict(Jugador.POSICIONES)
@@ -1781,7 +1784,10 @@ def reporte_credenciales_pdf(request):
         p.setFont(data_font, 7)
         p.drawString(text_x, y_data, cfg.nombre_liga)
 
-        p.setTextRenderMode(0)
+        try:
+            p.setTextRenderMode(0)
+        except AttributeError:
+            pass
 
     p.showPage()
     p.save()

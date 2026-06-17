@@ -16,18 +16,19 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label">Equipo</label>
-                <select name="equipo" class="form-select" required>
+                <select name="equipo" class="form-select" required onchange="this.form.submit()">
                     <option value="">-- Seleccionar --</option>
                     {% for e in equipos %}<option value="{{ e.id }}" {% if equipo_id == e.id %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
                 </select>
             </div>
             <div class="col-12 d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
-                <a href="{% url 'reporte_credenciales' %}" class="btn btn-secondary">Limpiar</a>
+                <a href="{% url 'reporte_credenciales' %}" class="btn btn-secondary">Limpiar filtros</a>
                 {% if equipo_id and jugadores %}
                 <a href="{% url 'reporte_credenciales_pdf' %}?equipo={{ equipo_id }}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF (todos)</a>
                 {% endif %}
                 <button type="button" id="btnSelectedPdf" class="btn btn-outline-danger" disabled onclick="generateSelectedPdf()"><i class="bi bi-filetype-pdf"></i> PDF seleccionados <span id="selectedCount">0</span></button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">Limpiar selección</button>
             </div>
         </form>
         <hr>
@@ -72,12 +73,33 @@
 <script>
 let selected = new Set();
 
+function loadSelection() {
+    try {
+        const stored = localStorage.getItem('selectedJugadores');
+        if (stored) {
+            const ids = JSON.parse(stored);
+            selected = new Set(ids);
+            document.querySelectorAll('.player-check').forEach(cb => {
+                cb.checked = selected.has(parseInt(cb.value));
+            });
+            updateSelectedBtn();
+        }
+    } catch(e) {}
+}
+
+function saveSelection() {
+    try {
+        localStorage.setItem('selectedJugadores', JSON.stringify(Array.from(selected)));
+    } catch(e) {}
+}
+
 function togglePlayer(id, checked) {
     if (checked) {
         selected.add(id);
     } else {
         selected.delete(id);
     }
+    saveSelection();
     updateSelectedBtn();
 }
 
@@ -93,5 +115,14 @@ function generateSelectedPdf() {
     const ids = Array.from(selected).join(',');
     window.open("{% url 'reporte_credenciales_pdf' %}?jugadores=" + ids, '_blank');
 }
+
+function clearSelection() {
+    selected.clear();
+    saveSelection();
+    document.querySelectorAll('.player-check').forEach(cb => cb.checked = false);
+    updateSelectedBtn();
+}
+
+document.addEventListener('DOMContentLoaded', loadSelection);
 </script>
 {% endblock %}
