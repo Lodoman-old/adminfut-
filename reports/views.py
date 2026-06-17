@@ -1709,11 +1709,11 @@ def reporte_credenciales_pdf(request):
                 if line2:
                     p.drawCentredString(bar_center_x, bar_text_y - 4, line2)
 
-            # League logo on the right side, overflows the bar into card background
+            # League logo on the left side of the bar, bigger
             if cfg.logo:
                 try:
-                    logo_size = 36
-                    logo_x = x + card_w - 8 - logo_size
+                    logo_size = 42
+                    logo_x = x + 8
                     logo_y = y + card_h - logo_size
                     p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
                 except Exception:
@@ -1785,10 +1785,10 @@ def reporte_credenciales_pdf(request):
             curp_text = j.curp if j.curp else "S/C"
             outlined_text(text_x, content_y + content_h - 50, f"CURP: {curp_text}", data_font, 8)
 
-            # Team logo bigger at bottom-left corner
+            # Team logo at bottom-left corner
             tl_x = x + 8
             tl_y = y + 8
-            team_logo_size = 24
+            team_logo_size = 30
             logo_drawn = False
             if j.equipo.logo:
                 try:
