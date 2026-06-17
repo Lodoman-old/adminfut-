@@ -1,12 +1,33 @@
 import uuid
-from django.db import models
+from django.db import models, ProgrammingError
+from django.db.models import Manager
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from PIL import Image
 
 
+class CategoriaQuerySet(models.QuerySet):
+    def _fetch_all(self):
+        try:
+            super()._fetch_all()
+        except ProgrammingError as e:
+            if "does not exist" in str(e) and "fondo_credencial" in str(e):
+                from django.db import connection
+                with connection.cursor() as cur:
+                    cur.execute("ALTER TABLE league_categoria ADD COLUMN IF NOT EXISTS fondo_credencial varchar(200) NOT NULL DEFAULT ''")
+                super()._fetch_all()
+            else:
+                raise
+
+
+class CategoriaManager(Manager):
+    def get_queryset(self):
+        return CategoriaQuerySet(self.model, using=self._db)
+
+
 class Categoria(models.Model):
+    objects = CategoriaManager()
     DIAS_SEMANA = [
         ("LUN", "Lunes"), ("MAR", "Martes"), ("MIE", "Miércoles"),
         ("JUE", "Jueves"), ("VIE", "Viernes"), ("SAB", "Sábado"),
