@@ -1625,8 +1625,9 @@ def reporte_credenciales_pdf(request):
         row = pos // cols
         x = offset_x + col * (card_w + gap_x)
         y = top_y - (row + 1) * card_h - row * gap_y
-        content_y = y + card_h - bar_h - content_pad
-        content_h = card_h - bar_h - content_pad * 2
+        content_y = y + content_pad
+        content_h_top = y + card_h - bar_h - content_pad
+        content_h = content_h_top - content_y
 
         # Shadow
         p.setFillColor(colors.HexColor("#d0d0d0"))
@@ -1710,28 +1711,27 @@ def reporte_credenciales_pdf(request):
         text_x = x + 86
         avail_w = card_w - text_x - 8
 
-        # Name (dark green, bold)
-        p.setFillColor(colors.HexColor("#1a3a15"))
+        # Name (white, bold)
+        p.setFillColor(colors.white)
         p.setFont(name_font, 11)
         label = f"{j.nombre} {j.apellido}"
         while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
             label = label[:-1]
         p.drawString(text_x, content_y + content_h - 8, label)
 
-        # Category (dark green, smaller)
+        # Category (white, smaller)
         p.setFont(data_font, 8)
-        p.setFillColor(colors.HexColor("#2d6b2e"))
         p.drawString(text_x, content_y + content_h - 22, categoria.nombre)
 
         # Separator
         y_sep = content_y + content_h - 30
-        p.setStrokeColor(colors.HexColor("#c8e6c9"))
+        p.setStrokeColor(colors.white)
         p.setLineWidth(0.5)
+        p.setFillColor(colors.white)
         p.line(text_x, y_sep, text_x + avail_w, y_sep)
 
         # Data
         y_data = y_sep - 6
-        p.setFillColor(colors.HexColor("#333333"))
         p.setFont(data_font, 8)
         p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal or '-'}")
         y_data -= 12
@@ -1746,9 +1746,7 @@ def reporte_credenciales_pdf(request):
 
         # League name
         p.setFont(data_font, 7)
-        p.setFillColor(colors.HexColor("#666666"))
         p.drawString(text_x, y_data, cfg.nombre_liga)
-        p.setFillColor(colors.black)
 
     p.showPage()
     p.save()
