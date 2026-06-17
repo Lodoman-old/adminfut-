@@ -651,7 +651,6 @@ def suspender_jornada(request, jornada_id):
         return redirect("jornada_list")
 
     delta = datetime.timedelta(weeks=semanas)
-    now = timezone.now()
 
     # Mark jornada as suspended
     jornada.estado = "SUSPENDIDA"
@@ -659,12 +658,11 @@ def suspender_jornada(request, jornada_id):
     jornada.semanas_suspension = semanas
     jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension"])
 
-    # Shift ALL matches in jornadas >= this numero by `delta`
+    # Shift ALL future (non-finalized) matches in jornadas >= this numero by `delta`
     qs = Partido.objects.filter(
         temporada=jornada.temporada,
         jornada__numero__gte=jornada.numero,
-        fecha_hora__gte=now,
-    )
+    ).exclude(estado="FIN")
     for p in qs.iterator():
         p.fecha_hora += delta
         p.estado = "PEND"
