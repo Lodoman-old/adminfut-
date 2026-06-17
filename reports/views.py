@@ -1734,36 +1734,36 @@ def reporte_credenciales_pdf(request):
                 p.setFont(data_font, 22)
                 p.drawCentredString(cx, cy - 7, initials)
 
+            # Helper to draw text with outline (shadow method, compatible with all ReportLab versions)
+            def outlined_text(x, y, text, font_name, font_size, outline_color=colors.HexColor("#222222"), fill_color=colors.white):
+                p.setFillColor(outline_color)
+                for dx, dy in [(-0.6, -0.6), (-0.6, 0.6), (0.6, -0.6), (0.6, 0.6)]:
+                    p.setFont(font_name, font_size)
+                    p.drawString(x + dx, y + dy, text)
+                p.setFillColor(fill_color)
+                p.setFont(font_name, font_size)
+                p.drawString(x, y, text)
+
             # Player info (right of photo)
             text_x = x + 86
             avail_w = 110
 
-            try:
-                p.setTextRenderMode(2)
-            except AttributeError:
-                pass
-            p.setFillColor(colors.white)
-            p.setStrokeColor(colors.HexColor("#222222"))
-            p.setLineWidth(1.5)
-
-            # Name
-            p.setFont(name_font, 11)
+            # Name (11pt bold)
             label = f"{j.nombre} {j.apellido}"
             while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
                 label = label[:-1]
-            p.drawString(text_x, content_y + content_h - 8, label)
+            outlined_text(text_x, content_y + content_h - 8, label, name_font, 11)
 
-            # Category
-            p.setFont(data_font, 8)
-            p.drawString(text_x, content_y + content_h - 22, cat.nombre)
+            # Category (8pt)
+            outlined_text(text_x, content_y + content_h - 22, cat.nombre, data_font, 8)
 
-            # Position
+            # Position (8pt)
             pos_map = dict(Jugador.POSICIONES)
-            p.drawString(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
+            outlined_text(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 8)
 
-            # CURP
+            # CURP (8pt)
             curp_text = j.curp if j.curp else "S/C"
-            p.drawString(text_x, content_y + content_h - 50, f"CURP: {curp_text}")
+            outlined_text(text_x, content_y + content_h - 50, f"CURP: {curp_text}", data_font, 8)
 
             # Team logo + name at bottom-left
             team_ofs = 10
@@ -1777,8 +1777,7 @@ def reporte_credenciales_pdf(request):
                 except Exception:
                     pass
             team_name_x = text_x + (team_logo_size + 4 if logo_drawn else 0)
-            p.setFont(data_font, 8)
-            p.drawString(team_name_x, tl_y + 3, j.equipo.nombre)
+            outlined_text(team_name_x, tl_y + 3, j.equipo.nombre, data_font, 8)
 
             # Dorsal badge at bottom-right (jersey patch style)
             badge_w = 40
@@ -1788,18 +1787,12 @@ def reporte_credenciales_pdf(request):
             badge_cx = badge_x + badge_w / 2
             badge_cy = badge_y + badge_h / 2
 
-            p.setTextRenderMode(0)
             p.setFillColor(colors.HexColor("#222222"))
             p.roundRect(badge_x, badge_y, badge_w, badge_h, 4, fill=1, stroke=0)
             p.setFillColor(colors.white)
             p.setFont(name_font, 14)
             dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
             p.drawCentredString(badge_cx, badge_cy - 5, dorsal_str)
-
-            try:
-                p.setTextRenderMode(0)
-            except AttributeError:
-                pass
 
         p.showPage()
         p.save()
