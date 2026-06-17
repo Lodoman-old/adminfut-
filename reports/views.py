@@ -1571,14 +1571,30 @@ def reporte_credenciales(request):
 def reporte_credenciales_pdf(request):
     if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("credenciales_ver", False):
         return redirect("login")
+
+    jugadores_ids = request.GET.get("jugadores")
     equipo_id = request.GET.get("equipo")
-    if not equipo_id:
+
+    if jugadores_ids:
+        ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
+        jugadores = list(Jugador.objects.filter(id__in=ids, activo=True).select_related("equipo__categoria").order_by("equipo__nombre", "dorsal"))
+        if not jugadores:
+            messages.error(request, "No se encontraron jugadores seleccionados.")
+            return redirect("reporte_credenciales")
+        teams = set(j.equipo.nombre for j in jugadores)
+        filename = f"credenciales_{list(teams)[0]}.pdf" if len(teams) == 1 else "credenciales_seleccionadas.pdf"
+    elif equipo_id:
+        jugadores = list(Jugador.objects.filter(equipo_id=equipo_id, activo=True).select_related("equipo__categoria").order_by("dorsal"))
+        if not jugadores:
+            messages.error(request, "El equipo no tiene jugadores activos.")
+            return redirect("reporte_credenciales")
+        filename = f"credenciales_{jugadores[0].equipo.nombre}.pdf"
+    else:
+        messages.error(request, "Selecciona un equipo o jugadores.")
         return redirect("reporte_credenciales")
-    equipo = get_object_or_404(Equipo.objects.select_related("categoria"), pk=equipo_id)
-    jugadores = list(Jugador.objects.filter(equipo=equipo, activo=True).order_by("dorsal"))
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f"attachment; filename=credenciales_{equipo.nombre}.pdf"
+    response["Content-Disposition"] = f"attachment; filename={filename}"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
 
@@ -1594,7 +1610,6 @@ def reporte_credenciales_pdf(request):
     top_y = h - (h - total_h) / 2
 
     cfg = ConfiguracionLiga.obtener()
-    categoria = equipo.categoria
     name_font = "Helvetica-Bold"
     data_font = "Helvetica"
 
@@ -1629,6 +1644,8 @@ def reporte_credenciales_pdf(request):
         content_h_top = y + card_h - bar_h - content_pad
         content_h = content_h_top - content_y
 
+        cat = j.equipo.categoria
+
         # Shadow
         p.setFillColor(colors.HexColor("#d0d0d0"))
         p.roundRect(x + 2, y - 2, card_w, card_h, 6, fill=1, stroke=0)
@@ -1638,9 +1655,9 @@ def reporte_credenciales_pdf(request):
         clip = p.beginPath()
         clip.roundRect(x, y, card_w, card_h, 6)
         p.clipPath(clip, stroke=0, fill=0)
-        if categoria.fondo_credencial:
+        if cat.fondo_credencial:
             try:
-                p.drawImage(categoria.fondo_credencial.url, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
+                p.drawImage(cat.fondo_credencial.url, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
             except Exception:
                 pass
         else:
@@ -1666,7 +1683,7 @@ def reporte_credenciales_pdf(request):
 
         p.setFillColor(colors.white)
         p.setFont(name_font, 11)
-        team_label = equipo.nombre.upper()
+        team_label = j.equipo.nombre.upper()
         max_w_team = card_w - 16
         while p.stringWidth(team_label, name_font, 11) > max_w_team and len(team_label) > 3:
             team_label = team_label[:-1]
@@ -1721,7 +1738,7 @@ def reporte_credenciales_pdf(request):
 
         # Category (white, smaller)
         p.setFont(data_font, 8)
-        p.drawString(text_x, content_y + content_h - 22, categoria.nombre)
+        p.drawString(text_x, content_y + content_h - 22, cat.nombre)
 
         # Separator
         y_sep = content_y + content_h - 30
