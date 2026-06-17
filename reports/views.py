@@ -1681,6 +1681,8 @@ def reporte_credenciales_pdf(request):
             p.drawPath(bar_path, fill=1, stroke=0)
 
             bar_center_x = x + card_w / 2
+            if cfg.logo:
+                bar_center_x = x + 54 + (card_w - 54) / 2  # avoid overlap with logo
             p.setFillColor(colors.white)
             bar_text_y = y + card_h - bar_h + 5
             league_label = cfg.nombre_liga.upper()
@@ -1722,7 +1724,7 @@ def reporte_credenciales_pdf(request):
             # Player photo circle
             photo_size = 64
             photo_x = x + 10
-            photo_y = content_y + (content_h - photo_size) / 2
+            photo_y = content_y + (content_h - photo_size) / 2 + 4
             cx = photo_x + photo_size / 2
             cy = photo_y + photo_size / 2
             cr = photo_size / 2
