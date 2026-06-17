@@ -34,9 +34,14 @@
     <thead><tr><th>#</th><th>Nombre</th><th>Desde</th><th>Hasta</th><th>Temporada</th><th>Partidos</th><th>Acciones</th></tr></thead>
         <tbody>
             {% for j in jornadas %}
-            <tr{% if j.pendientes %} class="table-warning"{% endif %}>
+            <tr class="{% if j.estado == 'SUSPENDIDA' %}table-danger{% elif j.pendientes %}table-warning{% endif %}">
                 <td>{{ j.numero }}</td>
-                <td>{{ j.nombre }}</td>
+                <td>
+                    {{ j.nombre }}
+                    {% if j.estado == "SUSPENDIDA" %}
+                    <span class="badge bg-danger ms-1">Suspendida {{ j.semanas_suspension }}sem</span>
+                    {% endif %}
+                </td>
                 <td>{% if j.min_fecha %}{{ j.min_fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
                 <td>{% if j.max_fecha %}{{ j.max_fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
                 <td>{{ j.temporada }}</td>
@@ -49,6 +54,20 @@
                     <button data-href="{% url 'publicar_jornada_facebook' j.id %}" class="btn btn-sm btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarJornadaModal" title="Publicar en Facebook">
                         <i class="bi bi-facebook"></i>
                     </button>
+                    {% endif %}
+                    {% if user|tiene_permiso:"jornada_suspender" and j.temporada.iniciada %}
+                        {% if j.estado == "ACTIVA" %}
+                        <button data-href="{% url 'suspender_jornada' j.id %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#suspenderJornadaModal" title="Suspender jornada">
+                            <i class="bi bi-pause-circle"></i>
+                        </button>
+                        {% else %}
+                        <form method="post" action="{% url 'reactivar_jornada' j.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivar jornada" onclick="return confirm('¿Reactivar la jornada {{ j.numero }}? Los partidos pasarán a Pendiente.')">
+                                <i class="bi bi-play-circle"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                     {% endif %}
                 </td>
             </tr>
@@ -97,6 +116,42 @@
     </div>
 </div>
 
+<!-- Modal Suspender Jornada -->
+<div class="modal fade" id="suspenderJornadaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-pause-circle"></i> Suspender Jornada</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="#" id="suspenderJornadaForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de suspensión</label>
+                        <textarea name="motivo" class="form-control" rows="3" placeholder="Lluvia, causa de fuerza mayor, etc." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Semanas a suspender</label>
+                        <select name="semanas" class="form-select" required>
+                            <option value="">-- Seleccionar --</option>
+                            <option value="1">1 semana</option>
+                            <option value="2">2 semanas</option>
+                            <option value="3">3 semanas</option>
+                            <option value="4">4 semanas</option>
+                        </select>
+                        <div class="form-text text-muted">Todo el calendario desde esta jornada se recorrerá esta cantidad de semanas.</div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-pause-circle"></i> Sí, suspender</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Publicar Rol en Facebook -->
 <div class="modal fade" id="publicarRolFacebookModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -138,6 +193,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (pubRolModal) {
         pubRolModal.addEventListener('show.bs.modal', function(event) {
             pubRolBtn.href = event.relatedTarget.getAttribute('data-href');
+        });
+    }
+    var suspModal = document.getElementById('suspenderJornadaModal');
+    var suspForm = document.getElementById('suspenderJornadaForm');
+    if (suspModal) {
+        suspModal.addEventListener('show.bs.modal', function(event) {
+            var href = event.relatedTarget.getAttribute('data-href');
+            suspForm.action = href;
         });
     }
 });

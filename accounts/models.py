@@ -43,6 +43,7 @@ PERMISOS_MENU = {
         "Jornadas": [
             ("gestion_jornadas", "Acceso a Jornadas"),
             ("jornada_publicar", "Publicar en Facebook"),
+            ("jornada_suspender", "Suspender / Reactivar Jornadas"),
         ],
         "Partidos": [
             ("gestion_partidos", "Acceso a Partidos"),

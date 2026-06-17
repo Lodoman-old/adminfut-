@@ -626,6 +626,81 @@ def finalizar_temporada(request, pk):
     })
 
 
+@login_required
+def suspender_jornada(request, jornada_id):
+    if not request.user.tiene_permiso("jornada_suspender"):
+        messages.error(request, "No tienes permiso para suspender jornadas.")
+        return redirect("jornada_list")
+    jornada = get_object_or_404(Jornada, id=jornada_id)
+    if jornada.estado == "SUSPENDIDA":
+        messages.error(request, "La jornada ya está suspendida.")
+        return redirect("jornada_list")
+
+    motivo = request.POST.get("motivo", "").strip()
+    semanas_str = request.POST.get("semanas", "").strip()
+    if not motivo:
+        messages.error(request, "Debes escribir un motivo de suspensión.")
+        return redirect("jornada_list")
+    try:
+        semanas = int(semanas_str)
+        if semanas < 1:
+            raise ValueError
+    except (ValueError, TypeError):
+        messages.error(request, "Debes indicar un número válido de semanas (1-4).")
+        return redirect("jornada_list")
+
+    delta = datetime.timedelta(weeks=semanas)
+    now = timezone.now()
+
+    # Mark jornada as suspended
+    jornada.estado = "SUSPENDIDA"
+    jornada.motivo_suspension = motivo
+    jornada.semanas_suspension = semanas
+    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension"])
+
+    # Shift ALL matches in jornadas >= this numero by `delta`
+    qs = Partido.objects.filter(
+        temporada=jornada.temporada,
+        jornada__numero__gte=jornada.numero,
+        fecha_hora__gte=now,
+    )
+    for p in qs.iterator():
+        p.fecha_hora += delta
+        p.estado = "PEND"
+        p.save(update_fields=["fecha_hora", "estado"])
+
+    # Update season end date
+    jornada.temporada.actualizar_fecha_fin()
+
+    messages.success(
+        request,
+        f"Jornada {jornada.numero} suspendida ({semanas} semana{'s' if semanas > 1 else ''}). "
+        f"Calendario recorrido a partir de la jornada {jornada.numero}."
+    )
+    return redirect("jornada_list")
+
+
+@login_required
+def reactivar_jornada(request, jornada_id):
+    if not request.user.tiene_permiso("jornada_suspender"):
+        messages.error(request, "No tienes permiso para reactivar jornadas.")
+        return redirect("jornada_list")
+    jornada = get_object_or_404(Jornada, id=jornada_id)
+    if jornada.estado != "SUSPENDIDA":
+        messages.error(request, "La jornada no está suspendida.")
+        return redirect("jornada_list")
+
+    # Reactivate: set SUSP matches back to PEND (only this jornada)
+    jornada.partidos.filter(estado="SUSP").update(estado="PEND")
+    jornada.estado = "ACTIVA"
+    jornada.motivo_suspension = ""
+    jornada.semanas_suspension = None
+    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension"])
+
+    messages.success(request, f"Jornada {jornada.numero} reactivada.")
+    return redirect("jornada_list")
+
+
 def reabrir_temporada(request, pk):
     temporada = get_object_or_404(Temporada, pk=pk)
     if not request.user.is_superuser:

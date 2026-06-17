@@ -1248,11 +1248,18 @@ class Grupo(models.Model):
 
 
 class Jornada(models.Model):
+    ESTADOS = [
+        ("ACTIVA", "Activa"),
+        ("SUSPENDIDA", "Suspendida"),
+    ]
     temporada = models.ForeignKey(
         Temporada, on_delete=models.CASCADE, related_name="jornadas"
     )
     numero = models.IntegerField()
     nombre = models.CharField(max_length=100)
+    estado = models.CharField(max_length=10, choices=ESTADOS, default="ACTIVA")
+    motivo_suspension = models.TextField(blank=True)
+    semanas_suspension = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Jornada"

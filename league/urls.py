@@ -39,6 +39,8 @@ urlpatterns = [
     path("temporadas/<int:pk>/reincorporar/<int:equipo_pk>/", views.desmarcar_abandono, name="desmarcar_abandono"),
 
     path("jornadas/", views.JornadaListView.as_view(), name="jornada_list"),
+    path("jornadas/<int:jornada_id>/suspender/", views.suspender_jornada, name="suspender_jornada"),
+    path("jornadas/<int:jornada_id>/reactivar/", views.reactivar_jornada, name="reactivar_jornada"),
 
     path("periodo-altas/", views.PeriodoAltasListView.as_view(), name="periodoaltas_list"),
     path("periodo-altas/nuevo/", views.PeriodoAltasCreateView.as_view(), name="periodoaltas_create"),
