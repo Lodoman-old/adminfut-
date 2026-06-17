@@ -1593,216 +1593,222 @@ def reporte_credenciales_pdf(request):
         messages.error(request, "Selecciona un equipo o jugadores.")
         return redirect("reporte_credenciales")
 
-    response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f"attachment; filename={filename}"
-    p = canvas.Canvas(response, pagesize=letter)
-    w, h = letter
+    try:
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+        p = canvas.Canvas(response, pagesize=letter)
+        w, h = letter
 
-    card_w = 243
-    card_h = 153
-    gap_x = 40
-    gap_y = 30
-    cols = 2
-    rows = 4
-    total_w = cols * card_w + (cols - 1) * gap_x
-    total_h = rows * card_h + (rows - 1) * gap_y
-    offset_x = (w - total_w) / 2
-    top_y = h - (h - total_h) / 2
+        card_w = 243
+        card_h = 153
+        gap_x = 40
+        gap_y = 30
+        cols = 2
+        rows = 4
+        total_w = cols * card_w + (cols - 1) * gap_x
+        total_h = rows * card_h + (rows - 1) * gap_y
+        offset_x = (w - total_w) / 2
+        top_y = h - (h - total_h) / 2
 
-    cfg = ConfiguracionLiga.obtener()
-    name_font = "Helvetica-Bold"
-    data_font = "Helvetica"
+        cfg = ConfiguracionLiga.obtener()
+        name_font = "Helvetica-Bold"
+        data_font = "Helvetica"
 
-    def draw_soccer_bg(cx, cy, cw, ch):
-        p.setStrokeColor(colors.HexColor("#d5edd5"))
-        p.setLineWidth(0.3)
-        p.rect(cx + 4, cy + 4, cw - 8, ch - 8, fill=0, stroke=1)
-        p.line(cx + cw / 2, cy + 4, cx + cw / 2, cy + ch - 4)
-        p.circle(cx + cw / 2, cy + ch / 2, 10, fill=0, stroke=1)
-        for left in [True, False]:
-            sign = 1 if left else -1
-            border = cx if left else cx + cw
-            p.rect(border - sign * 22, cy + (ch - 14) / 2, 22, 14, fill=0, stroke=1)
-            p.rect(border - sign * 10, cy + (ch - 8) / 2, 10, 8, fill=0, stroke=1)
+        def draw_soccer_bg(cx, cy, cw, ch):
+            p.setStrokeColor(colors.HexColor("#d5edd5"))
+            p.setLineWidth(0.3)
+            p.rect(cx + 4, cy + 4, cw - 8, ch - 8, fill=0, stroke=1)
+            p.line(cx + cw / 2, cy + 4, cx + cw / 2, cy + ch - 4)
+            p.circle(cx + cw / 2, cy + ch / 2, 10, fill=0, stroke=1)
+            for left in [True, False]:
+                sign = 1 if left else -1
+                border = cx if left else cx + cw
+                p.rect(border - sign * 22, cy + (ch - 14) / 2, 22, 14, fill=0, stroke=1)
+                p.rect(border - sign * 10, cy + (ch - 8) / 2, 10, 8, fill=0, stroke=1)
 
-    bar_h = 26
-    content_pad = 4
+        bar_h = 26
+        content_pad = 4
 
-    for idx, j in enumerate(jugadores):
-        pos = idx % (cols * rows)
-        if pos == 0:
-            if idx > 0:
-                p.showPage()
+        for idx, j in enumerate(jugadores):
+            pos = idx % (cols * rows)
+            if pos == 0:
+                if idx > 0:
+                    p.showPage()
 
-        col = pos % cols
-        row = pos // cols
-        x = offset_x + col * (card_w + gap_x)
-        y = top_y - (row + 1) * card_h - row * gap_y
-        content_y = y + content_pad
-        content_h_top = y + card_h - bar_h - content_pad
-        content_h = content_h_top - content_y
+            col = pos % cols
+            row = pos // cols
+            x = offset_x + col * (card_w + gap_x)
+            y = top_y - (row + 1) * card_h - row * gap_y
+            content_y = y + content_pad
+            content_h_top = y + card_h - bar_h - content_pad
+            content_h = content_h_top - content_y
 
-        cat = j.equipo.categoria
+            cat = j.equipo.categoria
 
-        # Shadow
-        p.setFillColor(colors.HexColor("#d0d0d0"))
-        p.roundRect(x + 2, y - 2, card_w, card_h, 6, fill=1, stroke=0)
+            # Shadow
+            p.setFillColor(colors.HexColor("#d0d0d0"))
+            p.roundRect(x + 2, y - 2, card_w, card_h, 6, fill=1, stroke=0)
 
-        # Card background (image or soccer pattern)
-        p.saveState()
-        clip = p.beginPath()
-        clip.roundRect(x, y, card_w, card_h, 6)
-        p.clipPath(clip, stroke=0, fill=0)
-        if cat.fondo_credencial:
-            try:
-                p.drawImage(cat.fondo_credencial.url, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
-            except Exception:
-                pass
-        else:
-            draw_soccer_bg(x, y, card_w, card_h)
-        p.restoreState()
+            # Card background (image or soccer pattern)
+            p.saveState()
+            clip = p.beginPath()
+            clip.roundRect(x, y, card_w, card_h, 6)
+            p.clipPath(clip, stroke=0, fill=0)
+            if cat.fondo_credencial:
+                try:
+                    p.drawImage(cat.fondo_credencial.url, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
+                except Exception:
+                    pass
+            else:
+                draw_soccer_bg(x, y, card_w, card_h)
+            p.restoreState()
 
-        # Card border
-        p.setStrokeColor(colors.HexColor("#2d6b2e"))
-        p.setLineWidth(2.5)
-        p.roundRect(x, y, card_w, card_h, 6, fill=0, stroke=1)
+            # Card border
+            p.setStrokeColor(colors.HexColor("#2d6b2e"))
+            p.setLineWidth(2.5)
+            p.roundRect(x, y, card_w, card_h, 6, fill=0, stroke=1)
 
-        # Green top bar with team name
-        p.setFillColor(colors.HexColor("#2d6b2e"))
-        bar_path = p.beginPath()
-        bar_path.moveTo(x + 6, y + card_h)
-        bar_path.lineTo(x + card_w - 6, y + card_h)
-        bar_path.lineTo(x + card_w, y + card_h - 6)
-        bar_path.lineTo(x + card_w, y + card_h - bar_h)
-        bar_path.lineTo(x, y + card_h - bar_h)
-        bar_path.lineTo(x, y + card_h - 6)
-        bar_path.close()
-        p.drawPath(bar_path, fill=1, stroke=0)
+            # Green top bar with team name
+            p.setFillColor(colors.HexColor("#2d6b2e"))
+            bar_path = p.beginPath()
+            bar_path.moveTo(x + 6, y + card_h)
+            bar_path.lineTo(x + card_w - 6, y + card_h)
+            bar_path.lineTo(x + card_w, y + card_h - 6)
+            bar_path.lineTo(x + card_w, y + card_h - bar_h)
+            bar_path.lineTo(x, y + card_h - bar_h)
+            bar_path.lineTo(x, y + card_h - 6)
+            bar_path.close()
+            p.drawPath(bar_path, fill=1, stroke=0)
 
-        bar_center_x = x + card_w / 2
-        p.setFillColor(colors.white)
-        p.setFont(name_font, 12)
-        league_label = cfg.nombre_liga.upper()
-        max_w_team = card_w - 56
-        while p.stringWidth(league_label, name_font, 12) > max_w_team and len(league_label) > 3:
-            league_label = league_label[:-1]
-        p.drawCentredString(bar_center_x, y + card_h - bar_h + 5, league_label)
+            bar_center_x = x + card_w / 2
+            p.setFillColor(colors.white)
+            p.setFont(name_font, 12)
+            league_label = cfg.nombre_liga.upper()
+            max_w_team = card_w - 56
+            while p.stringWidth(league_label, name_font, 12) > max_w_team and len(league_label) > 3:
+                league_label = league_label[:-1]
+            p.drawCentredString(bar_center_x, y + card_h - bar_h + 5, league_label)
 
-        # League logo on the right side, overflows the bar into card background
-        if cfg.logo:
-            try:
-                logo_size = 36
-                logo_x = x + card_w - 8 - logo_size
-                logo_y = y + card_h - bar_h + (bar_h - logo_size) / 2
-                p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
-            except Exception:
-                pass
+            # League logo on the right side, overflows the bar into card background
+            if cfg.logo:
+                try:
+                    logo_size = 36
+                    logo_x = x + card_w - 8 - logo_size
+                    logo_y = y + card_h - bar_h + (bar_h - logo_size) / 2
+                    p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                except Exception:
+                    pass
 
-        # Player photo circle
-        photo_size = 64
-        photo_x = x + 10
-        photo_y = content_y + (content_h - photo_size) / 2
-        cx = photo_x + photo_size / 2
-        cy = photo_y + photo_size / 2
-        cr = photo_size / 2
+            # Player photo circle
+            photo_size = 64
+            photo_x = x + 10
+            photo_y = content_y + (content_h - photo_size) / 2
+            cx = photo_x + photo_size / 2
+            cy = photo_y + photo_size / 2
+            cr = photo_size / 2
 
-        p.setFillColor(colors.white)
-        p.setStrokeColor(colors.HexColor("#2d6b2e"))
-        p.setLineWidth(1.5)
-        p.circle(cx, cy, cr + 1, fill=1, stroke=1)
+            p.setFillColor(colors.white)
+            p.setStrokeColor(colors.HexColor("#2d6b2e"))
+            p.setLineWidth(1.5)
+            p.circle(cx, cy, cr + 1, fill=1, stroke=1)
 
-        initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
-        if j.foto:
-            try:
-                p.saveState()
-                clip_photo = p.beginPath()
-                clip_photo.circle(cx, cy, cr)
-                p.clipPath(clip_photo, stroke=0, fill=0)
-                p.drawImage(j.foto.url, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
-                p.restoreState()
-            except Exception:
-                p.setFillColor(colors.HexColor("#ddd"))
+            initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
+            if j.foto:
+                try:
+                    p.saveState()
+                    clip_photo = p.beginPath()
+                    clip_photo.circle(cx, cy, cr)
+                    p.clipPath(clip_photo, stroke=0, fill=0)
+                    p.drawImage(j.foto.url, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
+                    p.restoreState()
+                except Exception:
+                    p.setFillColor(colors.HexColor("#ddd"))
+                    p.circle(cx, cy, cr, fill=1, stroke=0)
+                    p.setFillColor(colors.HexColor("#888"))
+                    p.setFont(data_font, 22)
+                    p.drawCentredString(cx, cy - 7, initials)
+            else:
+                p.setFillColor(colors.HexColor("#eee"))
                 p.circle(cx, cy, cr, fill=1, stroke=0)
-                p.setFillColor(colors.HexColor("#888"))
+                p.setFillColor(colors.HexColor("#999"))
                 p.setFont(data_font, 22)
                 p.drawCentredString(cx, cy - 7, initials)
-        else:
-            p.setFillColor(colors.HexColor("#eee"))
-            p.circle(cx, cy, cr, fill=1, stroke=0)
-            p.setFillColor(colors.HexColor("#999"))
-            p.setFont(data_font, 22)
-            p.drawCentredString(cx, cy - 7, initials)
 
-        # Player info (right of photo)
-        text_x = x + 86
-        avail_w = 110
+            # Player info (right of photo)
+            text_x = x + 86
+            avail_w = 110
 
-        try:
-            p.setTextRenderMode(2)
-        except AttributeError:
-            pass
-        p.setFillColor(colors.white)
-        p.setStrokeColor(colors.HexColor("#222222"))
-        p.setLineWidth(1.5)
-
-        # Name (white fill + thick dark outline)
-        p.setFont(name_font, 11)
-        label = f"{j.nombre} {j.apellido}"
-        while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
-            label = label[:-1]
-        p.drawString(text_x, content_y + content_h - 8, label)
-
-        # Category
-        p.setFont(data_font, 8)
-        p.drawString(text_x, content_y + content_h - 22, cat.nombre)
-
-        # Position
-        pos_map = dict(Jugador.POSICIONES)
-        p.drawString(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
-
-        # CURP
-        curp_text = j.curp if j.curp else "S/C"
-        p.drawString(text_x, content_y + content_h - 50, f"CURP: {curp_text}")
-
-        # Team logo + name at bottom-left
-        team_ofs = 10
-        tl_y = content_y + team_ofs
-        team_logo_size = 16
-        logo_drawn = False
-        if j.equipo.logo:
             try:
-                p.drawImage(j.equipo.logo.url, text_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
-                logo_drawn = True
-            except Exception:
+                p.setTextRenderMode(2)
+            except AttributeError:
                 pass
-        team_name_x = text_x + (team_logo_size + 4 if logo_drawn else 0)
-        p.setFont(data_font, 8)
-        p.drawString(team_name_x, tl_y + 3, j.equipo.nombre)
+            p.setFillColor(colors.white)
+            p.setStrokeColor(colors.HexColor("#222222"))
+            p.setLineWidth(1.5)
 
-        # Dorsal badge at bottom-right (jersey patch style)
-        badge_w = 40
-        badge_h = 24
-        badge_x = x + card_w - 12 - badge_w
-        badge_y = content_y + team_ofs
-        badge_cx = badge_x + badge_w / 2
-        badge_cy = badge_y + badge_h / 2
+            # Name
+            p.setFont(name_font, 11)
+            label = f"{j.nombre} {j.apellido}"
+            while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
+                label = label[:-1]
+            p.drawString(text_x, content_y + content_h - 8, label)
 
-        p.setTextRenderMode(0)
-        p.setFillColor(colors.HexColor("#222222"))
-        p.roundRect(badge_x, badge_y, badge_w, badge_h, 4, fill=1, stroke=0)
-        p.setFillColor(colors.white)
-        p.setFont(name_font, 14)
-        dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
-        p.drawCentredString(badge_cx, badge_cy - 5, dorsal_str)
+            # Category
+            p.setFont(data_font, 8)
+            p.drawString(text_x, content_y + content_h - 22, cat.nombre)
 
-        try:
+            # Position
+            pos_map = dict(Jugador.POSICIONES)
+            p.drawString(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
+
+            # CURP
+            curp_text = j.curp if j.curp else "S/C"
+            p.drawString(text_x, content_y + content_h - 50, f"CURP: {curp_text}")
+
+            # Team logo + name at bottom-left
+            team_ofs = 10
+            tl_y = content_y + team_ofs
+            team_logo_size = 16
+            logo_drawn = False
+            if j.equipo.logo:
+                try:
+                    p.drawImage(j.equipo.logo.url, text_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
+                    logo_drawn = True
+                except Exception:
+                    pass
+            team_name_x = text_x + (team_logo_size + 4 if logo_drawn else 0)
+            p.setFont(data_font, 8)
+            p.drawString(team_name_x, tl_y + 3, j.equipo.nombre)
+
+            # Dorsal badge at bottom-right (jersey patch style)
+            badge_w = 40
+            badge_h = 24
+            badge_x = x + card_w - 12 - badge_w
+            badge_y = content_y + team_ofs
+            badge_cx = badge_x + badge_w / 2
+            badge_cy = badge_y + badge_h / 2
+
             p.setTextRenderMode(0)
-        except AttributeError:
-            pass
+            p.setFillColor(colors.HexColor("#222222"))
+            p.roundRect(badge_x, badge_y, badge_w, badge_h, 4, fill=1, stroke=0)
+            p.setFillColor(colors.white)
+            p.setFont(name_font, 14)
+            dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
+            p.drawCentredString(badge_cx, badge_cy - 5, dorsal_str)
 
-    p.showPage()
-    p.save()
-    return response
+            try:
+                p.setTextRenderMode(0)
+            except AttributeError:
+                pass
+
+        p.showPage()
+        p.save()
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        messages.error(request, f"Error al generar PDF: {e}")
+        return redirect("reporte_credenciales")
 
 
 def reporte_suscriptores_xlsx(request):
