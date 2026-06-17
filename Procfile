@@ -1,2 +1,2 @@
-web: gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120
+web: python manage.py migrate --noinput && gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120
 release: python manage.py migrate --noinput
