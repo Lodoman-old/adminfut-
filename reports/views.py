@@ -1679,13 +1679,24 @@ def reporte_credenciales_pdf(request):
         bar_path.close()
         p.drawPath(bar_path, fill=1, stroke=0)
 
+        bar_center_x = x + card_w / 2
         p.setFillColor(colors.white)
         p.setFont(name_font, 12)
         league_label = cfg.nombre_liga.upper()
-        max_w_team = card_w - 16
+        max_w_team = card_w - 56
         while p.stringWidth(league_label, name_font, 12) > max_w_team and len(league_label) > 3:
             league_label = league_label[:-1]
-        p.drawCentredString(x + card_w / 2, y + card_h - bar_h + 5, league_label)
+        p.drawCentredString(bar_center_x, y + card_h - bar_h + 5, league_label)
+
+        # League logo on the right side, overflows the bar into card background
+        if cfg.logo:
+            try:
+                logo_size = 36
+                logo_x = x + card_w - 8 - logo_size
+                logo_y = y + card_h - bar_h + (bar_h - logo_size) / 2
+                p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
 
         # Player photo circle
         photo_size = 64
@@ -1724,34 +1735,17 @@ def reporte_credenciales_pdf(request):
 
         # Player info (right of photo)
         text_x = x + 86
-        text_w = 95
-        avail_w = text_w
-
-        # Big dorsal badge on the right side
-        dorsal_size = 44
-        dorsal_x = x + card_w - 12 - dorsal_size
-        dorsal_y = content_y + (content_h - dorsal_size) / 2
-        dorsal_cx = dorsal_x + dorsal_size / 2
-        dorsal_cy = dorsal_y + dorsal_size / 2
-
-        p.setFillColor(colors.HexColor("#ffffff"))
-        p.setStrokeColor(colors.HexColor("#cccccc"))
-        p.setLineWidth(1)
-        p.circle(dorsal_cx, dorsal_cy, dorsal_size / 2, fill=1, stroke=1)
-
-        p.setFillColor(colors.HexColor("#222222"))
-        p.setFont(name_font, 22)
-        p.drawCentredString(dorsal_cx, dorsal_cy - 7, str(j.dorsal) if j.dorsal is not None else "?")
+        avail_w = 110
 
         try:
             p.setTextRenderMode(2)
         except AttributeError:
             pass
-
-        # Name (white fill + dark outline)
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#222222"))
-        p.setLineWidth(0.6)
+        p.setLineWidth(1.5)
+
+        # Name (white fill + thick dark outline)
         p.setFont(name_font, 11)
         label = f"{j.nombre} {j.apellido}"
         while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
@@ -1762,27 +1756,44 @@ def reporte_credenciales_pdf(request):
         p.setFont(data_font, 8)
         p.drawString(text_x, content_y + content_h - 22, cat.nombre)
 
-        # Data
-        y_data = content_y + content_h - 34
-        p.setFont(data_font, 8)
-        p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal if j.dorsal is not None else '-'}")
-        y_data -= 12
-
+        # Position
         pos_map = dict(Jugador.POSICIONES)
-        p.drawString(text_x, y_data, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
-        y_data -= 12
+        p.drawString(text_x, content_y + content_h - 36, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
 
+        # CURP
         curp_text = j.curp if j.curp else "S/C"
-        p.drawString(text_x, y_data, f"CURP: {curp_text}")
-        y_data -= 12
+        p.drawString(text_x, content_y + content_h - 50, f"CURP: {curp_text}")
 
-        # Team name
-        p.drawString(text_x, y_data, j.equipo.nombre)
-        y_data -= 10
+        # Team logo + name at bottom-left
+        team_ofs = 10
+        tl_y = content_y + team_ofs
+        team_logo_size = 16
+        logo_drawn = False
+        if j.equipo.logo:
+            try:
+                p.drawImage(j.equipo.logo.url, text_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
+                logo_drawn = True
+            except Exception:
+                pass
+        team_name_x = text_x + (team_logo_size + 4 if logo_drawn else 0)
+        p.setFont(data_font, 8)
+        p.drawString(team_name_x, tl_y + 3, j.equipo.nombre)
 
-        # League name
-        p.setFont(data_font, 7)
-        p.drawString(text_x, y_data, cfg.nombre_liga)
+        # Dorsal badge at bottom-right (jersey patch style)
+        badge_w = 40
+        badge_h = 24
+        badge_x = x + card_w - 12 - badge_w
+        badge_y = content_y + team_ofs
+        badge_cx = badge_x + badge_w / 2
+        badge_cy = badge_y + badge_h / 2
+
+        p.setTextRenderMode(0)
+        p.setFillColor(colors.HexColor("#222222"))
+        p.roundRect(badge_x, badge_y, badge_w, badge_h, 4, fill=1, stroke=0)
+        p.setFillColor(colors.white)
+        p.setFont(name_font, 14)
+        dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
+        p.drawCentredString(badge_cx, badge_cy - 5, dorsal_str)
 
         try:
             p.setTextRenderMode(0)
