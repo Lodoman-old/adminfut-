@@ -1651,14 +1651,6 @@ def reporte_credenciales_pdf(request):
         p.setLineWidth(2.5)
         p.roundRect(x, y, card_w, card_h, 6, fill=0, stroke=1)
 
-        # Dark text panel (right side, strictly below green bar)
-        text_panel_x = x + 84
-        text_panel_y = content_y
-        text_panel_w = card_w - 88
-        text_panel_h = content_h
-        p.setFillColor(colors.HexColor("#1a1a1a"))
-        p.roundRect(text_panel_x, text_panel_y, text_panel_w, text_panel_h, 3, fill=1, stroke=0)
-
         # Green top bar with team name
         p.setFillColor(colors.HexColor("#2d6b2e"))
         bar_path = p.beginPath()
@@ -1714,50 +1706,48 @@ def reporte_credenciales_pdf(request):
             initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
             p.drawCentredString(cx, cy - 7, initials)
 
-        # Player info on dark panel
-        text_x = text_panel_x + 6
-        avail_w = text_panel_w - 12
-        y_line = text_panel_y + text_panel_h - 8
+        # Player info (right of photo, directly on background)
+        text_x = x + 86
+        avail_w = card_w - text_x - 8
 
-        # Name (white, larger)
-        p.setFillColor(colors.white)
+        # Name (dark green, bold)
+        p.setFillColor(colors.HexColor("#1a3a15"))
         p.setFont(name_font, 11)
         label = f"{j.nombre} {j.apellido}"
         while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
             label = label[:-1]
-        p.drawString(text_x, y_line, label)
-        y_line -= 14
+        p.drawString(text_x, content_y + content_h - 8, label)
 
-        # Category (larger, light green)
+        # Category (dark green, smaller)
         p.setFont(data_font, 8)
-        p.setFillColor(colors.HexColor("#a5d6a7"))
-        p.drawString(text_x, y_line, categoria.nombre)
-        y_line -= 14
+        p.setFillColor(colors.HexColor("#2d6b2e"))
+        p.drawString(text_x, content_y + content_h - 22, categoria.nombre)
 
-        # Separator line
-        p.setStrokeColor(colors.HexColor("#555555"))
+        # Separator
+        y_sep = content_y + content_h - 30
+        p.setStrokeColor(colors.HexColor("#c8e6c9"))
         p.setLineWidth(0.5)
-        p.line(text_x, y_line + 2, text_x + avail_w, y_line + 2)
-        y_line -= 7
+        p.line(text_x, y_sep, text_x + avail_w, y_sep)
 
-        # Data lines (white)
-        p.setFillColor(colors.white)
+        # Data
+        y_data = y_sep - 6
+        p.setFillColor(colors.HexColor("#333333"))
         p.setFont(data_font, 8)
-        p.drawString(text_x, y_line, f"Dorsal: #{j.dorsal or '-'}")
-        y_line -= 12
+        p.drawString(text_x, y_data, f"Dorsal: #{j.dorsal or '-'}")
+        y_data -= 12
 
         pos_map = dict(Jugador.POSICIONES)
-        p.drawString(text_x, y_line, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
-        y_line -= 12
+        p.drawString(text_x, y_data, f"Pos: {pos_map.get(j.posicion, j.posicion)}")
+        y_data -= 12
 
         curp_text = j.curp if j.curp else "S/C"
-        p.drawString(text_x, y_line, f"CURP: {curp_text}")
-        y_line -= 12
+        p.drawString(text_x, y_data, f"CURP: {curp_text}")
+        y_data -= 12
 
         # League name
         p.setFont(data_font, 7)
-        p.setFillColor(colors.HexColor("#999999"))
-        p.drawString(text_x, y_line, cfg.nombre_liga)
+        p.setFillColor(colors.HexColor("#666666"))
+        p.drawString(text_x, y_data, cfg.nombre_liga)
         p.setFillColor(colors.black)
 
     p.showPage()
