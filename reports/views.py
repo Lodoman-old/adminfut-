@@ -1712,8 +1712,8 @@ def reporte_credenciales_pdf(request):
             # League logo on the left side of the bar, bigger
             if cfg.logo:
                 try:
-                    logo_size = 38
-                    logo_x = x + 4
+                    logo_size = 44
+                    logo_x = x + 2
                     logo_y = y + card_h - logo_size
                     p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
                 except Exception:
@@ -1774,16 +1774,16 @@ def reporte_credenciales_pdf(request):
                 label = label[:-1]
             outlined_text(text_x, content_y + content_h - 30, label, name_font, 11)
 
-            # Category (8pt)
-            outlined_text(text_x, content_y + content_h - 46, cat.nombre, data_font, 8)
+            # Category (9pt)
+            outlined_text(text_x, content_y + content_h - 46, cat.nombre, data_font, 9)
 
-            # Position (8pt)
+            # Position (9pt)
             pos_map = dict(Jugador.POSICIONES)
-            outlined_text(text_x, content_y + content_h - 62, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 8)
+            outlined_text(text_x, content_y + content_h - 62, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 9)
 
-            # CURP (8pt)
+            # CURP (9pt)
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 78, f"CURP: {curp_text}", data_font, 8)
+            outlined_text(text_x, content_y + content_h - 78, f"CURP: {curp_text}", data_font, 9)
 
             # Team logo at bottom-left corner
             tl_x = x + 4
@@ -1797,7 +1797,7 @@ def reporte_credenciales_pdf(request):
                 except Exception:
                     pass
             team_name_x = tl_x + (team_logo_size + 5 if logo_drawn else 0)
-            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, name_font, 10)
+            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, name_font, 11)
 
             # Dorsal jersey badge (replicating dashboard CSS jersey shape)
             jersey_w = 36
