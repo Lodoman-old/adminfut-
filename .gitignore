@@ -9,3 +9,5 @@ db_*.json
 Manual_Usuario_AdminFut.docx
 Manual_Usuario_AdminFut.pdf
 staticfiles/
+.env.render
+backups/
