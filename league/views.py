@@ -1626,7 +1626,14 @@ class PartidoListView(ListView):
         qs = Partido.objects.all()
         arbitro = getattr(self.request.user, "perfil_arbitro", None)
         if arbitro:
-            qs = qs.filter(arbitro=arbitro)
+            ahora_local = timezone.localtime(timezone.now())
+            inicio_dia = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            fin_dia = inicio_dia + datetime.timedelta(days=1)
+            qs = qs.filter(
+                arbitro=arbitro,
+                fecha_hora__gte=inicio_dia,
+                fecha_hora__lt=fin_dia,
+            )
         temp = self.request.GET.get("temporada")
         if temp:
             qs = qs.filter(temporada_id=temp)
