@@ -22,7 +22,7 @@ class CustomLoginView(LoginView):
 class CustomLogoutView(View):
     def get(self, request):
         auth_logout(request)
-        return redirect("home")
+        return render(request, "accounts/logout.html")
 
 
 class UsuarioForm(forms.ModelForm):

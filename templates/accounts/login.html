@@ -31,4 +31,41 @@
         </div>
     </div>
 </div>
+<script>
+(function() {
+    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
+        Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
+            if (r.value === 'true') {
+                var row = document.querySelector('.row.justify-content-center');
+                if (!row) return;
+                var col = row.querySelector('.col-md-4');
+                if (!col) return;
+                var card = col.querySelector('.card');
+                if (!card) return;
+                var body = card.querySelector('.card-body');
+                if (!body) return;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-success w-100 mt-2';
+                btn.innerHTML = '<i class="bi bi-fingerprint"></i> Acceso con huella';
+                btn.onclick = function() {
+                    Capacitor.Plugins.NativeBiometric.verifyIdentity({
+                        reason: 'Acceder a AdminFut',
+                        title: 'Huella digital',
+                        subtitle: 'Usa tu huella para acceder',
+                        description: 'Coloca tu dedo en el sensor'
+                    }).then(function(res) {
+                        if (res.verified) {
+                            window.location.href = '/';
+                        }
+                    }).catch(function(err) {
+                        console.error('Biometric error:', err);
+                    });
+                };
+                body.appendChild(btn);
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

@@ -2024,6 +2024,12 @@ def cedula_arbitral(request, partido_id):
         Partido.objects.filter(pk=partido.pk).update(arbitro_id=arbitro_id)
         if request.POST.get("finalizar") == "1" and not (default_forzado_local or default_forzado_visit):
             Partido.objects.filter(pk=partido.pk).update(estado="FIN")
+            try:
+                from .push import notify_partido_finalizado
+                partido.refresh_from_db()
+                notify_partido_finalizado(partido)
+            except Exception:
+                pass
             messages.success(request, "Cédula arbitral guardada y partido finalizado.")
             return redirect("partido_list")
         messages.success(request, "Cédula arbitral guardada correctamente.")

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 
 urlpatterns = [
     path("categorias/", views.CategoriaListView.as_view(), name="categoria_list"),
@@ -78,4 +79,7 @@ urlpatterns = [
     path("gestionar-indisponibilidad/", views.gestionar_indisponibilidad, name="gestionar_indisponibilidad"),
     path("publicar-rol-facebook/<int:temporada_id>/", views.publicar_rol_facebook, name="publicar_rol_facebook"),
     path("publicar-posiciones-facebook/<int:temporada_id>/", views.publicar_posiciones_facebook, name="publicar_posiciones_facebook"),
+    path("api/register-device/", api_views.register_device_token, name="register_device_token"),
+    path("api/unregister-device/", api_views.unregister_device_token, name="unregister_device_token"),
+    path("api/cron-notificar-arbitros/", api_views.cron_notificar_arbitros, name="cron_notificar_arbitros"),
 ]

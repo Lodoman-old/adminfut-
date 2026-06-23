@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Soccer ball outer circle (smaller to fit safe zone) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24c-16.6,0 -30,13.4 -30,30s13.4,30 30,30s30,-13.4 30,-30s-13.4,-30 -30,-30z"/>
+    <!-- Center pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M54,40l-5,3.4l1.9,5.7h6.2l1.9,-5.7z"/>
+    <!-- Top pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M47,35l-4.6,1.4l-0.7,5l4.3,2.5l3.2,-3.9z"/>
+    <!-- Top-right pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M61,35l4.6,1.4l0.7,5l-4.3,2.5l-3.2,-3.9z"/>
+    <!-- Bottom-left pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M43,48l-5,-0.7l-3.2,3.6l1.8,5l5.4,-1.1z"/>
+    <!-- Bottom-right pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M65,48l5,-0.7l3.2,3.6l-1.8,5l-5.4,-1.1z"/>
+    <!-- Bottom pentagon -->
+    <path
+        android:fillColor="#1a3a15"
+        android:pathData="M54,57l-4.6,-2.9l-2.5,4.3l1.8,5.3l5.3,0.7l5.3,-0.7l1.8,-5.3l-2.5,-4.3z"/>
+</vector>

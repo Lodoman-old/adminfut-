@@ -12,3 +12,5 @@ djangorestframework
 cloudinary
 django-cloudinary-storage
 sendgrid
+requests
+firebase-admin

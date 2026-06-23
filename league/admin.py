@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, CampoIndisponibilidad, ConfiguracionLiga
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken
 
 
 @admin.register(ConfiguracionLiga)
@@ -133,3 +133,14 @@ class TarjetaAdmin(admin.ModelAdmin):
 class CampoIndisponibilidadAdmin(admin.ModelAdmin):
     list_display = ["campo", "fecha_desde", "fecha_hasta", "motivo"]
     list_filter = ["campo"]
+
+
+@admin.register(DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ["token_short", "usuario", "plataforma", "activo", "creado"]
+    list_filter = ["plataforma", "activo"]
+    search_fields = ["token", "usuario__username"]
+
+    def token_short(self, obj):
+        return obj.token[:30] + "..."
+    token_short.short_description = "Token"

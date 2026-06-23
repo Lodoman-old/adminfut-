@@ -1662,3 +1662,26 @@ class JugadorPartido(models.Model):
 
     def __str__(self):
         return f"{self.jugador} - {'Titular' if self.titular else 'Suplente'} ({self.partido})"
+
+
+class DeviceToken(models.Model):
+    PLATFORMS = [
+        ("android", "Android"),
+        ("ios", "iOS"),
+    ]
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="device_tokens", null=True, blank=True,
+    )
+    token = models.CharField(max_length=500, unique=True)
+    plataforma = models.CharField(max_length=10, choices=PLATFORMS, default="android")
+    activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Token de dispositivo"
+        verbose_name_plural = "Tokens de dispositivos"
+
+    def __str__(self):
+        return f"{self.plataforma}:{self.token[:20]}... ({self.usuario})"

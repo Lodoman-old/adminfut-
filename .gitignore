@@ -11,6 +11,7 @@ Manual_Usuario_AdminFut.pdf
 staticfiles/
 .env.render
 backups/
+secrets/
 node_modules/
 *.apk
 www/
