@@ -1,0 +1,28 @@
+{
+  "name": "adminfut",
+  "version": "1.0.0",
+  "description": "AdminFut Android app (Capacitor wrapper)",
+  "main": "index.js",
+  "scripts": {
+    "android:sync": "npx cap sync android",
+    "android:build": "cd android && gradlew.bat assembleDebug",
+    "android:open": "npx cap open android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://Lodoman-old@github.com/Lodoman-old/adminfut-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Lodoman-old/adminfut-/issues"
+  },
+  "homepage": "https://github.com/Lodoman-old/adminfut-#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1"
+  }
+}

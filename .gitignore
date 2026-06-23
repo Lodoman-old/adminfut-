@@ -11,3 +11,12 @@ Manual_Usuario_AdminFut.pdf
 staticfiles/
 .env.render
 backups/
+node_modules/
+*.apk
+www/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/.externalNativeBuild/
