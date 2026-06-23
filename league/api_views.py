@@ -29,10 +29,17 @@ def register_device_token(request):
         "activo": True,
     }
 
+    if request.user.is_authenticated:
+        defaults["es_invitado"] = False
+        defaults["nombre"] = ""
+
     obj, created = DeviceToken.objects.update_or_create(
         token=token,
         defaults=defaults,
     )
+
+    if request.user.is_authenticated:
+        obj.categorias.clear()
 
     return JsonResponse({"ok": True, "created": created})
 
