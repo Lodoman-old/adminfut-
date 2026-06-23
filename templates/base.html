@@ -232,12 +232,10 @@
     (function() {
         if (typeof Capacitor === 'undefined' || !Capacitor.Plugins) return;
 
-        // Set is_logged_in flag for biometric auto-login
+        // Set is_logged_in flag for biometric auto-login (never set to false here, logout page handles that)
         if (Capacitor.Plugins.Preferences) {
             {% if user.is_authenticated %}
             Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
-            {% else %}
-            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'false' });
             {% endif %}
         }
 
