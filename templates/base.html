@@ -229,9 +229,8 @@
     // Capacitor bridge — marks user as logged in and registers push token
     {% if user.is_authenticated %}
     (function() {
-        if (typeof Capacitor !== 'undefined') {
-            try {
-                Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
+            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' }).then(function() {
                 // Register push notification token
                 if (Capacitor.Plugins.PushNotifications) {
                     Capacitor.Plugins.PushNotifications.requestPermissions().then(function() {
@@ -245,7 +244,7 @@
                         });
                     });
                 }
-            } catch(e) { /* Capacitor not ready yet */ }
+            }).catch(function() {});
         }
     })();
     {% endif %}
