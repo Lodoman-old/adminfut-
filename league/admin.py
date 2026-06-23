@@ -137,9 +137,10 @@ class CampoIndisponibilidadAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(admin.ModelAdmin):
-    list_display = ["token_short", "usuario", "plataforma", "activo", "creado"]
-    list_filter = ["plataforma", "activo"]
-    search_fields = ["token", "usuario__username"]
+    list_display = ["token_short", "nombre", "es_invitado", "usuario", "plataforma", "activo", "creado"]
+    list_filter = ["plataforma", "activo", "es_invitado"]
+    search_fields = ["token", "usuario__username", "nombre"]
+    filter_horizontal = ["categorias"]
 
     def token_short(self, obj):
         return obj.token[:30] + "..."

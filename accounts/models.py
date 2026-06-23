@@ -155,6 +155,10 @@ class Usuario(AbstractUser):
         related_name="usuarios"
     )
     telefono = models.CharField(max_length=20, blank=True)
+    categoria_preferida = models.ForeignKey(
+        "league.Categoria", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="usuarios_preferencia", verbose_name="Categoría preferida"
+    )
 
     class Meta:
         verbose_name = "Usuario"

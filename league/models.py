@@ -1699,10 +1699,19 @@ class DeviceToken(models.Model):
     activo = models.BooleanField(default=True)
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
+    es_invitado = models.BooleanField(default=False, verbose_name="Es invitado",
+        help_text="Registrado como invitado sin cuenta completa")
+    nombre = models.CharField(max_length=100, blank=True, verbose_name="Nombre o apodo")
+    telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
+    categorias = models.ManyToManyField(
+        "Categoria", blank=True, verbose_name="Categorías de interés",
+        help_text="Categorías sobre las que quiere recibir notificaciones"
+    )
 
     class Meta:
         verbose_name = "Token de dispositivo"
         verbose_name_plural = "Tokens de dispositivos"
 
     def __str__(self):
-        return f"{self.plataforma}:{self.token[:20]}... ({self.usuario})"
+        label = self.nombre or self.token[:20]
+        return f"{label} ({self.plataforma})"

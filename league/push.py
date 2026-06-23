@@ -8,6 +8,7 @@ import json
 import os
 import logging
 from django.conf import settings
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,20 @@ def send_push_notification(tokens, title, body, data=None):
 def notify_partido_finalizado(partido):
     from .models import DeviceToken
 
-    tokens = list(DeviceToken.objects.filter(activo=True).values_list("token", flat=True))
+    categoria = None
+    try:
+        categoria = partido.jornada.temporada.categoria
+    except AttributeError:
+        pass
+
+    qs = DeviceToken.objects.filter(activo=True)
+    if categoria:
+        qs = qs.filter(
+            models.Q(categorias=categoria) | models.Q(categorias__isnull=True) | models.Q(es_invitado=False, usuario__isnull=False)
+        )
+    qs = qs.distinct()
+
+    tokens = list(qs.values_list("token", flat=True))
     if not tokens:
         return
 

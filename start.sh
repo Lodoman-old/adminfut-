@@ -52,6 +52,40 @@ with connection.cursor() as c:
         print('Tabla league_devicetoken ya existe.')
 " 2>&1
 
+# Add guest registration columns to league_devicetoken if missing
+python -c "
+import django, os, sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'league_project.settings'
+django.setup()
+from django.db import connection
+with connection.cursor() as c:
+    for col in ['es_invitado', 'nombre', 'telefono']:
+        c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='league_devicetoken' AND column_name='%s'\"\"\" % col)
+        if not c.fetchone():
+            if col == 'es_invitado':
+                c.execute(\"ALTER TABLE league_devicetoken ADD COLUMN es_invitado boolean NOT NULL DEFAULT false\")
+            elif col == 'nombre':
+                c.execute(\"ALTER TABLE league_devicetoken ADD COLUMN nombre varchar(100) NOT NULL DEFAULT ''\")
+            elif col == 'telefono':
+                c.execute(\"ALTER TABLE league_devicetoken ADD COLUMN telefono varchar(20) NOT NULL DEFAULT ''\")
+            print('Columna %s agregada a league_devicetoken.' % col)
+    # M2M table for categorias
+    c.execute(\"\"\"SELECT 1 FROM information_schema.tables WHERE table_name='league_devicetoken_categorias'\"\"\")
+    if not c.fetchone():
+        c.execute('''CREATE TABLE league_devicetoken_categorias (
+            id bigserial NOT NULL PRIMARY KEY,
+            devicetoken_id bigint NOT NULL REFERENCES league_devicetoken(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+            categoria_id bigint NOT NULL REFERENCES league_categoria(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+            UNIQUE(devicetoken_id, categoria_id)
+        )''')
+        print('Tabla league_devicetoken_categorias creada.')
+    # categoria_preferida on accounts_usuario
+    c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='accounts_usuario' AND column_name='categoria_preferida_id'\"\"\")
+    if not c.fetchone():
+        c.execute(\"ALTER TABLE accounts_usuario ADD COLUMN categoria_preferida_id bigint NULL REFERENCES league_categoria(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED\")
+        print('Columna categoria_preferida_id agregada a accounts_usuario.')
+" 2>&1
+
 # If the recordatorio_30min_enviado column doesn't exist, add it directly
 python -c "
 import django, os, sys

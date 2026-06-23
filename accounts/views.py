@@ -2,12 +2,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordChangeDoneView
 from django.contrib.auth.forms import PasswordChangeForm
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django import forms
+from league.models import Categoria
 from .models import Usuario, Rol, PERMISOS_MENU, get_permisos_flat
 
 
@@ -34,7 +35,7 @@ class UsuarioForm(forms.ModelForm):
 
     class Meta:
         model = Usuario
-        fields = ["username", "first_name", "last_name", "email", "telefono", "rol", "is_active"]
+        fields = ["username", "first_name", "last_name", "email", "telefono", "rol", "is_active", "categoria_preferida"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -43,6 +44,7 @@ class UsuarioForm(forms.ModelForm):
             "telefono": forms.TextInput(attrs={"class": "form-control"}),
             "rol": forms.Select(attrs={"class": "form-select"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "categoria_preferida": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -206,3 +208,10 @@ class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     form_class = CustomPasswordChangeForm
     template_name = "accounts/password_change.html"
     success_url = reverse_lazy("password_change_done")
+
+
+def registro_invitado(request):
+    categorias = Categoria.objects.filter(activo=True)
+    return render(request, "accounts/registro_invitado.html", {
+        "categorias": categorias,
+    })

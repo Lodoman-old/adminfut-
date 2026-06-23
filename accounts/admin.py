@@ -11,6 +11,6 @@ class RolAdmin(admin.ModelAdmin):
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
-        ("Información extra", {"fields": ("rol", "telefono")}),
+        ("Información extra", {"fields": ("rol", "telefono", "categoria_preferida")}),
     )
-    list_display = UserAdmin.list_display + ("rol",)
+    list_display = UserAdmin.list_display + ("rol", "categoria_preferida")

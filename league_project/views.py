@@ -8,7 +8,10 @@ def home(request):
     categorias = Categoria.objects.filter(activo=True)
 
     cat_id = request.GET.get("categoria")
-    default_cat = Categoria.objects.filter(es_principal=True).first()
+    if not cat_id and request.user.is_authenticated and request.user.categoria_preferida:
+        default_cat = request.user.categoria_preferida
+    else:
+        default_cat = Categoria.objects.filter(es_principal=True).first()
     if cat_id:
         categoria_sel = Categoria.objects.filter(id=cat_id).first()
     else:
