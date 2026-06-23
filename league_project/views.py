@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.db.models import Sum, Count
+from django.utils import timezone
 from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta
 from finance.models import Ingreso
 
@@ -139,16 +140,20 @@ def home(request):
 
     ingresos_data = None
     if finanzas_visible:
-        ingresos_mes = (
-            Ingreso.objects.filter(fecha__month=1)
-            .aggregate(total=Sum("monto"))
-        )
+        hoy = timezone.now()
+        mes_act = hoy.month
+        anio_act = hoy.year
+        qs_mes = Ingreso.objects.filter(fecha__month=mes_act, fecha__year=anio_act)
+        total_ingresos = qs_mes.filter(concepto__tipo="INGRESO").aggregate(total=Sum("monto"))["total"] or 0
+        total_egresos = qs_mes.filter(concepto__tipo="EGRESO").aggregate(total=Sum("monto"))["total"] or 0
         ingresos_data = {
-            "total_mes": ingresos_mes["total"] or 0,
+            "total_mes": total_ingresos - total_egresos,
+            "total_ingresos": total_ingresos,
+            "total_egresos": total_egresos,
             "por_concepto": (
-                Ingreso.objects.values("concepto__nombre")
+                qs_mes.values("concepto__nombre", "concepto__tipo")
                 .annotate(total=Sum("monto"))
-                .order_by("-total")[:5]
+                .order_by("-total")[:10]
             ),
         }
 

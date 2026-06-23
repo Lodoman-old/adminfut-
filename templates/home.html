@@ -567,23 +567,34 @@ body {
 <div class="row">
   <div class="col-md-6 mb-4">
     <div class="card border-warning">
-      <div class="card-header text-bg-warning">
-        <i class="bi bi-cash-coin"></i> Ingresos del Mes <span class="badge bg-dark float-end">${{ ingresos_data.total_mes|floatformat:2 }}</span>
+      <div class="card-header text-bg-warning d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-cash-coin"></i> Finanzas del Mes</span>
+        <span>
+          <span class="badge bg-success">+${{ ingresos_data.total_ingresos|floatformat:2 }}</span>
+          <span class="badge bg-danger">-${{ ingresos_data.total_egresos|floatformat:2 }}</span>
+          <span class="badge bg-dark">${{ ingresos_data.total_mes|floatformat:2 }}</span>
+        </span>
       </div>
       <div class="card-body">
         {% if ingresos_data.por_concepto %}
         <div class="table-responsive">
         <table class="table table-sm">
-          <thead><tr><th>Concepto</th><th>Total</th></tr></thead>
+          <thead><tr><th>Concepto</th><th>Tipo</th><th>Total</th></tr></thead>
           <tbody>
             {% for c in ingresos_data.por_concepto %}
-            <tr><td>{{ c.concepto__nombre }}</td><td><strong>${{ c.total|floatformat:2 }}</strong></td></tr>
+            <tr>
+              <td>{{ c.concepto__nombre }}</td>
+              <td>{% if c.concepto__tipo == "INGRESO" %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}</td>
+              <td class="{% if c.concepto__tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                {% if c.concepto__tipo == "INGRESO" %}+{% else %}-{% endif %}${{ c.total|floatformat:2 }}
+              </td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
         </div>
         {% else %}
-        <p class="text-muted">Sin ingresos este mes.</p>
+        <p class="text-muted">Sin movimientos este mes.</p>
         {% endif %}
       </div>
     </div>
