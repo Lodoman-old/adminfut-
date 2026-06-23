@@ -3,6 +3,7 @@ Firebase Cloud Messaging integration for push notifications.
 Uses Firebase Admin SDK. Requires FIREBASE_SERVICE_ACCOUNT_JSON env var
 or secrets/firebase-service-account.json file.
 """
+import base64
 import json
 import os
 from django.conf import settings
@@ -11,15 +12,21 @@ from firebase_admin import credentials, messaging
 
 
 def _get_credential():
-    json_str = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if json_str:
-        return credentials.Certificate(json.loads(json_str))
+    # 1) Base64 env var (easiest for Render — single line)
+    b64 = os.environ.get("FIREBASE_SERVICE_ACCOUNT_BASE64")
+    if b64:
+        return credentials.Certificate(json.loads(base64.b64decode(b64)))
+    # 2) Raw JSON env var
+    raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if raw:
+        return credentials.Certificate(json.loads(raw))
+    # 3) Local file (dev)
     file_path = os.path.join(settings.BASE_DIR, "secrets", "firebase-service-account.json")
     if os.path.exists(file_path):
         return credentials.Certificate(file_path)
     raise RuntimeError(
-        "FIREBASE_SERVICE_ACCOUNT_JSON not set and "
-        "secrets/firebase-service-account.json not found"
+        "FIREBASE_SERVICE_ACCOUNT_BASE64 / FIREBASE_SERVICE_ACCOUNT_JSON not set "
+        "and secrets/firebase-service-account.json not found"
     )
 
 
