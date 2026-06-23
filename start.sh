@@ -52,4 +52,21 @@ with connection.cursor() as c:
         print('Tabla league_devicetoken ya existe.')
 " 2>&1
 
+# If the recordatorio_30min_enviado column doesn't exist, add it directly
+python -c "
+import django, os, sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'league_project.settings'
+django.setup()
+from django.db import connection
+with connection.cursor() as c:
+    c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='league_partido' AND column_name='recordatorio_30min_enviado'\"\"\")
+    if not c.fetchone():
+        c.execute(\"ALTER TABLE league_partido ADD COLUMN recordatorio_30min_enviado boolean NOT NULL DEFAULT false\")
+        from django.db.migrations.recorder import MigrationRecorder
+        MigrationRecorder.Migration.objects.get_or_create(app='league', name='0053_partido_recordatorio_30min_enviado')
+        print('Columna recordatorio_30min_enviado agregada directamente y migración marcada como aplicada.')
+    else:
+        print('Columna recordatorio_30min_enviado ya existe.')
+" 2>&1
+
 exec gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120
