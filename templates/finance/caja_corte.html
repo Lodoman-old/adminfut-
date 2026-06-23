@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Corte de Caja - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-graph-up"></i> Corte de Caja</h3>
+    <a href="{% url 'caja_dashboard' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label class="form-label">Desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ fecha_desde }}">
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ fecha_hasta }}">
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Generar Corte</button>
+    </div>
+</form>
+
+{% if resumen %}
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Resumen del {{ fecha_desde }} al {{ fecha_hasta }}</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-4">
+                <h6 class="text-muted">Total Inicial</h6>
+                <h4>${{ resumen.total_inicial|floatformat:2 }}</h4>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">Total Ingresos</h6>
+                <h4 class="text-success">+${{ resumen.total_ingresos|floatformat:2 }}</h4>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">Total Egresos</h6>
+                <h4 class="text-danger">-${{ resumen.total_egresos|floatformat:2 }}</h4>
+            </div>
+        </div>
+        <hr>
+        <div class="row text-center">
+            <div class="col-12">
+                <h6 class="text-muted">Saldo Neto del Período</h6>
+                <h3 class="{% if resumen.neto >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ${{ resumen.neto|floatformat:2 }}
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h5><i class="bi bi-list"></i> Cajas en el período</h5>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>#</th><th>Apertura</th><th>Cierre</th><th>Inicial</th><th>Ingresos</th><th>Egresos</th><th>Esperado</th><th>Real</th><th>Dif.</th></tr></thead>
+    <tbody>
+        {% for c in cajas %}
+        <tr>
+            <td><a href="{% url 'caja_detail' c.pk %}">{{ c.id }}</a></td>
+            <td>{{ c.fecha_apertura|date:"d/m/Y H:i" }}</td>
+            <td>{{ c.fecha_cierre|date:"d/m/Y H:i" }}</td>
+            <td>${{ c.monto_inicial|floatformat:2 }}</td>
+            <td class="text-success">+${{ c.total_ingresos|floatformat:2 }}</td>
+            <td class="text-danger">-${{ c.total_egresos|floatformat:2 }}</td>
+            <td><strong>${{ c.saldo_esperado|floatformat:2 }}</strong></td>
+            <td>${{ c.monto_final_real|default:0|floatformat:2 }}</td>
+            <td class="{% if c.diferencia >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if c.diferencia > 0 %}+{% endif %}{{ c.diferencia|floatformat:2 }}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="9" class="text-center text-muted">No hay cajas cerradas en este período.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="alert alert-info"><i class="bi bi-info-circle"></i> Selecciona un rango de fechas y presiona "Generar Corte".</div>
+{% endif %}
+{% endblock %}

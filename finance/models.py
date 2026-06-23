@@ -36,6 +36,49 @@ class ConceptoIngreso(models.Model):
         return self.tipo == "INGRESO"
 
 
+class Caja(models.Model):
+    ESTADOS = [
+        ("ABIERTA", "Abierta"),
+        ("CERRADA", "Cerrada"),
+    ]
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="cajas_abiertas"
+    )
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    monto_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_final_real = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    estado = models.CharField(max_length=10, choices=ESTADOS, default="ABIERTA")
+    observaciones = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Caja"
+        verbose_name_plural = "Cajas"
+        ordering = ["-fecha_apertura"]
+
+    def __str__(self):
+        return f"Caja #{self.id} ({self.fecha_apertura.strftime('%d/%m/%Y %H:%M')})"
+
+    def total_ingresos(self):
+        return self.ingresos.filter(concepto__tipo="INGRESO").aggregate(
+            total=models.Sum("monto")
+        )["total"] or 0
+
+    def total_egresos(self):
+        return self.ingresos.filter(concepto__tipo="EGRESO").aggregate(
+            total=models.Sum("monto")
+        )["total"] or 0
+
+    def saldo_esperado(self):
+        return self.monto_inicial + self.total_ingresos() - self.total_egresos()
+
+    def diferencia(self):
+        if self.monto_final_real is None:
+            return None
+        return self.monto_final_real - self.saldo_esperado()
+
+
 class Ingreso(models.Model):
     concepto = models.ForeignKey(
         ConceptoIngreso, on_delete=models.CASCADE, related_name="ingresos"
@@ -64,6 +107,10 @@ class Ingreso(models.Model):
         related_name="ingresos"
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
+    caja = models.ForeignKey(
+        Caja, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="ingresos"
+    )
 
     class Meta:
         verbose_name = "Movimiento"

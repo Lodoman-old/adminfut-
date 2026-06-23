@@ -14,4 +14,10 @@ urlpatterns = [
 
     path("ingresos/pos/", views.ingreso_pos, name="ingreso_pos"),
     path("ingresos/<int:pk>/ticket/", views.ingreso_ticket, name="ingreso_ticket"),
+
+    path("caja/", views.caja_dashboard, name="caja_dashboard"),
+    path("caja/aperturar/", views.caja_aperturar, name="caja_aperturar"),
+    path("caja/corte/", views.caja_corte, name="caja_corte"),
+    path("caja/<int:pk>/cerrar/", views.caja_cerrar, name="caja_cerrar"),
+    path("caja/<int:pk>/", views.caja_detail, name="caja_detail"),
 ]

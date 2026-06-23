@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} - AdminFut{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4>{{ titulo }}</h4>
+            </div>
+            <div class="card-body">
+                {% if caja %}
+                <div class="mb-3">
+                    <h6>Resumen de Caja #{{ caja.id }}</h6>
+                    <p>
+                        Inicial: <strong>${{ caja.monto_inicial|floatformat:2 }}</strong><br>
+                        Ingresos: <strong class="text-success">+${{ caja.total_ingresos|floatformat:2 }}</strong><br>
+                        Egresos: <strong class="text-danger">-${{ caja.total_egresos|floatformat:2 }}</strong><br>
+                        Saldo Esperado: <strong>${{ caja.saldo_esperado|floatformat:2 }}</strong>
+                    </p>
+                    <hr>
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">{{ accion }}</button>
+                    <a href="{% url 'caja_dashboard' %}" class="btn btn-outline-secondary w-100 mt-2">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

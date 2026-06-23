@@ -146,6 +146,8 @@
                             {% if user|tiene_permiso:"concepto_crear" or user|tiene_permiso:"concepto_editar" or user|tiene_permiso:"concepto_eliminar" %}<li><a class="dropdown-item" href="{% url 'concepto_list' %}">Conceptos</a></li>{% endif %}
                             {% if user|tiene_permiso:"ingreso_pos" %}<li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'ingreso_pos' %}"><i class="bi bi-cash-register"></i> Punto de Venta</a></li>{% endif %}
+                            {% if user|tiene_permiso:"caja_ver" %}<li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'caja_dashboard' %}"><i class="bi bi-safe"></i> Caja</a></li>{% endif %}
                         </ul>
                     </li>
                     {% endif %}

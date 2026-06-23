@@ -69,4 +69,36 @@ with connection.cursor() as c:
         print('Columna recordatorio_30min_enviado ya existe.')
 " 2>&1
 
+# If the finance_caja table doesn't exist, create it
+python -c "
+import django, os, sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'league_project.settings'
+django.setup()
+from django.db import connection
+with connection.cursor() as c:
+    c.execute(\"\"\"SELECT 1 FROM information_schema.tables WHERE table_name='finance_caja'\"\"\")
+    if not c.fetchone():
+        c.execute('''CREATE TABLE finance_caja (
+            id bigserial NOT NULL PRIMARY KEY,
+            fecha_apertura timestamptz NOT NULL DEFAULT now(),
+            fecha_cierre timestamptz NULL,
+            monto_inicial numeric(10,2) NOT NULL DEFAULT 0,
+            monto_final_real numeric(10,2) NULL,
+            estado varchar(10) NOT NULL DEFAULT 'ABIERTA',
+            observaciones text NOT NULL DEFAULT '',
+            usuario_id integer NULL REFERENCES accounts_usuario(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
+        )''')
+        c.execute('CREATE INDEX finance_caja_usuario_id ON finance_caja(usuario_id)')
+        # Add caja_id column to ingreso
+        c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='finance_ingreso' AND column_name='caja_id'\"\"\")
+        if not c.fetchone():
+            c.execute('ALTER TABLE finance_ingreso ADD COLUMN caja_id integer NULL REFERENCES finance_caja(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED')
+            c.execute('CREATE INDEX finance_ingreso_caja_id ON finance_ingreso(caja_id)')
+        from django.db.migrations.recorder import MigrationRecorder
+        MigrationRecorder.Migration.objects.get_or_create(app='finance', name='0012_caja_model_and_ingreso_caja_fk')
+        print('Tabla finance_caja creada directamente y migración marcada como aplicada.')
+    else:
+        print('Tabla finance_caja ya existe.')
+" 2>&1
+
 exec gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120

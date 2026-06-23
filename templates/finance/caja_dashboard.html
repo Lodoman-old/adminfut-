@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Caja - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-safe"></i> Caja</h3>
+    <div>
+        {% if not caja_abierta and user|tiene_permiso:"caja_aperturar" %}
+        <a href="{% url 'caja_aperturar' %}" class="btn btn-success"><i class="bi bi-cash-coin"></i> Aperturar Caja</a>
+        {% endif %}
+        {% if user|tiene_permiso:"caja_corte" %}
+        <a href="{% url 'caja_corte' %}" class="btn btn-outline-info"><i class="bi bi-graph-up"></i> Corte de Caja</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if caja_abierta %}
+<div class="card border-success mb-4">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-check-circle"></i> Caja #{{ caja_abierta.id }} — <strong>ABIERTA</strong></span>
+        <span class="small">Abierta {{ caja_abierta.fecha_apertura|date:"d/m/Y H:i" }} por {{ caja_abierta.usuario }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-4">
+                <h6 class="text-muted">Monto Inicial</h6>
+                <h4 class="text-primary">${{ caja_abierta.monto_inicial|floatformat:2 }}</h4>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">Total Ingresos</h6>
+                <h4 class="text-success">+${{ caja_abierta.total_ingresos|floatformat:2 }}</h4>
+            </div>
+            <div class="col-4">
+                <h6 class="text-muted">Total Egresos</h6>
+                <h4 class="text-danger">-${{ caja_abierta.total_egresos|floatformat:2 }}</h4>
+            </div>
+        </div>
+        <hr>
+        <div class="row text-center">
+            <div class="col-6">
+                <h6 class="text-muted">Saldo Esperado</h6>
+                <h3 class="{% if caja_abierta.saldo_esperado >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ${{ caja_abierta.saldo_esperado|floatformat:2 }}
+                </h3>
+            </div>
+            <div class="col-6">
+                {% if user|tiene_permiso:"caja_cerrar" %}
+                <a href="{% url 'caja_cerrar' caja_abierta.pk %}" class="btn btn-danger btn-lg mt-2">
+                    <i class="bi bi-x-circle"></i> Cerrar Caja
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% if caja_abierta.observaciones %}
+        <hr>
+        <p class="mb-0 text-muted"><small><i class="bi bi-chat"></i> {{ caja_abierta.observaciones }}</small></p>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No hay ninguna caja abierta actualmente.
+    {% if user|tiene_permiso:"caja_aperturar" %}
+    <a href="{% url 'caja_aperturar' %}" class="alert-link">Aperturar una nueva caja</a>.
+    {% endif %}
+</div>
+{% endif %}
+
+{% if cajas_cerradas %}
+<h5 class="mt-4"><i class="bi bi-clock-history"></i> Últimas Cajas Cerradas</h5>
+<div class="table-responsive">
+<table class="table table-sm table-hover">
+    <thead><tr><th>#</th><th>Apertura</th><th>Cierre</th><th>Inicial</th><th>Esperado</th><th>Real</th><th>Dif.</th><th>Usuario</th><th></th></tr></thead>
+    <tbody>
+        {% for c in cajas_cerradas %}
+        <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.fecha_apertura|date:"d/m/Y H:i" }}</td>
+            <td>{{ c.fecha_cierre|date:"d/m/Y H:i" }}</td>
+            <td>${{ c.monto_inicial|floatformat:2 }}</td>
+            <td>${{ c.saldo_esperado|floatformat:2 }}</td>
+            <td>${{ c.monto_final_real|default:0|floatformat:2 }}</td>
+            <td class="{% if c.diferencia >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if c.monto_final_real %}
+                    {% if c.diferencia == 0 %}<span class="text-success">✔</span>
+                    {% elif c.diferencia > 0 %}+${{ c.diferencia|floatformat:2 }}
+                    {% else %}-${{ c.diferencia|floatformat:2|cut:"-" }}{% endif %}
+                {% else %}-{% endif %}
+            </td>
+            <td>{{ c.usuario|default:"-" }}</td>
+            <td><a href="{% url 'caja_detail' c.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Caja #{{ caja.id }} - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-safe"></i> Caja #{{ caja.id }}</h3>
+    <a href="{% url 'caja_dashboard' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center
+        {% if caja.estado == 'ABIERTA' %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
+        <span><strong>{{ caja.get_estado_display }}</strong></span>
+        <span class="small">Abierta {{ caja.fecha_apertura|date:"d/m/Y H:i" }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-3">
+                <h6 class="text-muted">Inicial</h6>
+                <h5>${{ caja.monto_inicial|floatformat:2 }}</h5>
+            </div>
+            <div class="col-3">
+                <h6 class="text-muted">Ingresos</h6>
+                <h5 class="text-success">+${{ caja.total_ingresos|floatformat:2 }}</h5>
+            </div>
+            <div class="col-3">
+                <h6 class="text-muted">Egresos</h6>
+                <h5 class="text-danger">-${{ caja.total_egresos|floatformat:2 }}</h5>
+            </div>
+            <div class="col-3">
+                <h6 class="text-muted">Esperado</h6>
+                <h5>${{ caja.saldo_esperado|floatformat:2 }}</h5>
+            </div>
+        </div>
+        {% if caja.estado == 'CERRADA' %}
+        <hr>
+        <div class="row text-center">
+            <div class="col-6">
+                <h6 class="text-muted">Conteo Final</h6>
+                <h4>${{ caja.monto_final_real|floatformat:2 }}</h4>
+            </div>
+            <div class="col-6">
+                <h6 class="text-muted">Diferencia</h6>
+                <h4 class="{% if caja.diferencia >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if caja.diferencia > 0 %}+{% endif %}{{ caja.diferencia|floatformat:2 }}
+                </h4>
+            </div>
+        </div>
+        <p class="text-muted small mt-2">Cerrada {{ caja.fecha_cierre|date:"d/m/Y H:i" }} por {{ caja.usuario }}</p>
+        {% endif %}
+        {% if caja.observaciones %}
+        <hr>
+        <p class="mb-0 text-muted"><i class="bi bi-chat"></i> {{ caja.observaciones }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<h5><i class="bi bi-list"></i> Movimientos de esta Caja</h5>
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>#</th><th>Concepto</th><th>Tipo</th><th>Monto</th><th>Fecha</th><th>Equipo</th><th>Registrado por</th></tr></thead>
+    <tbody>
+        {% for i in ingresos %}
+        <tr>
+            <td>{{ i.id }}</td>
+            <td>{{ i.concepto }}</td>
+            <td>{% if i.es_ingreso %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}</td>
+            <td class="{% if i.es_ingreso %}text-success{% else %}text-danger{% endif %}">
+                {% if not i.es_ingreso %}-{% endif %}${{ i.monto|floatformat:2 }}
+            </td>
+            <td>{{ i.fecha|date:"d/m/Y" }}</td>
+            <td>{{ i.equipo|default:"-" }}</td>
+            <td>{{ i.registrado_por|default:"-" }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="text-center text-muted">No hay movimientos en esta caja.</td></tr>{% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="table-light">
+            <th colspan="3">Totales</th>
+            <th class="text-success">+${{ caja.total_ingresos|floatformat:2 }}</th>
+            <th colspan="3" class="text-danger">-${{ caja.total_egresos|floatformat:2 }}</th>
+        </tr>
+    </tfoot>
+</table>
+</div>
+{% endblock %}

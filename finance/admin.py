@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ConceptoIngreso, Ingreso
+from .models import ConceptoIngreso, Ingreso, Caja
 
 
 @admin.register(ConceptoIngreso)
@@ -31,3 +31,11 @@ class IngresoAdmin(admin.ModelAdmin):
         "concepto", "monto", "fecha", "equipo", "registrado_por"
     ]
     list_filter = ["concepto", "fecha"]
+
+
+@admin.register(Caja)
+class CajaAdmin(admin.ModelAdmin):
+    list_display = [
+        "id", "estado", "usuario", "fecha_apertura", "fecha_cierre", "monto_inicial", "saldo_esperado"
+    ]
+    list_filter = ["estado", "fecha_apertura"]

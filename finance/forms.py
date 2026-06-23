@@ -1,6 +1,32 @@
 from django import forms
-from .models import Ingreso, ConceptoIngreso
+from .models import Ingreso, ConceptoIngreso, Caja
 from league.models import Categoria, Temporada
+
+
+class CajaAperturaForm(forms.ModelForm):
+    class Meta:
+        model = Caja
+        fields = ["monto_inicial", "observaciones"]
+        widgets = {
+            "monto_inicial": forms.NumberInput(attrs={"class": "form-control form-control-lg", "step": "0.01", "placeholder": "0.00", "autofocus": True}),
+            "observaciones": forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Nota opcional..."}),
+        }
+        labels = {
+            "monto_inicial": "Monto Inicial ($)",
+        }
+
+
+class CajaCierreForm(forms.ModelForm):
+    class Meta:
+        model = Caja
+        fields = ["monto_final_real", "observaciones"]
+        widgets = {
+            "monto_final_real": forms.NumberInput(attrs={"class": "form-control form-control-lg", "step": "0.01", "placeholder": "0.00", "autofocus": True}),
+            "observaciones": forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Nota opcional..."}),
+        }
+        labels = {
+            "monto_final_real": "Conteo Final ($)",
+        }
 
 
 class ConceptoIngresoForm(forms.ModelForm):

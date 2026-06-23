@@ -84,6 +84,12 @@ PERMISOS_MENU = {
             ("ingreso_eliminar", "Eliminar Ingresos"),
             ("ingreso_pos", "Punto de Venta"),
         ],
+        "Caja": [
+            ("caja_ver", "Acceso a Caja"),
+            ("caja_aperturar", "Aperturar Caja"),
+            ("caja_cerrar", "Cerrar Caja"),
+            ("caja_corte", "Corte de Caja"),
+        ],
     },
     "Configuración": {
         "General": [
