@@ -6,41 +6,57 @@ or secrets/firebase-service-account.json file.
 import base64
 import json
 import os
+import logging
 from django.conf import settings
-import firebase_admin
-from firebase_admin import credentials, messaging
+
+logger = logging.getLogger(__name__)
+
+_app_initialized = False
 
 
-def _get_credential():
-    # 1) Base64 env var (easiest for Render — single line)
-    b64 = os.environ.get("FIREBASE_SERVICE_ACCOUNT_BASE64")
-    if b64:
-        return credentials.Certificate(json.loads(base64.b64decode(b64)))
-    # 2) Raw JSON env var
-    raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if raw:
-        return credentials.Certificate(json.loads(raw))
-    # 3) Local file (dev)
-    file_path = os.path.join(settings.BASE_DIR, "secrets", "firebase-service-account.json")
-    if os.path.exists(file_path):
-        return credentials.Certificate(file_path)
-    raise RuntimeError(
-        "FIREBASE_SERVICE_ACCOUNT_BASE64 / FIREBASE_SERVICE_ACCOUNT_JSON not set "
-        "and secrets/firebase-service-account.json not found"
-    )
+def _try_init():
+    global _app_initialized
+    if _app_initialized:
+        return True
 
+    import firebase_admin
+    from firebase_admin import credentials
 
-def _init_app():
     if firebase_admin._apps:
-        return
-    cred = _get_credential()
-    firebase_admin.initialize_app(cred)
+        _app_initialized = True
+        return True
+
+    try:
+        b64 = os.environ.get("FIREBASE_SERVICE_ACCOUNT_BASE64")
+        if b64:
+            cred = credentials.Certificate(json.loads(base64.b64decode(b64)))
+        else:
+            raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+            if raw:
+                cred = credentials.Certificate(json.loads(raw))
+            else:
+                file_path = os.path.join(settings.BASE_DIR, "secrets", "firebase-service-account.json")
+                if os.path.exists(file_path):
+                    cred = credentials.Certificate(file_path)
+                else:
+                    logger.warning("No Firebase credentials found (FIREBASE_SERVICE_ACCOUNT_BASE64 not set)")
+                    return False
+
+        firebase_admin.initialize_app(cred)
+        _app_initialized = True
+        return True
+    except Exception as e:
+        logger.error("Firebase init failed: %s", e)
+        return False
 
 
 def send_push_notification(tokens, title, body, data=None):
     if not tokens:
         return
-    _init_app()
+    if not _try_init():
+        return
+
+    from firebase_admin import messaging
 
     if isinstance(tokens, str):
         tokens = [tokens]
@@ -54,7 +70,8 @@ def send_push_notification(tokens, title, body, data=None):
     try:
         response = messaging.send_each_for_multicast(message)
         return {"success": response.success_count, "failure": response.failure_count}
-    except Exception:
+    except Exception as e:
+        logger.error("Push send failed: %s", e)
         return None
 
 
