@@ -1297,6 +1297,25 @@ class PeriodoAltas(models.Model):
         return f"Altas por jornadas: {self.jornada_inicio} - {self.jornada_fin} ({self.temporada})"
 
 
+class PartidoQuerySet(models.QuerySet):
+    def _fetch_all(self):
+        try:
+            super()._fetch_all()
+        except ProgrammingError as e:
+            if "does not exist" in str(e) and "recordatorio_30min_enviado" in str(e):
+                from django.db import connection
+                with connection.cursor() as cur:
+                    cur.execute("ALTER TABLE league_partido ADD COLUMN IF NOT EXISTS recordatorio_30min_enviado boolean NOT NULL DEFAULT false")
+                super()._fetch_all()
+            else:
+                raise
+
+
+class PartidoManager(Manager):
+    def get_queryset(self):
+        return PartidoQuerySet(self.model, using=self._db)
+
+
 class Partido(models.Model):
     ESTADOS = [
         ("PEND", "Pendiente"),
@@ -1335,6 +1354,7 @@ class Partido(models.Model):
     motivo_default = models.TextField(blank=True, verbose_name="Motivo del default")
     grupo = models.CharField(max_length=1, blank=True, verbose_name="Grupo")
     recordatorio_30min_enviado = models.BooleanField(default=False, verbose_name="Recordatorio 30min enviado")
+    objects = PartidoManager()
 
     class Meta:
         verbose_name = "Partido"
