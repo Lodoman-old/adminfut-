@@ -1334,6 +1334,7 @@ class Partido(models.Model):
     default_visitante = models.BooleanField(default=False, verbose_name="Visitante pierde por default")
     motivo_default = models.TextField(blank=True, verbose_name="Motivo del default")
     grupo = models.CharField(max_length=1, blank=True, verbose_name="Grupo")
+    recordatorio_30min_enviado = models.BooleanField(default=False, verbose_name="Recordatorio 30min enviado")
 
     class Meta:
         verbose_name = "Partido"
