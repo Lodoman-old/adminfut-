@@ -8,6 +8,7 @@
 (function() {
     if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
         Capacitor.Plugins.Preferences.remove({ key: 'is_logged_in' });
+        Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
     }
     setTimeout(function() { window.location.href = '/'; }, 1500);
 })();

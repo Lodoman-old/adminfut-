@@ -41,9 +41,11 @@
     var form = document.querySelector('form');
     if (!form) return;
 
+    function prefsOk() { return Capacitor && Capacitor.Plugins && Capacitor.Plugins.Preferences; }
+
     // Mark as logged in (so auto-biometric triggers on next app open)
     function markLoggedIn() {
-        if (Capacitor.Plugins.Preferences) {
+        if (prefsOk()) {
             Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
         }
     }
@@ -63,7 +65,9 @@
     });
 
     // Auto biometric login if previously logged in
-    if (Capacitor.Plugins.Preferences) {
+    if (prefsOk()) {
+        // Clear bio_verified_ts so base.html asks for fingerprint again
+        Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
         Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
             if (r.value !== 'true') return;
             if (!Capacitor.Plugins.NativeBiometric) return;
@@ -75,6 +79,9 @@
             }).then(function(res) {
                 if (!res.verified) return;
                 window.name = 'bio_verified=1';
+                if (Capacitor.Plugins.Preferences) {
+                    Capacitor.Plugins.Preferences.set({ key: 'bio_verified_ts', value: Date.now().toString() });
+                }
                 Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
                     var u = form.querySelector('input[name="username"]');
                     var p = form.querySelector('input[name="password"]');

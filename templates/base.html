@@ -305,11 +305,27 @@
             if (prompt) prompt.style.display = 'block';
         }
 
+        function prefsAvailable() {
+            return typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
+        }
+
+        function bioAvailable() {
+            return prefsAvailable() && Capacitor.Plugins.NativeBiometric;
+        }
+
+        // On login page the auto-biometric script handles fingerprint, skip overlay
+        if (window.location.pathname.indexOf('/accounts/login') >= 0) {
+            hideOverlay();
+        } else {
+            // Normal page: proceed with full overlay logic
+            doOverlay();
+        }
+
         // Set is_logged_in flag as soon as Capacitor is available (independent of overlay)
         function setIsLoggedIn() {
             {% if user.is_authenticated %}
             try {
-                if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
+                if (prefsAvailable()) {
                     Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
                     return true;
                 }
@@ -317,6 +333,7 @@
             {% endif %}
             return false;
         }
+        {% if user.is_authenticated %}
         if (!setIsLoggedIn()) {
             var loginRetries = 0;
             (function retrySet() {
@@ -325,24 +342,61 @@
                 if (loginRetries < 50) setTimeout(retrySet, 200);
             })();
         }
-
-        // Check if already verified in this session via window.name (survives page nav, cleared on app close)
-        var verified = window.name && window.name.indexOf('bio_verified=1') >= 0;
-        {% if user.is_authenticated %}
-        if (verified) { hideOverlay(); return; }
-        {% else %}
-        hideOverlay();
-        return;
         {% endif %}
+
+        function doOverlay() {
+        {% if user.is_authenticated %}
+            // sessionStorage survives page navigations but is cleared when app process is killed.
+            // If empty → fresh app start → clear bio_verified_ts so overlay shows.
+            var isFreshSession = false;
+            try {
+                if (sessionStorage.getItem('bio_session') !== '1') {
+                    isFreshSession = true;
+                    sessionStorage.setItem('bio_session', '1');
+                }
+            } catch(e) { isFreshSession = true; }
+
+            if (isFreshSession && prefsAvailable()) {
+                Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
+            }
+
+            // 1) Fast path — window.name (works on some WebViews across navigations)
+            var wnVerified = window.name && window.name.indexOf('bio_verified=1') >= 0;
+            if (wnVerified) { hideOverlay(); return; }
+
+            // 2) Persistent backup — Preferences bio_verified_ts (survives navigations)
+            if (prefsAvailable()) {
+                Capacitor.Plugins.Preferences.get({ key: 'bio_verified_ts' }).then(function(r) {
+                    if (r.value) {
+                        var ts = parseInt(r.value, 10);
+                        if (Date.now() - ts < 30 * 60 * 1000) {
+                            window.name = 'bio_verified=1';
+                            hideOverlay();
+                            return;
+                        }
+                    }
+                    // Not verified → ask fingerprint
+                    startPolling();
+                }).catch(function() { startPolling(); });
+            } else {
+                startPolling();
+            }
+        {% else %}
+            hideOverlay();
+        {% endif %}
+        }
 
         // Poll for Capacitor bridge availability
         var attempts = 0;
         var maxAttempts = 50; // ~10 seconds
 
+        function startPolling() {
+            checkCapacitor();
+        }
+
         function checkCapacitor() {
             attempts++;
-            var capOk = (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric && Capacitor.Plugins.Preferences);
-            if (capOk) {
+            if (bioAvailable()) {
                 onCapacitorReady();
                 return;
             }
@@ -368,12 +422,12 @@
                 }).then(function(res) {
                     if (res.verified) {
                         window.name = 'bio_verified=1';
+                        prefs.set({ key: 'bio_verified_ts', value: Date.now().toString() });
                         hideOverlay();
                     } else {
                         alert('Huella no reconocida. Intenta de nuevo.');
                     }
                 }).catch(function() {
-                    // Biometric unavailable or cancelled — just hide overlay, don't log out
                     hideOverlay();
                 });
             }
@@ -381,11 +435,10 @@
             document.getElementById('btnHuella').addEventListener('click', doVerify);
             document.getElementById('btnOtro').addEventListener('click', function() {
                 prefs.set({ key: 'is_logged_in', value: 'false' });
+                prefs.remove({ key: 'bio_verified_ts' });
                 window.location.href = '/accounts/logout/';
             });
         }
-
-        checkCapacitor();
     })();
     </script>
     <script>
