@@ -228,28 +228,33 @@
     });
     </script>
     <script>
-    // Capacitor bridge — marks user as logged in and registers push token
-    {% if user.is_authenticated %}
+    // Capacitor bridge — registers push token (works for logged-in users and guests in the app)
     (function() {
-        if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
-            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' }).then(function() {
-                // Register push notification token
-                if (Capacitor.Plugins.PushNotifications) {
-                    Capacitor.Plugins.PushNotifications.requestPermissions().then(function() {
-                        Capacitor.Plugins.PushNotifications.register();
-                    });
-                    Capacitor.Plugins.PushNotifications.addListener('registration', function(token) {
-                        fetch('/api/register-device/', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                            body: JSON.stringify({ token: token.value, plataforma: 'android' })
-                        });
-                    });
-                }
-            }).catch(function() {});
+        if (typeof Capacitor === 'undefined' || !Capacitor.Plugins) return;
+
+        // Set is_logged_in flag for biometric auto-login
+        if (Capacitor.Plugins.Preferences) {
+            {% if user.is_authenticated %}
+            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+            {% else %}
+            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'false' });
+            {% endif %}
+        }
+
+        // Register push notification token for all app users
+        if (Capacitor.Plugins.PushNotifications) {
+            Capacitor.Plugins.PushNotifications.requestPermissions().then(function() {
+                Capacitor.Plugins.PushNotifications.register();
+            });
+            Capacitor.Plugins.PushNotifications.addListener('registration', function(token) {
+                fetch('/api/register-device/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                    body: JSON.stringify({ token: token.value, plataforma: 'android' })
+                });
+            });
         }
     })();
-    {% endif %}
     </script>
     {% block extra_js %}{% endblock %}
     {% block extra_modals %}{% endblock %}
