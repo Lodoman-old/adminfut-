@@ -40,7 +40,7 @@ with connection.cursor() as c:
             activo boolean NOT NULL DEFAULT true,
             creado timestamptz NOT NULL DEFAULT now(),
             actualizado timestamptz NOT NULL DEFAULT now(),
-            usuario_id integer NULL REFERENCES auth_user(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+            usuario_id integer NULL REFERENCES accounts_usuario(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
         )''')
         # Create index
         c.execute('CREATE INDEX league_devicetoken_usuario_id ON league_devicetoken(usuario_id)')
