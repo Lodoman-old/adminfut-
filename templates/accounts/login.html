@@ -38,21 +38,23 @@
 (function() {
     if (typeof Capacitor === 'undefined' || !Capacitor.Plugins) return;
 
-    // Store credentials after successful login (form submitted)
     var form = document.querySelector('form');
-    if (form) {
-        form.addEventListener('submit', function() {
-            var u = form.querySelector('input[name="username"]');
-            var p = form.querySelector('input[name="password"]');
-            if (u && p && Capacitor.Plugins.NativeBiometric) {
-                Capacitor.Plugins.NativeBiometric.setCredentials({
-                    username: u.value,
-                    password: p.value,
-                    server: 'adminfut'
-                });
-            }
-        });
-    }
+    if (!form) return;
+
+    // Store credentials AND mark session as verified when user submits manually
+    form.addEventListener('submit', function() {
+        var u = form.querySelector('input[name="username"]');
+        var p = form.querySelector('input[name="password"]');
+        if (u && p && Capacitor.Plugins.NativeBiometric) {
+            Capacitor.Plugins.NativeBiometric.setCredentials({
+                username: u.value,
+                password: p.value,
+                server: 'adminfut'
+            });
+        }
+        // Mark biometric as verified so base.html doesn't re-prompt after redirect
+        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
+    });
 
     // Auto biometric login if previously logged in
     if (Capacitor.Plugins.Preferences) {
@@ -66,13 +68,14 @@
                 description: 'Coloca tu dedo en el sensor'
             }).then(function(res) {
                 if (!res.verified) return;
-                // Retrieve stored credentials and auto-login
                 Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
                     var u = form.querySelector('input[name="username"]');
                     var p = form.querySelector('input[name="password"]');
                     if (u && p && creds.username && creds.password) {
                         u.value = creds.username;
                         p.value = creds.password;
+                        // Mark verified BEFORE submit so base.html skips re-prompt after redirect
+                        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
                         form.submit();
                     }
                 });
