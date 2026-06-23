@@ -354,8 +354,8 @@
                         alert('Huella no reconocida. Intenta de nuevo.');
                     }
                 }).catch(function() {
-                    prefs.set({ key: 'is_logged_in', value: 'false' });
-                    window.location.href = '/accounts/logout/';
+                    // Biometric unavailable or cancelled — just hide overlay, don't log out
+                    hideOverlay();
                 });
             }
 
