@@ -41,7 +41,7 @@
     var form = document.querySelector('form');
     if (!form) return;
 
-    // Store credentials AND mark session as verified when user submits manually
+    // Store credentials when user submits manually
     form.addEventListener('submit', function() {
         var u = form.querySelector('input[name="username"]');
         var p = form.querySelector('input[name="password"]');
@@ -52,8 +52,6 @@
                 server: 'adminfut'
             });
         }
-        // Mark biometric as verified so base.html doesn't re-prompt after redirect
-        window.name = 'bio_verified=1';
     });
 
     // Auto biometric login if previously logged in
@@ -74,8 +72,6 @@
                     if (u && p && creds.username && creds.password) {
                         u.value = creds.username;
                         p.value = creds.password;
-                        // Mark verified BEFORE submit so base.html skips re-prompt after redirect
-                        window.name = 'bio_verified=1';
                         form.submit();
                     }
                 });
