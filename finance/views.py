@@ -200,6 +200,7 @@ def ingreso_pos(request):
         "tipo_filtro": tipo_filtro,
         "cascade_data_json": json.dumps(cascade_data),
         "todos_equipos_json": json.dumps(todos_equipos),
+        "caja_abierta": caja_abierta,
     })
 
 
@@ -234,7 +235,7 @@ def caja_aperturar(request):
             caja.usuario = request.user
             caja.save()
             messages.success(request, f"Caja #{caja.id} aperturada con ${caja.monto_inicial}.")
-            return redirect("caja_dashboard")
+            return redirect("ingreso_pos")
     else:
         form = CajaAperturaForm()
     return render(request, "finance/caja_form.html", {
@@ -247,9 +248,10 @@ def caja_aperturar(request):
 @login_required
 def caja_cerrar(request, pk):
     caja = get_object_or_404(Caja, pk=pk)
+    next_url = request.GET.get("next") or request.POST.get("next") or "caja_dashboard"
     if caja.estado == "CERRADA":
         messages.warning(request, "Esta caja ya está cerrada.")
-        return redirect("caja_dashboard")
+        return redirect(next_url)
     if request.method == "POST":
         form = CajaCierreForm(request.POST, instance=caja)
         if form.is_valid():
@@ -257,8 +259,9 @@ def caja_cerrar(request, pk):
             caja.estado = "CERRADA"
             caja.fecha_cierre = timezone.now()
             caja.save()
-            messages.success(request, f"Caja #{caja.id} cerrada. Saldo esperado: ${caja.saldo_esperado():.2f}, registrado: ${caja.monto_final_real:.2f}.")
-            return redirect("caja_dashboard")
+            real = caja.monto_final_real or 0
+            messages.success(request, f"Caja #{caja.id} cerrada. Saldo esperado: ${caja.saldo_esperado():.2f}, registrado: ${real:.2f}.")
+            return redirect(next_url)
     else:
         form = CajaCierreForm(instance=caja)
     return render(request, "finance/caja_form.html", {
@@ -266,6 +269,7 @@ def caja_cerrar(request, pk):
         "titulo": f"Cerrar Caja #{caja.id}",
         "accion": "Cerrar Caja",
         "caja": caja,
+        "next_url": next_url,
     })
 
 

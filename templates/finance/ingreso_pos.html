@@ -43,7 +43,20 @@
 </style>
 {% endblock %}
 {% block content %}
-<h3 class="page-header mb-3"><i class="bi bi-cash-register text-warning"></i> Punto de Venta</h3>
+{% load permisos %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0"><i class="bi bi-cash-register text-warning"></i> Punto de Venta</h3>
+  <div class="d-flex align-items-center gap-2">
+    {% if caja_abierta %}
+    <span class="badge bg-success fs-6"><i class="bi bi-safe"></i> Caja #{{ caja_abierta.id }}: ${{ caja_abierta.saldo_esperado|floatformat:2 }}</span>
+    {% if user|tiene_permiso:"caja_cerrar" %}
+    <a href="{% url 'caja_cerrar' caja_abierta.pk %}?next=ingreso_pos" class="btn btn-danger btn-sm">
+      <i class="bi bi-x-circle"></i> Cerrar Caja
+    </a>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
 
 <div class="pos-container">
   <ul class="nav nav-tabs mb-3" id="posTabs" role="tablist">
