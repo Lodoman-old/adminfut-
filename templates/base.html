@@ -305,10 +305,10 @@
             if (prompt) prompt.style.display = 'block';
         }
 
-        // Check if already verified in this session
-        var already = window.sessionStorage && sessionStorage.getItem('biometric_verified') === 'true';
+        // Check if already verified in this session via window.name (survives page nav, cleared on app close)
+        var verified = window.name && window.name.indexOf('bio_verified=1') >= 0;
         {% if user.is_authenticated %}
-        if (already) { hideOverlay(); return; }
+        if (verified) { hideOverlay(); return; }
         {% else %}
         hideOverlay();
         return;
@@ -326,7 +326,6 @@
                 return;
             }
             if (attempts >= maxAttempts) {
-                // Capacitor never became available — hide overlay
                 hideOverlay();
                 return;
             }
@@ -337,10 +336,8 @@
             var prefs = Capacitor.Plugins.Preferences;
             var bio = Capacitor.Plugins.NativeBiometric;
 
-            // Ensure is_logged_in flag is set
             prefs.set({ key: 'is_logged_in', value: 'true' });
 
-            // Show biometric prompt
             showPrompt();
 
             function doVerify() {
@@ -351,13 +348,12 @@
                     description: 'Coloca tu dedo en el sensor'
                 }).then(function(res) {
                     if (res.verified) {
-                        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
+                        window.name = 'bio_verified=1';
                         hideOverlay();
                     } else {
                         alert('Huella no reconocida. Intenta de nuevo.');
                     }
                 }).catch(function() {
-                    // Cancelled or error → logout
                     prefs.set({ key: 'is_logged_in', value: 'false' });
                     window.location.href = '/accounts/logout/';
                 });
@@ -368,12 +364,8 @@
                 prefs.set({ key: 'is_logged_in', value: 'false' });
                 window.location.href = '/accounts/logout/';
             });
-
-            // Auto-trigger fingerprint after a short delay
-            setTimeout(doVerify, 400);
         }
 
-        // Start polling
         checkCapacitor();
     })();
     </script>

@@ -53,7 +53,7 @@
             });
         }
         // Mark biometric as verified so base.html doesn't re-prompt after redirect
-        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
+        window.name = 'bio_verified=1';
     });
 
     // Auto biometric login if previously logged in
@@ -75,7 +75,7 @@
                         u.value = creds.username;
                         p.value = creds.password;
                         // Mark verified BEFORE submit so base.html skips re-prompt after redirect
-                        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
+                        window.name = 'bio_verified=1';
                         form.submit();
                     }
                 });
