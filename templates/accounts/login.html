@@ -36,14 +36,8 @@
     if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
         Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
             if (r.value === 'true') {
-                var row = document.querySelector('.row.justify-content-center');
-                if (!row) return;
-                var col = row.querySelector('.col-md-4');
-                if (!col) return;
-                var card = col.querySelector('.card');
-                if (!card) return;
-                var body = card.querySelector('.card-body');
-                if (!body) return;
+                var cardBody = document.querySelector('.card-body');
+                if (!cardBody) return;
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'btn btn-outline-success w-100 mt-2';
@@ -62,7 +56,8 @@
                         console.error('Biometric error:', err);
                     });
                 };
-                body.appendChild(btn);
+                cardBody.appendChild(btn);
+                btn.click();
             }
         });
     }

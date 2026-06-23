@@ -4,7 +4,6 @@
   "webDir": "www",
   "server": {
     "url": "https://adminfut.onrender.com",
-    "cleartext": false,
     "allowNavigation": [
       "adminfut.onrender.com"
     ]
@@ -14,6 +13,9 @@
       "launchShowDuration": 3000,
       "backgroundColor": "#1a3a15",
       "androidScaleType": "CENTER_CROP"
+    },
+    "NativeBiometric": {
+      "enabled": true
     }
   }
 }
