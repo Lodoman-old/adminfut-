@@ -56,5 +56,8 @@ def unregister_device_token(request):
 def cron_notificar_arbitros(request):
     """Endpoint llamado por scheduler externo (cron-job.org, Render Cron, etc.)."""
     out = StringIO()
-    call_command("notificar_arbitros", stdout=out)
+    try:
+        call_command("notificar_arbitros", stdout=out)
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e), "output": out.getvalue()}, status=500)
     return JsonResponse({"ok": True, "output": out.getvalue()})
