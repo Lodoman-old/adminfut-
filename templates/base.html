@@ -98,9 +98,71 @@
     select optgroup option { color: #212529; }
     .filter-select optgroup option { color: #fff; }
     </style>
+    <style>
+    #biometric-overlay {
+        display: flex;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(135deg, #1a3a15 0%, #2d6b2e 50%, #4a8c4a 100%);
+        z-index: 99999;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #biometric-overlay.hidden { display: none !important; }
+    #biometric-overlay .icon { font-size: 64px; margin-bottom: 16px; }
+    #biometric-overlay h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    #biometric-overlay p { opacity: 0.8; margin-bottom: 24px; font-size: 1rem; }
+    #biometric-overlay .btn-huella {
+        padding: 14px 32px;
+        background: rgba(255,255,255,0.2);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.4);
+        border-radius: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        width: 240px;
+    }
+    #biometric-overlay .btn-huella:hover { background: rgba(255,255,255,0.3); }
+    #biometric-overlay .btn-otro {
+        display: block; width: 240px;
+        margin: 12px auto 0;
+        padding: 10px;
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        font-size: 14px;
+        cursor: pointer;
+    }
+    #biometric-overlay .spinner {
+        width: 32px; height: 32px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <div id="biometric-overlay">
+        <div>
+            <div id="bio-loading">
+                <div class="spinner"></div>
+                <p>Verificando...</p>
+            </div>
+            <div id="bio-prompt" style="display:none">
+                <div class="icon">&#128522;</div>
+                <h2>Bienvenido</h2>
+                <p>Verifica tu identidad para acceder</p>
+                <button class="btn-huella" id="btnHuella">&#128522; Usar huella digital</button>
+                <button class="btn-otro" id="btnOtro">Entrar con otro usuario</button>
+            </div>
+        </div>
+    </div>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">
@@ -228,30 +290,115 @@
     });
     </script>
     <script>
-    // Capacitor bridge — registers push token (works for logged-in users and guests in the app)
+    // Capacitor bridge — biometric verification + push token registration
     (function() {
-        if (typeof Capacitor === 'undefined' || !Capacitor.Plugins) return;
+        var overlay = document.getElementById('biometric-overlay');
+        var loading = document.getElementById('bio-loading');
+        var prompt = document.getElementById('bio-prompt');
 
-        // Set is_logged_in flag for biometric auto-login (never set to false here, logout page handles that)
-        if (Capacitor.Plugins.Preferences) {
-            {% if user.is_authenticated %}
-            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
-            {% endif %}
+        function hideOverlay() {
+            if (overlay) overlay.classList.add('hidden');
         }
 
-        // Register push notification token for all app users
-        if (Capacitor.Plugins.PushNotifications) {
-            Capacitor.Plugins.PushNotifications.requestPermissions().then(function() {
-                Capacitor.Plugins.PushNotifications.register();
-            });
-            Capacitor.Plugins.PushNotifications.addListener('registration', function(token) {
-                fetch('/api/register-device/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                    body: JSON.stringify({ token: token.value, plataforma: 'android' })
+        function showPrompt() {
+            if (loading) loading.style.display = 'none';
+            if (prompt) prompt.style.display = 'block';
+        }
+
+        // Check if already verified in this session
+        var already = window.sessionStorage && sessionStorage.getItem('biometric_verified') === 'true';
+        {% if user.is_authenticated %}
+        if (already) { hideOverlay(); return; }
+        {% else %}
+        hideOverlay();
+        return;
+        {% endif %}
+
+        // Poll for Capacitor bridge availability
+        var attempts = 0;
+        var maxAttempts = 20; // ~4 seconds
+
+        function checkCapacitor() {
+            attempts++;
+            var capOk = (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric && Capacitor.Plugins.Preferences);
+            if (capOk) {
+                onCapacitorReady();
+                return;
+            }
+            if (attempts >= maxAttempts) {
+                // Capacitor never became available — hide overlay
+                hideOverlay();
+                return;
+            }
+            setTimeout(checkCapacitor, 200);
+        }
+
+        function onCapacitorReady() {
+            var prefs = Capacitor.Plugins.Preferences;
+            var bio = Capacitor.Plugins.NativeBiometric;
+
+            // Ensure is_logged_in flag is set
+            prefs.set({ key: 'is_logged_in', value: 'true' });
+
+            // Show biometric prompt
+            showPrompt();
+
+            function doVerify() {
+                bio.verifyIdentity({
+                    reason: 'Acceder a AdminFut',
+                    title: 'Huella digital',
+                    subtitle: 'Usa tu huella para acceder',
+                    description: 'Coloca tu dedo en el sensor'
+                }).then(function(res) {
+                    if (res.verified) {
+                        try { sessionStorage.setItem('biometric_verified', 'true'); } catch(e) {}
+                        hideOverlay();
+                    } else {
+                        alert('Huella no reconocida. Intenta de nuevo.');
+                    }
+                }).catch(function() {
+                    // Cancelled or error → logout
+                    prefs.set({ key: 'is_logged_in', value: 'false' });
+                    window.location.href = '/accounts/logout/';
                 });
+            }
+
+            document.getElementById('btnHuella').addEventListener('click', doVerify);
+            document.getElementById('btnOtro').addEventListener('click', function() {
+                prefs.set({ key: 'is_logged_in', value: 'false' });
+                window.location.href = '/accounts/logout/';
             });
+
+            // Auto-trigger fingerprint after a short delay
+            setTimeout(doVerify, 400);
         }
+
+        // Start polling
+        checkCapacitor();
+    })();
+    </script>
+    <script>
+    // Capacitor push notification registration (separate to avoid timing conflicts)
+    (function() {
+        var attempts = 0;
+        function checkPush() {
+            attempts++;
+            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+                Capacitor.Plugins.PushNotifications.requestPermissions().then(function() {
+                    Capacitor.Plugins.PushNotifications.register();
+                });
+                Capacitor.Plugins.PushNotifications.addListener('registration', function(token) {
+                    fetch('/api/register-device/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                        body: JSON.stringify({ token: token.value, plataforma: 'android' })
+                    });
+                });
+                return;
+            }
+            if (attempts < 20) setTimeout(checkPush, 200);
+        }
+        checkPush();
     })();
     </script>
     {% block extra_js %}{% endblock %}
