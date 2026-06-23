@@ -41,6 +41,13 @@
     var form = document.querySelector('form');
     if (!form) return;
 
+    // Mark as logged in (so auto-biometric triggers on next app open)
+    function markLoggedIn() {
+        if (Capacitor.Plugins.Preferences) {
+            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+        }
+    }
+
     // Store credentials when user submits manually
     form.addEventListener('submit', function() {
         var u = form.querySelector('input[name="username"]');
@@ -52,6 +59,7 @@
                 server: 'adminfut'
             });
         }
+        markLoggedIn();
     });
 
     // Auto biometric login if previously logged in
@@ -66,10 +74,12 @@
                 description: 'Coloca tu dedo en el sensor'
             }).then(function(res) {
                 if (!res.verified) return;
+                window.name = 'bio_verified=1';
                 Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
                     var u = form.querySelector('input[name="username"]');
                     var p = form.querySelector('input[name="password"]');
                     if (u && p && creds.username && creds.password) {
+                        markLoggedIn();
                         u.value = creds.username;
                         p.value = creds.password;
                         form.submit();

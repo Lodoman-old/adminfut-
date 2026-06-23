@@ -305,6 +305,27 @@
             if (prompt) prompt.style.display = 'block';
         }
 
+        // Set is_logged_in flag as soon as Capacitor is available (independent of overlay)
+        function setIsLoggedIn() {
+            {% if user.is_authenticated %}
+            try {
+                if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
+                    Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+                    return true;
+                }
+            } catch(e) {}
+            {% endif %}
+            return false;
+        }
+        if (!setIsLoggedIn()) {
+            var loginRetries = 0;
+            (function retrySet() {
+                loginRetries++;
+                if (setIsLoggedIn()) return;
+                if (loginRetries < 50) setTimeout(retrySet, 200);
+            })();
+        }
+
         // Check if already verified in this session via window.name (survives page nav, cleared on app close)
         var verified = window.name && window.name.indexOf('bio_verified=1') >= 0;
         {% if user.is_authenticated %}
@@ -316,7 +337,7 @@
 
         // Poll for Capacitor bridge availability
         var attempts = 0;
-        var maxAttempts = 20; // ~4 seconds
+        var maxAttempts = 50; // ~10 seconds
 
         function checkCapacitor() {
             attempts++;
@@ -335,8 +356,6 @@
         function onCapacitorReady() {
             var prefs = Capacitor.Plugins.Preferences;
             var bio = Capacitor.Plugins.NativeBiometric;
-
-            prefs.set({ key: 'is_logged_in', value: 'true' });
 
             showPrompt();
 
