@@ -56,9 +56,16 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
     resultado.className = 'mt-3';
 
     try {
-        const token = await Capacitor.isNativePlatform() ?
-            (await PushNotifications.register()).token :
-            'web-' + Date.now();
+        const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+        let token = 'web-' + Date.now();
+        if (isNative && Capacitor.Plugins.PushNotifications) {
+            await Capacitor.Plugins.PushNotifications.requestPermissions();
+            Capacitor.Plugins.PushNotifications.register();
+            token = await new Promise(function(resolve) {
+                Capacitor.Plugins.PushNotifications.addListener('registration', function(t) { resolve(t.value); });
+                setTimeout(function() { resolve('cap-' + Date.now()); }, 5000);
+            });
+        }
 
         const cats = Array.from(document.querySelectorAll('input[name="categorias"]:checked')).map(cb => parseInt(cb.value));
         const resp = await fetch('/api/register-guest/', {
@@ -66,7 +73,7 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
             body: JSON.stringify({
                 token: token,
-                plataforma: Capacitor.isNativePlatform() ? 'android' : 'web',
+                plataforma: isNative ? 'android' : 'web',
                 nombre: document.getElementById('id_nombre').value.trim(),
                 telefono: document.getElementById('id_telefono').value.trim(),
                 categorias: cats,
