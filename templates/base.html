@@ -344,37 +344,20 @@
         }
         {% endif %}
 
-        function getCookie(name) {
-            var matches = document.cookie.match(new RegExp('(?:^| )' + name + '=([^;]+)'));
-            return matches ? matches[1] : null;
-        }
-        function setCookie(name, value, minutes) {
-            if (!minutes) { document.cookie = name + '=' + value + '; path=/; SameSite=Lax'; return; }
-            var d = new Date(); d.setTime(d.getTime() + minutes * 60 * 1000);
-            document.cookie = name + '=' + value + '; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
-        }
-        function delCookie(name) {
-            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-        }
-
         function doOverlay() {
         {% if user.is_authenticated %}
-            // Cookies survive page navigations reliably (unlike window.name / sessionStorage in some WebViews).
-            // Session cookie (no expiry) is cleared when the WebView process is killed.
-            // Timestamp cookie (1 min) handles the case where session cookie persists across app closes.
+            // localStorage is shared across all pages of the same origin (unlike window.name / sessionStorage
+            // which some WebViews reset on navigation). 30 min timestamp handles "close & reopen" detection.
+            var ts = localStorage.getItem('bio_verified_ts');
+            var expired = !ts || (Date.now() - parseInt(ts) > 30 * 60 * 1000);
 
-            var verified = getCookie('bio_verified');
-            var ts = getCookie('bio_verified_ts');
-            var expired = ts && (Date.now() - parseInt(ts) > 60 * 1000);
-
-            if (verified === '1' && (!expired)) {
-                // Refresh timestamp
-                setCookie('bio_verified_ts', Date.now().toString(), 1);
+            if (!expired) {
+                localStorage.setItem('bio_verified_ts', Date.now().toString());
                 hideOverlay();
                 return;
             }
 
-            // Not verified → show fingerprint prompt
+            // Timestamp expired or not set → ask fingerprint
             startPolling();
         {% else %}
             hideOverlay();
@@ -417,8 +400,8 @@
                 }).then(function(res) {
                     if (res.verified) {
                         window.name = 'bio_verified=1';
-                        setCookie('bio_verified', '1');
-                        setCookie('bio_verified_ts', Date.now().toString(), 1);
+                        localStorage.setItem('bio_verified', '1');
+                        localStorage.setItem('bio_verified_ts', Date.now().toString());
                         try { prefs.set({ key: 'bio_verified_ts', value: Date.now().toString() }); } catch(e) {}
                         hideOverlay();
                     } else {
@@ -432,8 +415,8 @@
             document.getElementById('btnHuella').addEventListener('click', doVerify);
             document.getElementById('btnOtro').addEventListener('click', function() {
                 prefs.set({ key: 'is_logged_in', value: 'false' });
-                delCookie('bio_verified');
-                delCookie('bio_verified_ts');
+                localStorage.removeItem('bio_verified');
+                localStorage.removeItem('bio_verified_ts');
                 try { prefs.remove({ key: 'bio_verified_ts' }); } catch(e) {}
                 window.location.href = '/accounts/logout/';
             });

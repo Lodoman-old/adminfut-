@@ -43,13 +43,6 @@
 
     function prefsOk() { return Capacitor && Capacitor.Plugins && Capacitor.Plugins.Preferences; }
 
-    function delCookie(n) { document.cookie = n + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax'; }
-    function setCookie(n, v, m) {
-        if (!m) { document.cookie = n + '=' + v + '; path=/; SameSite=Lax'; return; }
-        var d = new Date(); d.setTime(d.getTime() + m * 60 * 1000);
-        document.cookie = n + '=' + v + '; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
-    }
-
     // Mark as logged in (so auto-biometric triggers on next app open)
     function markLoggedIn() {
         if (prefsOk()) {
@@ -72,9 +65,9 @@
     });
 
     // Auto biometric login if previously logged in
-    // Clear verification cookies so base.html asks for fingerprint again
-    delCookie('bio_verified');
-    delCookie('bio_verified_ts');
+    // Clear localStorage so base.html asks for fingerprint again
+    localStorage.removeItem('bio_verified');
+    localStorage.removeItem('bio_verified_ts');
     if (prefsOk()) {
         Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
         Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
@@ -88,8 +81,8 @@
             }).then(function(res) {
                 if (!res.verified) return;
                 window.name = 'bio_verified=1';
-                setCookie('bio_verified', '1');
-                setCookie('bio_verified_ts', Date.now().toString(), 1);
+                localStorage.setItem('bio_verified', '1');
+                localStorage.setItem('bio_verified_ts', Date.now().toString());
                 if (Capacitor.Plugins.Preferences) {
                     Capacitor.Plugins.Preferences.set({ key: 'bio_verified_ts', value: Date.now().toString() });
                 }
