@@ -39,17 +39,8 @@
 
     function pollCapacitor(attempts) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric) {
-            // NativeBiometric esta instalado — verificar si hay sensor disponible
-            Capacitor.Plugins.NativeBiometric.isAvailable().then(function(result) {
-                if (result.isAvailable) {
-                    loading.style.display = 'none';
-                    prompt.style.display = 'block';
-                } else {
-                    goHome(); // Sin sensor biometrico
-                }
-            }).catch(function() {
-                goHome(); // Error al consultar disponibilidad
-            });
+            loading.style.display = 'none';
+            prompt.style.display = 'block';
             return;
         }
         if (attempts >= 25) {
@@ -61,27 +52,34 @@
 
     function doVerify() {
         Capacitor.Plugins.NativeBiometric.verifyIdentity({
-            reason: 'Confirmar tu identidad',
+            reason: 'Acceder a AdminFut',
             title: 'Huella digital',
-            subtitle: 'Verificación',
+            subtitle: 'Usa tu huella para acceder',
             description: 'Coloca tu dedo en el sensor'
-        }).then(function(res) {
-            if (res.verified) {
-                fetch('{% url "biometric_verify" %}', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({})
-                }).then(function(r) { return r.json(); }).then(function(data) {
-                    window.location.href = data.redirect || '{% url "home" %}';
-                }).catch(function() {
-                    goHome();
-                });
-            } else {
-                alert('Huella no reconocida. Intenta de nuevo.');
-            }
+        }).then(function() {
+            // verifyIdentity() retorna Promise<void> en v8.x
+            // Si se resuelve, la huella fue exitosa
+            fetch('{% url "biometric_verify" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                window.location.href = data.redirect || '{% url "home" %}';
+            }).catch(function() {
+                goHome();
+            });
         }).catch(function() {
-            prompt.style.display = 'none';
-            retry.style.display = 'block';
+            // verifyIdentity rechazo — verificar disponibilidad del sensor
+            Capacitor.Plugins.NativeBiometric.isAvailable().then(function(result) {
+                if (result.isAvailable) {
+                    prompt.style.display = 'none';
+                    retry.style.display = 'block';
+                } else {
+                    goHome(); // Sin sensor biometrico
+                }
+            }).catch(function() {
+                goHome(); // No se pudo determinar, omitir verificacion
+            });
         });
     }
 
