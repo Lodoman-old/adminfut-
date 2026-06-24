@@ -137,14 +137,18 @@ class CampoIndisponibilidadAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(admin.ModelAdmin):
-    list_display = ["token_short", "nombre", "es_invitado", "usuario", "plataforma", "activo", "creado"]
+    list_display = ["token_short", "device_id_short", "nombre", "es_invitado", "usuario", "plataforma", "activo", "creado"]
     list_filter = ["plataforma", "activo", "es_invitado"]
-    search_fields = ["token", "usuario__username", "nombre"]
+    search_fields = ["token", "device_id", "usuario__username", "nombre"]
     filter_horizontal = ["categorias"]
 
     def token_short(self, obj):
         return obj.token[:30] + "..."
     token_short.short_description = "Token"
+
+    def device_id_short(self, obj):
+        return obj.device_id[:8] + "..." if obj.device_id else "-"
+    device_id_short.short_description = "Device"
 
 
 @admin.register(PushLog)

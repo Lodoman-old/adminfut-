@@ -74,6 +74,7 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             body: JSON.stringify({
                 token: token,
                 plataforma: isNative ? 'android' : 'web',
+                device_id: window.__deviceId || '',
                 nombre: document.getElementById('id_nombre').value.trim(),
                 telefono: document.getElementById('id_telefono').value.trim(),
                 categorias: cats,

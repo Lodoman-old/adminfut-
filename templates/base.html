@@ -259,7 +259,19 @@
     })();
     </script>
     <script>
-    // Capacitor push notification registration (separate to avoid timing conflicts)
+    // Device UUID for identifying this device across sessions
+    (function() {
+        var devId = localStorage.getItem('adminfut_device_id');
+        if (!devId) {
+            devId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            localStorage.setItem('adminfut_device_id', devId);
+        }
+        window.__deviceId = devId;
+    })();
+    // Capacitor push notification registration
     (function() {
         var attempts = 0;
         function checkPush() {
@@ -272,7 +284,7 @@
                     fetch('/api/register-device/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                        body: JSON.stringify({ token: token.value, plataforma: 'android' })
+                        body: JSON.stringify({ token: token.value, plataforma: 'android', device_id: window.__deviceId })
                     });
                 });
                 return;

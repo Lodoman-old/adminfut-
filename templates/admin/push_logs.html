@@ -65,7 +65,8 @@
               <thead class="sticky-top bg-dark text-white">
                 <tr>
                   <th>ID</th>
-                  <th>Token (abreviado)</th>
+                  <th>Device</th>
+                  <th>Token</th>
                   <th>Plataforma</th>
                   <th>Activo</th>
                   <th>Invitado</th>
@@ -80,6 +81,7 @@
                 {% for t in tokens %}
                 <tr class="{% if not t.activo %}table-secondary{% elif t.es_invitado %}table-info{% endif %}">
                   <td>{{ t.id }}</td>
+                  <td style="font-family: monospace; font-size: 0.7rem;">{{ t.device_id|default:"-"|truncatechars:8 }}</td>
                   <td style="font-family: monospace; font-size: 0.7rem;">{{ t.token|truncatechars:30 }}</td>
                   <td>{{ t.plataforma }}</td>
                   <td>{% if t.activo %}✅{% else %}❌{% endif %}</td>
@@ -91,7 +93,7 @@
                   <td>{{ t.creado|date:"Y-m-d H:i" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="10" class="text-center text-muted">No hay dispositivos registrados.</td></tr>
+                <tr><td colspan="11" class="text-center text-muted">No hay dispositivos registrados.</td></tr>
                 {% endfor %}
               </tbody>
             </table>

@@ -19,12 +19,14 @@ def register_device_token(request):
 
     token = data.get("token", "").strip()
     plataforma = data.get("plataforma", "android")
+    device_id = data.get("device_id", "").strip()
 
     if not token:
         return JsonResponse({"error": "token required"}, status=400)
 
     defaults = {
         "plataforma": plataforma,
+        "device_id": device_id,
         "usuario": request.user if request.user.is_authenticated else None,
         "activo": True,
     }
@@ -41,7 +43,11 @@ def register_device_token(request):
     if request.user.is_authenticated:
         obj.categorias.clear()
 
-    return JsonResponse({"ok": True, "created": created})
+    # Desactivar tokens viejos del mismo dispositivo (mismo device_id, token diferente)
+    if device_id:
+        DeviceToken.objects.filter(device_id=device_id).exclude(token=token).update(activo=False)
+
+    return JsonResponse({"ok": True, "created": created, "device_id": device_id})
 
 
 @csrf_exempt
@@ -55,6 +61,7 @@ def register_guest_device(request):
 
     token = data.get("token", "").strip()
     plataforma = data.get("plataforma", "android")
+    device_id = data.get("device_id", "").strip()
     nombre = data.get("nombre", "").strip()
     telefono = data.get("telefono", "").strip()
     categoria_ids = data.get("categorias", [])
@@ -69,6 +76,7 @@ def register_guest_device(request):
         token=token,
         defaults={
             "plataforma": plataforma,
+            "device_id": device_id,
             "es_invitado": True,
             "nombre": nombre,
             "telefono": telefono,
@@ -83,9 +91,14 @@ def register_guest_device(request):
     else:
         obj.categorias.clear()
 
+    # Desactivar tokens viejos del mismo dispositivo
+    if device_id:
+        DeviceToken.objects.filter(device_id=device_id).exclude(token=token).update(activo=False)
+
     return JsonResponse({
         "ok": True,
         "created": created,
+        "device_id": device_id,
         "nombre": nombre,
         "categorias": list(obj.categorias.values_list("id", flat=True)),
     })
