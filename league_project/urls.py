@@ -7,8 +7,8 @@ from . import views
 from league.views import admin_push_logs
 
 urlpatterns = [
-    path("admin/push-logs/", staff_member_required(admin_push_logs), name="admin_push_logs"),
     path("admin/", admin.site.urls),
+    path("push-logs/", staff_member_required(admin_push_logs), name="admin_push_logs"),
     path("", views.home, name="home"),
     path("accounts/", include("accounts.urls")),
     path("", include("league.urls")),

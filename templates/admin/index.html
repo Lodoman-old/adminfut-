@@ -11,8 +11,12 @@
 
 {% block content %}
 <div id="content-main" class="app-list">
-  <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
-    <a href="{% url 'admin_push_logs' %}" style="font-size: 14px; color: #417690;">🔔 Logs de Notificaciones Push</a>
+  <div class="app-pushlogs module" style="margin-bottom: 20px;">
+    <table style="width:100%">
+      <caption>
+        <a href="{% url 'admin_push_logs' %}" class="section" style="font-size: 1rem;">🔔 Logs de Notificaciones Push</a>
+      </caption>
+    </table>
   </div>
   {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
