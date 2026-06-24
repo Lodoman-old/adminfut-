@@ -344,43 +344,38 @@
         }
         {% endif %}
 
+        function getCookie(name) {
+            var matches = document.cookie.match(new RegExp('(?:^| )' + name + '=([^;]+)'));
+            return matches ? matches[1] : null;
+        }
+        function setCookie(name, value, minutes) {
+            if (!minutes) { document.cookie = name + '=' + value + '; path=/; SameSite=Lax'; return; }
+            var d = new Date(); d.setTime(d.getTime() + minutes * 60 * 1000);
+            document.cookie = name + '=' + value + '; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
+        }
+        function delCookie(name) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+        }
+
         function doOverlay() {
         {% if user.is_authenticated %}
-            // sessionStorage survives page navigations but is cleared when app process is killed.
-            // If empty → fresh app start → clear bio_verified_ts so overlay shows.
-            var isFreshSession = false;
-            try {
-                if (sessionStorage.getItem('bio_session') !== '1') {
-                    isFreshSession = true;
-                    sessionStorage.setItem('bio_session', '1');
-                }
-            } catch(e) { isFreshSession = true; }
+            // Cookies survive page navigations reliably (unlike window.name / sessionStorage in some WebViews).
+            // Session cookie (no expiry) is cleared when the WebView process is killed.
+            // Timestamp cookie (1 min) handles the case where session cookie persists across app closes.
 
-            if (isFreshSession && prefsAvailable()) {
-                Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
+            var verified = getCookie('bio_verified');
+            var ts = getCookie('bio_verified_ts');
+            var expired = ts && (Date.now() - parseInt(ts) > 60 * 1000);
+
+            if (verified === '1' && (!expired)) {
+                // Refresh timestamp
+                setCookie('bio_verified_ts', Date.now().toString(), 1);
+                hideOverlay();
+                return;
             }
 
-            // 1) Fast path — window.name (works on some WebViews across navigations)
-            var wnVerified = window.name && window.name.indexOf('bio_verified=1') >= 0;
-            if (wnVerified) { hideOverlay(); return; }
-
-            // 2) Persistent backup — Preferences bio_verified_ts (survives navigations)
-            if (prefsAvailable()) {
-                Capacitor.Plugins.Preferences.get({ key: 'bio_verified_ts' }).then(function(r) {
-                    if (r.value) {
-                        var ts = parseInt(r.value, 10);
-                        if (Date.now() - ts < 30 * 60 * 1000) {
-                            window.name = 'bio_verified=1';
-                            hideOverlay();
-                            return;
-                        }
-                    }
-                    // Not verified → ask fingerprint
-                    startPolling();
-                }).catch(function() { startPolling(); });
-            } else {
-                startPolling();
-            }
+            // Not verified → show fingerprint prompt
+            startPolling();
         {% else %}
             hideOverlay();
         {% endif %}
@@ -422,7 +417,9 @@
                 }).then(function(res) {
                     if (res.verified) {
                         window.name = 'bio_verified=1';
-                        prefs.set({ key: 'bio_verified_ts', value: Date.now().toString() });
+                        setCookie('bio_verified', '1');
+                        setCookie('bio_verified_ts', Date.now().toString(), 1);
+                        try { prefs.set({ key: 'bio_verified_ts', value: Date.now().toString() }); } catch(e) {}
                         hideOverlay();
                     } else {
                         alert('Huella no reconocida. Intenta de nuevo.');
@@ -435,7 +432,9 @@
             document.getElementById('btnHuella').addEventListener('click', doVerify);
             document.getElementById('btnOtro').addEventListener('click', function() {
                 prefs.set({ key: 'is_logged_in', value: 'false' });
-                prefs.remove({ key: 'bio_verified_ts' });
+                delCookie('bio_verified');
+                delCookie('bio_verified_ts');
+                try { prefs.remove({ key: 'bio_verified_ts' }); } catch(e) {}
                 window.location.href = '/accounts/logout/';
             });
         }

@@ -6,6 +6,8 @@
 </div>
 <script>
 (function() {
+    document.cookie = 'bio_verified=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+    document.cookie = 'bio_verified_ts=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
     if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
         Capacitor.Plugins.Preferences.remove({ key: 'is_logged_in' });
         Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
