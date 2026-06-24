@@ -35,63 +35,14 @@
     </div>
 </div>
 <script>
+// Only mark logged-in for push notification registration
 (function() {
-    if (typeof Capacitor === 'undefined' || !Capacitor.Plugins) return;
-
+    if (typeof Capacitor === 'undefined' || !Capacitor.Plugins || !Capacitor.Plugins.Preferences) return;
     var form = document.querySelector('form');
     if (!form) return;
-
-    function prefsOk() { return Capacitor && Capacitor.Plugins && Capacitor.Plugins.Preferences; }
-
-    // Mark as logged in (so auto-biometric triggers on next app open)
-    function markLoggedIn() {
-        if (prefsOk()) {
-            Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
-        }
-    }
-
-    // Store credentials when user submits manually
     form.addEventListener('submit', function() {
-        var u = form.querySelector('input[name="username"]');
-        var p = form.querySelector('input[name="password"]');
-        if (u && p && Capacitor.Plugins.NativeBiometric) {
-            Capacitor.Plugins.NativeBiometric.setCredentials({
-                username: u.value,
-                password: p.value,
-                server: 'adminfut'
-            });
-        }
-        markLoggedIn();
+        Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
     });
-
-    // Auto biometric login if previously logged in
-    // bio_verified is now server-side (session), no client storage needed
-    if (prefsOk()) {
-        Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
-            if (r.value !== 'true') return;
-            if (!Capacitor.Plugins.NativeBiometric) return;
-            Capacitor.Plugins.NativeBiometric.verifyIdentity({
-                reason: 'Acceder a AdminFut',
-                title: 'Huella digital',
-                subtitle: 'Usa tu huella para acceder',
-                description: 'Coloca tu dedo en el sensor'
-            }).then(function(res) {
-                if (!res.verified) return;
-                Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
-                    var u = form.querySelector('input[name="username"]');
-                    var p = form.querySelector('input[name="password"]');
-                    if (u && p && creds.username && creds.password) {
-                        markLoggedIn();
-                        u.value = creds.username;
-                        p.value = creds.password;
-                        form.submit();
-                    }
-                });
-            }).catch(function() {
-                // fallback: show normal form
-            });
-        });
-    }
 })();
 </script>
 {% endblock %}
