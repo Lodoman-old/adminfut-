@@ -635,8 +635,10 @@ def finalizar_temporada(request, pk):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
+    from .models import DeviceToken
     logs = get_push_logs(limit=200)
-    return render(request, "admin/push_logs.html", {"logs": logs})
+    tokens = DeviceToken.objects.select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
+    return render(request, "admin/push_logs.html", {"logs": logs, "tokens": tokens})
 
 
 @login_required
