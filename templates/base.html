@@ -393,19 +393,12 @@
                     description: 'Coloca tu dedo en el sensor'
                 }).then(function(res) {
                     if (res.verified) {
-                        // Notify server so bio_verified survives navs
-                        fetch('/api/verify-biometric/', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': '{{ csrf_token }}'
-                            },
-                            body: JSON.stringify({})
-                        }).then(function() {
-                            hideOverlay();
-                        }).catch(function() {
-                            hideOverlay();
-                        });
+                        // Redirect to verify-biometric endpoint with a 'next' param.
+                        // The server sets session['bio_verified'] = True and
+                        // redirects back — this guarantees the flag survives
+                        // even if the WebView has issues with fetch/AJAX cookies.
+                        window.location.href = '/api/verify-biometric/?next='
+                            + encodeURIComponent(window.location.pathname + window.location.search);
                     } else {
                         alert('Huella no reconocida. Intenta de nuevo.');
                     }

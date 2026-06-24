@@ -157,10 +157,18 @@ def lista_categorias(request):
 
 
 @csrf_exempt
-@require_POST
 def verify_biometric(request):
-    """Mark the current session as biometric-verified, survives page navigations."""
+    """Mark the current session as biometric-verified, survives page navigations.
+
+    Accepts GET or POST. If 'next' param is provided, redirects there after
+    setting the flag. This guarantees the session is updated even if the
+    Capacitor WebView has issues with fetch/AJAX cookie handling.
+    """
     request.session['bio_verified'] = True
+    next_url = request.GET.get('next')
+    if next_url:
+        from django.shortcuts import redirect
+        return redirect(next_url)
     return JsonResponse({"ok": True})
 
 
