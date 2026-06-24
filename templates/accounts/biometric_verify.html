@@ -14,15 +14,12 @@
                     <div style="font-size:64px;margin-bottom:16px;">&#128522;</div>
                     <h5>Confirma tu identidad</h5>
                     <p class="text-muted">Usa tu huella digital para verificar que eres tú</p>
-                    <button id="btnFingerprint" class="btn btn-success btn-lg w-100 mb-3">
+                    <button id="btnFingerprint" class="btn btn-success btn-lg w-100">
                         <i class="bi bi-fingerprint"></i> Usar huella digital
                     </button>
-                    <button id="btnSkip" class="btn btn-outline-secondary btn-sm w-100">
-                        Continuar sin huella
-                    </button>
                 </div>
-                <div id="bio-error" style="display:none" class="alert alert-danger mt-3">
-                    No se pudo verificar. <a href="{% url 'home' %}" class="alert-link">Continuar</a>
+                <div id="bio-retry" style="display:none" class="alert alert-danger mt-3">
+                    Error de verificación. <button id="btnRetry" class="btn btn-sm btn-outline-danger ms-2">Intentar de nuevo</button>
                 </div>
             </div>
         </div>
@@ -34,7 +31,7 @@
 (function() {
     var loading = document.getElementById('bio-loading');
     var prompt = document.getElementById('bio-prompt');
-    var error = document.getElementById('bio-error');
+    var retry = document.getElementById('bio-retry');
 
     function pollCapacitor(attempts) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric) {
@@ -43,8 +40,8 @@
             return;
         }
         if (attempts >= 25) {
-            loading.style.display = 'none';
-            error.style.display = 'block';
+            // No Capacitor disponible (navegador web) — ir al home sin verificación
+            window.location.href = '{% url "home" %}';
             return;
         }
         setTimeout(function() { pollCapacitor(attempts + 1); }, 200);
@@ -74,14 +71,15 @@
                 alert('Huella no reconocida. Intenta de nuevo.');
             }
         }).catch(function() {
-            error.style.display = 'block';
             prompt.style.display = 'none';
+            retry.style.display = 'block';
         });
     }
 
     document.getElementById('btnFingerprint').addEventListener('click', doVerify);
-    document.getElementById('btnSkip').addEventListener('click', function() {
-        window.location.href = '{% url "home" %}';
+    document.getElementById('btnRetry').addEventListener('click', function() {
+        retry.style.display = 'none';
+        prompt.style.display = 'block';
     });
 
     pollCapacitor(0);
