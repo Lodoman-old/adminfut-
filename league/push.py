@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 _app_initialized = False
 
 
+MAX_LOGS = 500
+
+
 def _add_log(entry):
     from .models import PushLog
     try:
@@ -31,6 +34,10 @@ def _add_log(entry):
             detalle=entry.get("detalle", ""),
             error=entry.get("error", ""),
         )
+        total = PushLog.objects.count()
+        if total > MAX_LOGS:
+            ids = PushLog.objects.order_by("hora").values_list("pk", flat=True)[:total - MAX_LOGS]
+            PushLog.objects.filter(pk__in=list(ids)).delete()
     except Exception as e:
         logger.warning("Error guardando PushLog: %s", e)
 
