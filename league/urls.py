@@ -84,5 +84,6 @@ urlpatterns = [
     path("api/register-guest/", api_views.register_guest_device, name="register_guest_device"),
     path("api/update-preferences/", api_views.update_device_preferences, name="update_device_preferences"),
     path("api/categorias/", api_views.lista_categorias, name="api_categorias"),
+    path("api/verify-biometric/", api_views.verify_biometric, name="verify_biometric"),
     path("api/cron-notificar-arbitros/", api_views.cron_notificar_arbitros, name="cron_notificar_arbitros"),
 ]

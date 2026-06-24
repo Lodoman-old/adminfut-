@@ -65,11 +65,8 @@
     });
 
     // Auto biometric login if previously logged in
-    // Clear localStorage so base.html asks for fingerprint again
-    localStorage.removeItem('bio_verified');
-    localStorage.removeItem('bio_verified_ts');
+    // bio_verified is now server-side (session), no client storage needed
     if (prefsOk()) {
-        Capacitor.Plugins.Preferences.remove({ key: 'bio_verified_ts' });
         Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
             if (r.value !== 'true') return;
             if (!Capacitor.Plugins.NativeBiometric) return;
@@ -80,12 +77,6 @@
                 description: 'Coloca tu dedo en el sensor'
             }).then(function(res) {
                 if (!res.verified) return;
-                window.name = 'bio_verified=1';
-                localStorage.setItem('bio_verified', '1');
-                localStorage.setItem('bio_verified_ts', Date.now().toString());
-                if (Capacitor.Plugins.Preferences) {
-                    Capacitor.Plugins.Preferences.set({ key: 'bio_verified_ts', value: Date.now().toString() });
-                }
                 Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
                     var u = form.querySelector('input[name="username"]');
                     var p = form.querySelector('input[name="password"]');

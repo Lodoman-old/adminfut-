@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import logout as auth_logout
+from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordChangeDoneView
 from django.contrib.auth.forms import PasswordChangeForm
 from django.urls import reverse_lazy, reverse
@@ -18,6 +18,12 @@ PERMISOS_FLAT = get_permisos_flat()
 class CustomLoginView(LoginView):
     template_name = "accounts/login.html"
     next_page = reverse_lazy("home")
+
+    def form_valid(self, form):
+        """After successful login, reset bio_verified so fingerprint is required."""
+        auth_login(self.request, form.get_user())
+        self.request.session['bio_verified'] = False
+        return redirect(self.get_success_url())
 
 
 class CustomLogoutView(View):

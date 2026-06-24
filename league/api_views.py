@@ -157,6 +157,14 @@ def lista_categorias(request):
 
 
 @csrf_exempt
+@require_POST
+def verify_biometric(request):
+    """Mark the current session as biometric-verified, survives page navigations."""
+    request.session['bio_verified'] = True
+    return JsonResponse({"ok": True})
+
+
+@csrf_exempt
 @require_GET
 def cron_notificar_arbitros(request):
     """Endpoint llamado por scheduler externo (cron-job.org, Render Cron, etc.)."""

@@ -346,19 +346,13 @@
 
         function doOverlay() {
         {% if user.is_authenticated %}
-            // localStorage is shared across all pages of the same origin (unlike window.name / sessionStorage
-            // which some WebViews reset on navigation). 30 min timestamp handles "close & reopen" detection.
-            var ts = localStorage.getItem('bio_verified_ts');
-            var expired = !ts || (Date.now() - parseInt(ts) > 30 * 60 * 1000);
-
-            if (!expired) {
-                localStorage.setItem('bio_verified_ts', Date.now().toString());
-                hideOverlay();
-                return;
-            }
-
-            // Timestamp expired or not set → ask fingerprint
+            {% if request.session.bio_verified %}
+            // Server confirms this session is verified — no fingerprint needed
+            hideOverlay();
+            {% else %}
+            // Session not verified — ask fingerprint
             startPolling();
+            {% endif %}
         {% else %}
             hideOverlay();
         {% endif %}
@@ -399,11 +393,19 @@
                     description: 'Coloca tu dedo en el sensor'
                 }).then(function(res) {
                     if (res.verified) {
-                        window.name = 'bio_verified=1';
-                        localStorage.setItem('bio_verified', '1');
-                        localStorage.setItem('bio_verified_ts', Date.now().toString());
-                        try { prefs.set({ key: 'bio_verified_ts', value: Date.now().toString() }); } catch(e) {}
-                        hideOverlay();
+                        // Notify server so bio_verified survives navs
+                        fetch('/api/verify-biometric/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({})
+                        }).then(function() {
+                            hideOverlay();
+                        }).catch(function() {
+                            hideOverlay();
+                        });
                     } else {
                         alert('Huella no reconocida. Intenta de nuevo.');
                     }
@@ -415,9 +417,6 @@
             document.getElementById('btnHuella').addEventListener('click', doVerify);
             document.getElementById('btnOtro').addEventListener('click', function() {
                 prefs.set({ key: 'is_logged_in', value: 'false' });
-                localStorage.removeItem('bio_verified');
-                localStorage.removeItem('bio_verified_ts');
-                try { prefs.remove({ key: 'bio_verified_ts' }); } catch(e) {}
                 window.location.href = '/accounts/logout/';
             });
         }
