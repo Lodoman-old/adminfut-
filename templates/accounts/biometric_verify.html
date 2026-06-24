@@ -33,15 +33,27 @@
     var prompt = document.getElementById('bio-prompt');
     var retry = document.getElementById('bio-retry');
 
+    function goHome() {
+        window.location.href = '{% url "home" %}';
+    }
+
     function pollCapacitor(attempts) {
         if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric) {
-            loading.style.display = 'none';
-            prompt.style.display = 'block';
+            // NativeBiometric esta instalado — verificar si hay sensor disponible
+            Capacitor.Plugins.NativeBiometric.isAvailable().then(function(result) {
+                if (result.isAvailable) {
+                    loading.style.display = 'none';
+                    prompt.style.display = 'block';
+                } else {
+                    goHome(); // Sin sensor biometrico
+                }
+            }).catch(function() {
+                goHome(); // Error al consultar disponibilidad
+            });
             return;
         }
         if (attempts >= 25) {
-            // No Capacitor disponible (navegador web) — ir al home sin verificación
-            window.location.href = '{% url "home" %}';
+            goHome(); // Sin Capacitor (navegador web)
             return;
         }
         setTimeout(function() { pollCapacitor(attempts + 1); }, 200);
@@ -62,7 +74,7 @@
                 }).then(function(r) { return r.json(); }).then(function(data) {
                     window.location.href = data.redirect || '{% url "home" %}';
                 }).catch(function() {
-                    window.location.href = '{% url "home" %}';
+                    goHome();
                 });
             } else {
                 alert('Huella no reconocida. Intenta de nuevo.');
