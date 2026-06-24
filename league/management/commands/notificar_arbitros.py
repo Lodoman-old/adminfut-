@@ -1,8 +1,9 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
+from datetime import datetime
 from league.models import Partido, DeviceToken
-from league.push import send_push_notification
+from league.push import send_push_notification, _add_log
 
 
 class Command(BaseCommand):
@@ -29,6 +30,12 @@ class Command(BaseCommand):
                 ).values_list("token", flat=True)
             )
             if not tokens:
+                _add_log({
+                    "hora": datetime.now().isoformat(),
+                    "tipo": "RECORDATORIO",
+                    "partido_id": p.id,
+                    "detalle": "Árbitro sin token registrado, se omite",
+                })
                 continue
 
             hora = p.fecha_hora.astimezone(timezone.get_current_timezone()).strftime("%H:%M")
@@ -36,9 +43,19 @@ class Command(BaseCommand):
             title = f"Partido en 30 min"
             body = f"{p.equipo_local} vs {p.equipo_visitante} - {hora} - {lugar}"
 
-            send_push_notification(tokens, title, body, {
+            result = send_push_notification(tokens, title, body, {
                 "type": "recordatorio_arbitro",
                 "partido_id": str(p.id),
+            })
+            _add_log({
+                "hora": datetime.now().isoformat(),
+                "tipo": "RECORDATORIO",
+                "partido_id": p.id,
+                "detalle": f"Partido {p.equipo_local} vs {p.equipo_visitante} - {hora} - {lugar}",
+                "tokens_encontrados": len(tokens),
+                "success": result["success"] if result else 0,
+                "failure": result["failure"] if result else 0,
+                "error": None if result else "Firebase init falló",
             })
             Partido.objects.filter(pk=p.pk).update(recordatorio_30min_enviado=True)
             enviadas += 1

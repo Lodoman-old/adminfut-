@@ -7,12 +7,29 @@ import base64
 import json
 import os
 import logging
+import threading
+from collections import deque
+from datetime import datetime
 from django.conf import settings
 from django.db import models
 
 logger = logging.getLogger(__name__)
 
 _app_initialized = False
+
+# Ring buffer en memoria para logs de push (thread-safe, último 500)
+_push_logs = deque(maxlen=500)
+_push_logs_lock = threading.Lock()
+
+
+def _add_log(entry):
+    with _push_logs_lock:
+        _push_logs.appendleft(entry)
+
+
+def get_push_logs(limit=100):
+    with _push_logs_lock:
+        return list(_push_logs)[:limit]
 
 
 def _try_init():
@@ -53,8 +70,10 @@ def _try_init():
 
 def send_push_notification(tokens, title, body, data=None):
     if not tokens:
+        _add_log({"hora": datetime.now().isoformat(), "tipo": "SEND", "detalle": "Sin tokens para enviar", "success": 0, "failure": 0})
         return
     if not _try_init():
+        _add_log({"hora": datetime.now().isoformat(), "tipo": "SEND", "detalle": "Firebase no inicializado", "success": 0, "failure": 0})
         return
 
     from firebase_admin import messaging
@@ -70,9 +89,12 @@ def send_push_notification(tokens, title, body, data=None):
 
     try:
         response = messaging.send_each_for_multicast(message)
-        return {"success": response.success_count, "failure": response.failure_count}
+        result = {"success": response.success_count, "failure": response.failure_count}
+        _add_log({"hora": datetime.now().isoformat(), "tipo": "SEND", "detalle": f"Push enviado: {response.success_count} ok, {response.failure_count} fail", "success": response.success_count, "failure": response.failure_count})
+        return result
     except Exception as e:
         logger.error("Push send failed: %s", e)
+        _add_log({"hora": datetime.now().isoformat(), "tipo": "SEND", "detalle": f"Error al enviar push: {e}", "success": 0, "failure": 0, "error": str(e)})
         return None
 
 
@@ -86,6 +108,7 @@ def notify_partido_finalizado(partido):
         pass
 
     qs = DeviceToken.objects.filter(activo=True)
+    total_activos = qs.count()
     if categoria:
         qs = qs.filter(
             models.Q(categorias=categoria) | models.Q(categorias__isnull=True) | models.Q(es_invitado=False, usuario__isnull=False)
@@ -93,7 +116,28 @@ def notify_partido_finalizado(partido):
     qs = qs.distinct()
 
     tokens = list(qs.values_list("token", flat=True))
+    guests = qs.filter(es_invitado=True).count() if tokens else 0
+
+    _add_log({
+        "hora": datetime.now().isoformat(),
+        "tipo": "PARTIDO_FIN",
+        "partido_id": partido.id,
+        "categoria": str(categoria) if categoria else "(sin categoría)",
+        "detalle": f"Activos totales={total_activos}, tokens_match={len(tokens)}, invitados={guests}",
+        "total_activos": total_activos,
+        "tokens_encontrados": len(tokens),
+        "guests_incluidos": guests,
+        "success": 0,
+        "failure": 0,
+    })
+
     if not tokens:
+        _add_log({
+            "hora": datetime.now().isoformat(),
+            "tipo": "PARTIDO_FIN",
+            "partido_id": partido.id,
+            "detalle": "Sin tokens coincidentes, se omite push",
+        })
         return
 
     local = partido.equipo_local.nombre if partido.equipo_local else "Local"

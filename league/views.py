@@ -1,10 +1,14 @@
 import datetime
 from datetime import date
+import logging
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+
+logger = logging.getLogger(__name__)
 
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
@@ -625,6 +629,13 @@ def finalizar_temporada(request, pk):
         "temporada": temporada,
         "es_anticipado": es_anticipado,
     })
+
+
+@staff_member_required
+def admin_push_logs(request):
+    from .push import get_push_logs
+    logs = get_push_logs(limit=200)
+    return render(request, "admin/push_logs.html", {"logs": logs})
 
 
 @login_required
@@ -2035,8 +2046,8 @@ def cedula_arbitral(request, partido_id):
                 from .push import notify_partido_finalizado
                 partido.refresh_from_db()
                 notify_partido_finalizado(partido)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Error al enviar notificación push al finalizar partido %s: %s", partido.id, e)
             messages.success(request, "Cédula arbitral guardada y partido finalizado.")
             return redirect("partido_list")
         messages.success(request, "Cédula arbitral guardada correctamente.")
