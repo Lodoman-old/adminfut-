@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from datetime import datetime
 from league.models import Partido, DeviceToken
 from league.push import send_push_notification, _add_log
 
@@ -31,7 +30,6 @@ class Command(BaseCommand):
             )
             if not tokens:
                 _add_log({
-                    "hora": datetime.now().isoformat(),
                     "tipo": "RECORDATORIO",
                     "partido_id": p.id,
                     "detalle": "Árbitro sin token registrado, se omite",
@@ -48,7 +46,6 @@ class Command(BaseCommand):
                 "partido_id": str(p.id),
             })
             _add_log({
-                "hora": datetime.now().isoformat(),
                 "tipo": "RECORDATORIO",
                 "partido_id": p.id,
                 "detalle": f"Partido {p.equipo_local} vs {p.equipo_visitante} - {hora} - {lugar}",

@@ -1715,3 +1715,30 @@ class DeviceToken(models.Model):
     def __str__(self):
         label = self.nombre or self.token[:20]
         return f"{label} ({self.plataforma})"
+
+
+class PushLog(models.Model):
+    TIPO_CHOICES = [
+        ("SEND", "Envío directo"),
+        ("PARTIDO_FIN", "Partido finalizado"),
+        ("RECORDATORIO", "Recordatorio 30 min"),
+    ]
+    hora = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    partido_id = models.IntegerField(null=True, blank=True)
+    categoria = models.CharField(max_length=200, blank=True)
+    total_activos = models.IntegerField(null=True, blank=True)
+    tokens_encontrados = models.IntegerField(null=True, blank=True)
+    guests_incluidos = models.IntegerField(null=True, blank=True)
+    success = models.IntegerField(null=True, blank=True)
+    failure = models.IntegerField(null=True, blank=True)
+    detalle = models.TextField(blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Log de Push"
+        verbose_name_plural = "Logs de Push"
+        ordering = ["-hora"]
+
+    def __str__(self):
+        return f"[{self.tipo}] {self.hora}"

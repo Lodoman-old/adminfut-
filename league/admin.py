@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog
 
 
 @admin.register(ConfiguracionLiga)
@@ -145,3 +145,13 @@ class DeviceTokenAdmin(admin.ModelAdmin):
     def token_short(self, obj):
         return obj.token[:30] + "..."
     token_short.short_description = "Token"
+
+
+@admin.register(PushLog)
+class PushLogAdmin(admin.ModelAdmin):
+    list_display = ["hora", "tipo", "partido_id", "categoria", "success", "failure"]
+    list_filter = ["tipo"]
+    readonly_fields = ["hora", "tipo", "partido_id", "categoria", "total_activos", "tokens_encontrados", "guests_incluidos", "success", "failure", "detalle", "error"]
+    has_add_permission = lambda self, request: False
+    has_change_permission = lambda self, request, obj=None: False
+    has_delete_permission = lambda self, request, obj=None: False
