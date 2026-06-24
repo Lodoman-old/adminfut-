@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import logout as auth_logout
+from django.http import JsonResponse
 from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordChangeDoneView
 from django.contrib.auth.forms import PasswordChangeForm
 from django.urls import reverse_lazy, reverse
@@ -17,7 +18,9 @@ PERMISOS_FLAT = get_permisos_flat()
 
 class CustomLoginView(LoginView):
     template_name = "accounts/login.html"
-    next_page = reverse_lazy("home")
+
+    def get_success_url(self):
+        return reverse("biometric_verify")
 
 
 class CustomLogoutView(View):
@@ -208,6 +211,20 @@ class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     form_class = CustomPasswordChangeForm
     template_name = "accounts/password_change.html"
     success_url = reverse_lazy("password_change_done")
+
+
+def biometric_verify(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    if request.method == "POST":
+        request.session["bio_verified"] = True
+        return JsonResponse({"ok": True, "redirect": str(reverse("home"))})
+
+    if request.session.get("bio_verified"):
+        return redirect("home")
+
+    return render(request, "accounts/biometric_verify.html")
 
 
 def registro_invitado(request):
