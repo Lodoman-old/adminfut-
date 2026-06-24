@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import logout as auth_logout
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordChangeDoneView
 from django.contrib.auth.forms import PasswordChangeForm
 from django.urls import reverse_lazy, reverse
@@ -213,6 +214,7 @@ class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     success_url = reverse_lazy("password_change_done")
 
 
+@csrf_exempt
 def biometric_verify(request):
     if not request.user.is_authenticated:
         return redirect("login")

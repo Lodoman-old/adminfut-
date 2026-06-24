@@ -57,10 +57,7 @@
             if (res.verified) {
                 fetch('{% url "biometric_verify" %}', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({})
                 }).then(function(r) { return r.json(); }).then(function(data) {
                     window.location.href = data.redirect || '{% url "home" %}';
