@@ -4,6 +4,8 @@ set -e
 # Apply pending migrations
 python manage.py migrate --noinput 2>&1 || echo "migrate failed (non-fatal)"
 
+python manage.py collectstatic --noinput 2>&1 || echo "collectstatic failed (non-fatal)"
+
 # If the estado column still doesn't exist, add it directly
 python -c "
 import django, os, sys

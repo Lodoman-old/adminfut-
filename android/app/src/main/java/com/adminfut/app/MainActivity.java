@@ -14,7 +14,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            WebView webView = (WebView) findViewById(android.R.id.content).getRootView();
+            WebView webView = getBridge().getWebView();
             if (webView != null && webView.canGoBack()) {
                 webView.goBack();
                 return true;

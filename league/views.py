@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
@@ -631,7 +632,7 @@ def finalizar_temporada(request, pk):
     })
 
 
-@staff_member_required
+@admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
     logs = get_push_logs(limit=200)

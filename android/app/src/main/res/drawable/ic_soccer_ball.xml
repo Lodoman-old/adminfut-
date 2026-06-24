@@ -4,32 +4,62 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Soccer ball outer circle (smaller to fit safe zone) -->
+    <!-- Shadow -->
+    <path
+        android:fillColor="#b5b5b5"
+        android:pathData="M54,86c-17.2,0 -31,-13.8 -31,-31c0,-4 0.8,-7.8 2.2,-11.3c-1.4,3.5 -2.2,7.3 -2.2,11.3c0,17.2 13.8,31 31,31s31,-13.8 31,-31c0,-4 -0.8,-7.8 -2.2,-11.3c1.4,3.5 2.2,7.3 2.2,11.3c0,17.2 -13.8,31 -31,31z"/>
+    <!-- Outer ball -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,24c-16.6,0 -30,13.4 -30,30s13.4,30 30,30s30,-13.4 30,-30s-13.4,-30 -30,-30z"/>
+        android:pathData="M54,22c-17.7,0 -32,14.3 -32,32s14.3,32 32,32s32,-14.3 32,-32s-14.3,-32 -32,-32z"/>
+    <!-- Panel lines (hexagon/pentagon seams) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#555555"
+        android:strokeWidth="1.2"
+        android:pathData="M54,78l-15,-8.7l0,-17.3l15,-8.7l15,8.7l0,17.3z"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#555555"
+        android:strokeWidth="1.2"
+        android:pathData="M54,78l0,-17.3l-15,-8.7"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#555555"
+        android:strokeWidth="1.2"
+        android:pathData="M54,78l15,-8.7l0,-17.3"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#555555"
+        android:strokeWidth="1.2"
+        android:pathData="M54,43.3l-15,8.7l0,17.3"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#555555"
+        android:strokeWidth="1.2"
+        android:pathData="M54,43.3l15,8.7l0,17.3"/>
     <!-- Center pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M54,40l-5,3.4l1.9,5.7h6.2l1.9,-5.7z"/>
+        android:pathData="M54,38l-6.3,4.6l2.4,7.6h7.8l2.4,-7.6z"/>
     <!-- Top pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M47,35l-4.6,1.4l-0.7,5l4.3,2.5l3.2,-3.9z"/>
+        android:pathData="M43,33l-5.8,1.8l-0.8,6.5l5.5,3.2l4.3,-4.8z"/>
     <!-- Top-right pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M61,35l4.6,1.4l0.7,5l-4.3,2.5l-3.2,-3.9z"/>
+        android:pathData="M65,33l5.8,1.8l0.8,6.5l-5.5,3.2l-4.3,-4.8z"/>
     <!-- Bottom-left pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M43,48l-5,-0.7l-3.2,3.6l1.8,5l5.4,-1.1z"/>
+        android:pathData="M39,50l-6.3,-0.9l-3.9,4.8l2.3,6.5l6.7,-1.4z"/>
     <!-- Bottom-right pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M65,48l5,-0.7l3.2,3.6l-1.8,5l-5.4,-1.1z"/>
+        android:pathData="M69,50l6.3,-0.9l3.9,4.8l-2.3,6.5l-6.7,-1.4z"/>
     <!-- Bottom pentagon -->
     <path
         android:fillColor="#1a3a15"
-        android:pathData="M54,57l-4.6,-2.9l-2.5,4.3l1.8,5.3l5.3,0.7l5.3,-0.7l1.8,-5.3l-2.5,-4.3z"/>
+        android:pathData="M54,67l-5.8,-3.8l-3.2,5.3l2.3,6.8l6.7,0.9l6.7,-0.9l2.3,-6.8l-3.2,-5.3z"/>
 </vector>
