@@ -164,8 +164,9 @@ def notify_partido_finalizado(partido):
     local = partido.equipo_local.nombre if partido.equipo_local else "Local"
     visit = partido.equipo_visitante.nombre if partido.equipo_visitante else "Visitante"
     score = f"{partido.goles_local} - {partido.goles_visitante}"
-    title = f"{local} vs {visit}"
-    body = f"Resultado final: {score}"
+    cat_name = str(categoria) if categoria else ""
+    title = cat_name
+    body = f"{local} vs {visit}\n{score}"
     data = {
         "type": "partido_finalizado",
         "partido_id": str(partido.id),
