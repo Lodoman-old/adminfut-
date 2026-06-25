@@ -314,7 +314,7 @@ body {
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
             <div class="match-score" style="font-size:0.85rem;margin-top:2px">{{ p.fecha_hora|date:"d/m/Y" }} {{ p.fecha_hora|date:"H:i" }}</div>
-            <div class="match-info"><i class="bi bi-calendar-range"></i> {{ p.jornada.nombre }}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
+            <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
           </div>
           <div class="match-team-col">
