@@ -165,7 +165,10 @@ def notify_partido_finalizado(partido):
     visit = partido.equipo_visitante.nombre if partido.equipo_visitante else "Visitante"
     cat_name = str(categoria) if categoria else ""
     title = cat_name
-    body = f"{local} {partido.goles_local} vs {visit} {partido.goles_visitante}"
+    sufijo = "Finalizado"
+    if partido.default_visitante or partido.default_team:
+        sufijo += " (Default)"
+    body = f"{local} {partido.goles_local} vs {visit} {partido.goles_visitante}\n{sufijo}"
     data = {
         "type": "partido_finalizado",
         "partido_id": str(partido.id),
