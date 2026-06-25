@@ -124,6 +124,9 @@ def send_push_notification(tokens, title, body, data=None):
 def notify_partido_finalizado(partido):
     from .models import DeviceToken
 
+    if getattr(partido, "es_amistoso", False):
+        return
+
     categoria = None
     try:
         categoria = partido.jornada.temporada.categoria

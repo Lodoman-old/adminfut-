@@ -1324,7 +1324,9 @@ class Partido(models.Model):
         ("FIN", "Finalizado"),
     ]
     temporada = models.ForeignKey(
-        Temporada, on_delete=models.CASCADE, related_name="partidos"
+        Temporada, on_delete=models.CASCADE, related_name="partidos",
+        null=True, blank=True,
+        help_text="Obligatorio para partidos de liga. Déjalo vacío para partidos amistosos."
     )
     jornada = models.ForeignKey(
         "Jornada", on_delete=models.CASCADE, related_name="partidos",
@@ -1347,6 +1349,7 @@ class Partido(models.Model):
     goles_visitante = models.IntegerField(default=0)
     estado = models.CharField(max_length=4, choices=ESTADOS, default="PEND")
     es_liguilla = models.BooleanField(default=False, verbose_name="Es partido de liguilla")
+    es_amistoso = models.BooleanField(default=False, verbose_name="Es partido amistoso")
     liguilla_leg = models.IntegerField(null=True, blank=True, verbose_name="Partido de liguilla (1=ida, 2=vuelta)")
     observaciones = models.TextField(blank=True, verbose_name="Observaciones")
     default_team = models.CharField(max_length=10, blank=True, null=True, choices=[("local", "Local"), ("visitante", "Visitante")], verbose_name="Local pierde por default (obsoleto)")
@@ -1375,8 +1378,8 @@ class Partido(models.Model):
                 old.goles_visitante != self.goles_visitante):
                 self.estado = "FIN"
 
-        # Si el partido se marca como FIN, aplicar walkover por mora/abandono
-        if self.estado == "FIN":
+        # Si el partido se marca como FIN, aplicar walkover por mora/abandono (solo liga)
+        if self.estado == "FIN" and self.temporada_id:
             local_debe = self.temporada.equipo_debe_partido(self.equipo_local)
             visit_debe = self.temporada.equipo_debe_partido(self.equipo_visitante)
             if local_debe and not visit_debe:
@@ -1391,8 +1394,8 @@ class Partido(models.Model):
 
         super().save(*args, **kwargs)
 
-        # Auto-finalizar la temporada si este partido completa la liguilla
-        if self.estado == "FIN" and self.es_liguilla and not self.temporada.finalizada:
+        # Auto-finalizar la temporada si este partido completa la liguilla (solo liga)
+        if self.estado == "FIN" and self.es_liguilla and self.temporada_id and not self.temporada.finalizada:
             if self.temporada.estado_liguilla() == "completada":
                 self.temporada.finalizada = True
                 self.temporada.fecha_finalizacion = timezone.now().date()

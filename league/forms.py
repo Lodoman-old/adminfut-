@@ -605,10 +605,11 @@ class PartidoForm(forms.ModelForm):
 
     class Meta:
         model = Partido
-        fields = ["temporada", "jornada", "equipo_local", "equipo_visitante", "campo", "arbitro", "goles_local", "goles_visitante", "estado"]
+        fields = ["temporada", "jornada", "es_amistoso", "equipo_local", "equipo_visitante", "campo", "arbitro", "goles_local", "goles_visitante", "estado"]
         widgets = {
             "temporada": forms.Select(attrs={"class": "form-select"}),
             "jornada": forms.Select(attrs={"class": "form-select"}),
+            "es_amistoso": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "equipo_local": forms.Select(attrs={"class": "form-select"}),
             "equipo_visitante": forms.Select(attrs={"class": "form-select"}),
             "campo": forms.Select(attrs={"class": "form-select"}),
@@ -630,9 +631,14 @@ class PartidoForm(forms.ModelForm):
         self.fields["goles_local"].required = False
         self.fields["goles_visitante"].disabled = True
         self.fields["goles_visitante"].required = False
+        self.fields["temporada"].required = False
+        self.fields["jornada"].required = False
 
     def save(self, commit=True):
         instance = super().save(commit=False)
+        if instance.es_amistoso:
+            instance.temporada = None
+            instance.jornada = None
         fecha = self.cleaned_data.get("fecha")
         hora = self.cleaned_data.get("hora")
         if fecha and hora:
@@ -650,6 +656,7 @@ class PartidoForm(forms.ModelForm):
         campo = cleaned_data.get("campo")
         temporada = cleaned_data.get("temporada")
         jornada = cleaned_data.get("jornada")
+        es_amistoso = cleaned_data.get("es_amistoso")
         fecha = cleaned_data.get("fecha")
         hora = cleaned_data.get("hora")
 
@@ -663,7 +670,6 @@ class PartidoForm(forms.ModelForm):
             pk = self.instance.pk if self.instance else None
 
             def _changed(field_name, form_value):
-                """True si el valor del campo cambio respecto al original."""
                 if not pk:
                     return True
                 orig_val = getattr(self.instance, field_name, None)
@@ -703,8 +709,11 @@ class PartidoForm(forms.ModelForm):
                 if dup_visit.exists():
                     raise ValidationError(f"El equipo {equipo_visitante} ya tiene un partido en esa fecha y horario.")
 
-        if temporada and jornada and jornada.temporada_id != temporada.id:
-            raise ValidationError("La jornada seleccionada no pertenece a la temporada seleccionada.")
+        if not es_amistoso:
+            if not temporada:
+                raise ValidationError("Debes seleccionar una temporada para partidos de liga.")
+            if temporada and jornada and jornada.temporada_id != temporada.id:
+                raise ValidationError("La jornada seleccionada no pertenece a la temporada seleccionada.")
 
         arbitro = cleaned_data.get("arbitro")
         if arbitro and fecha and hora:

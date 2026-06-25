@@ -1359,7 +1359,8 @@ class JornadaListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["temporadas"] = Temporada.objects.all().select_related("categoria").order_by("finalizada", "-iniciada", "nombre")
+        ctx["temporadas"] = Temporada.objects.filter(activa=True)
+        ctx["es_amistoso"] = self.request.GET.get("tipo") == "amistoso"
         return ctx
 
 
@@ -1638,6 +1639,11 @@ class PartidoListView(ListView):
 
     def get_queryset(self):
         qs = Partido.objects.all()
+        tipo = self.request.GET.get("tipo", "liga")
+        if tipo == "amistoso":
+            qs = qs.filter(es_amistoso=True)
+        else:
+            qs = qs.filter(es_amistoso=False)
         arbitro = getattr(self.request.user, "perfil_arbitro", None)
         if arbitro:
             ahora_local = timezone.localtime(timezone.now())
@@ -1648,14 +1654,15 @@ class PartidoListView(ListView):
                 fecha_hora__gte=inicio_dia,
                 fecha_hora__lt=fin_dia,
             )
-        temp = self.request.GET.get("temporada")
-        if temp:
-            qs = qs.filter(temporada_id=temp)
-        elif not arbitro:
-            qs = qs.filter(temporada__finalizada=False)
-        jorn = self.request.GET.get("jornada")
-        if jorn:
-            qs = qs.filter(jornada_id=jorn)
+        if tipo != "amistoso":
+            temp = self.request.GET.get("temporada")
+            if temp:
+                qs = qs.filter(temporada_id=temp)
+            elif not arbitro:
+                qs = qs.filter(temporada__finalizada=False)
+            jorn = self.request.GET.get("jornada")
+            if jorn:
+                qs = qs.filter(jornada_id=jorn)
         return qs.select_related("equipo_local", "equipo_visitante", "campo", "arbitro", "temporada", "jornada").annotate(
             estado_orden=Case(
                 When(estado__in=["PEND", "SUSP"], then=Value(0)),
@@ -1678,6 +1685,7 @@ class PartidoListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx["tipo"] = self.request.GET.get("tipo", "liga")
         ctx["temporadas"] = Temporada.objects.all().select_related("categoria").order_by("finalizada", "-iniciada", "nombre")
         temp_id = self.request.GET.get("temporada")
         if temp_id:
@@ -1730,6 +1738,7 @@ class PartidoUpdateView(UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["temporadas"] = Temporada.objects.filter(activa=True)
+        ctx["es_amistoso"] = self.object.es_amistoso
         return ctx
 
 
@@ -1859,7 +1868,6 @@ def cedula_arbitral(request, partido_id):
         if not arbitro_id:
             messages.error(request, "Debes seleccionar un árbitro para guardar la cédula.")
             return redirect("cedula_arbitral", partido_id=partido.id)
-        min_jugs = partido.temporada.min_jugadores
         default_local = request.POST.get("defaultLocalCheck") == "on"
         default_visit = request.POST.get("defaultVisitCheck") == "on"
         # Contar jugadores con participación (T o C) por equipo
@@ -1874,38 +1882,43 @@ def cedula_arbitral(request, partido_id):
                     cuenta_local += 1
                 elif jid in jugadores_visit_ids:
                     cuenta_visit += 1
-        # Si hay default en cualquier equipo, se omite la validación de mínimo
-        if not default_local and not default_visit:
-            errores_min = []
-            if cuenta_local < min_jugs:
-                errores_min.append(f"{partido.equipo_local.nombre} solo tiene {cuenta_local} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
-            if cuenta_visit < min_jugs:
-                errores_min.append(f"{partido.equipo_visitante.nombre} solo tiene {cuenta_visit} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
-            if errores_min:
-                for e in errores_min:
-                    messages.error(request, e)
-                return redirect("cedula_arbitral", partido_id=partido.id)
+        # Validaciones de liga (min jugadores, cambios, titulares) — se saltan en amistosos
+        if not partido.es_amistoso:
+            min_jugs = partido.temporada.min_jugadores
+            # Si hay default en cualquier equipo, se omite la validación de mínimo
+            if not default_local and not default_visit:
+                errores_min = []
+                if cuenta_local < min_jugs:
+                    errores_min.append(f"{partido.equipo_local.nombre} solo tiene {cuenta_local} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
+                if cuenta_visit < min_jugs:
+                    errores_min.append(f"{partido.equipo_visitante.nombre} solo tiene {cuenta_visit} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
+                if errores_min:
+                    for e in errores_min:
+                        messages.error(request, e)
+                    return redirect("cedula_arbitral", partido_id=partido.id)
 
-        # Validar límite de cambios por equipo
-        max_cambios = partido.temporada.cambios_permitidos
-        cambios_local = 0
-        cambios_visit = 0
-        for key, value in request.POST.items():
-            if key.startswith("participacion_") and value == "cambio":
-                jid = key.split("_")[1]
-                if jid in jugadores_local_ids:
-                    cambios_local += 1
-                elif jid in jugadores_visit_ids:
-                    cambios_visit += 1
-        if not default_local and cambios_local > max_cambios:
-            default_local = True
-            messages.warning(request, f"{partido.equipo_local.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
-        if not default_visit and cambios_visit > max_cambios:
-            default_visit = True
-            messages.warning(request, f"{partido.equipo_visitante.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
+            # Validar límite de cambios por equipo
+            max_cambios = partido.temporada.cambios_permitidos
+            cambios_local = 0
+            cambios_visit = 0
+            for key, value in request.POST.items():
+                if key.startswith("participacion_") and value == "cambio":
+                    jid = key.split("_")[1]
+                    if jid in jugadores_local_ids:
+                        cambios_local += 1
+                    elif jid in jugadores_visit_ids:
+                        cambios_visit += 1
+            if not default_local and cambios_local > max_cambios:
+                default_local = True
+                messages.warning(request, f"{partido.equipo_local.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
+            if not default_visit and cambios_visit > max_cambios:
+                default_visit = True
+                messages.warning(request, f"{partido.equipo_visitante.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
 
-        # Validar límite de titulares por equipo
-        max_tits = partido.temporada.max_titulares or 11
+            # Validar límite de titulares por equipo
+            max_tits = partido.temporada.max_titulares or 11
+        else:
+            max_tits = 99  # sin límite en amistosos
         titulares_local = 0
         titulares_visit = 0
         for key, value in request.POST.items():
@@ -2010,7 +2023,7 @@ def cedula_arbitral(request, partido_id):
             motivo_default_visit = "Alineación indebida"
         else:
             motivo_default_visit = request.POST.get("motivo_default_visitante", "").strip()
-        goles_default = partido.temporada.goles_default
+        goles_default = partido.temporada.goles_default if partido.temporada_id else 1
         if default_local or default_visit:
             if default_forzado_local or default_forzado_visit:
                 update_kwargs = {}
@@ -2451,7 +2464,8 @@ def reagendar_partido(request, pk):
             partido.fecha_hora = make_aware(dt) if not is_aware(dt) else dt
             partido.estado = "PEND"
             partido.save()
-            partido.temporada.actualizar_fecha_fin()
+            if partido.temporada_id:
+                partido.temporada.actualizar_fecha_fin()
             messages.success(request, f"Partido reagendado correctamente.")
             return redirect("partido_list")
     else:

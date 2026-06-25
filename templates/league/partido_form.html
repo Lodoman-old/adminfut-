@@ -10,6 +10,14 @@
             {% if form.non_field_errors %}<div class="alert alert-danger py-2">{% for e in form.non_field_errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
             <div class="row">
                 <div class="col-md-4 mb-3">
+                    <div class="form-check">
+                        {{ form.es_amistoso }}
+                        <label class="form-check-label" for="{{ form.es_amistoso.id_for_label }}">Es amistoso</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row" id="camposLiga">
+                <div class="col-md-4 mb-3">
                     <label class="form-label">{{ form.temporada.label }}</label>
                     {{ form.temporada }}
                     {% if form.temporada.errors %}<div class="text-danger small">{{ form.temporada.errors }}</div>{% endif %}
@@ -24,6 +32,8 @@
                     {{ form.estado }}
                     {% if form.estado.errors %}<div class="text-danger small">{{ form.estado.errors }}</div>{% endif %}
                 </div>
+            </div>
+            <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">{{ form.equipo_local.label }}</label>
                     {{ form.equipo_local }}
@@ -73,9 +83,19 @@
             </div>
             <div class="text-center mt-3">
                 <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
-                <a href="{% url 'partido_list' %}" class="btn btn-secondary">Cancelar</a>
+                <a href="{% url 'partido_list' %}{% if es_amistoso %}?tipo=amistoso{% endif %}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>
 </div>
+<script>
+(function() {
+    var cb = document.getElementById('{{ form.es_amistoso.id_for_label }}');
+    var camposLiga = document.getElementById('camposLiga');
+    function toggle() {
+        camposLiga.style.display = cb.checked ? 'none' : '';
+    }
+    if (cb) { cb.addEventListener('change', toggle); toggle(); }
+})();
+</script>
 {% endblock %}

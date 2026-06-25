@@ -155,4 +155,23 @@ with connection.cursor() as c:
         print('Columna device_id ya existe.')
 " 2>&1
 
+# If the es_amistoso column doesn't exist on league_partido, add it
+python -c "
+import django, os, sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'league_project.settings'
+django.setup()
+from django.db import connection
+with connection.cursor() as c:
+    c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='league_partido' AND column_name='es_amistoso'\"\"\")
+    if not c.fetchone():
+        c.execute(\"ALTER TABLE league_partido ADD COLUMN es_amistoso boolean NOT NULL DEFAULT false\")
+        c.execute(\"ALTER TABLE league_partido ALTER COLUMN temporada_id DROP NOT NULL\")
+        c.execute(\"ALTER TABLE league_partido ALTER COLUMN temporada_id SET DEFAULT NULL\")
+        from django.db.migrations.recorder import MigrationRecorder
+        MigrationRecorder.Migration.objects.get_or_create(app='league', name='0058_partido_amistoso')
+        print('Columna es_amistoso agregada y temporada_id nullable. Migración marcada como aplicada.')
+    else:
+        print('Columna es_amistoso ya existe.')
+" 2>&1
+
 exec gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120
