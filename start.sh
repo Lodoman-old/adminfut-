@@ -137,4 +137,22 @@ with connection.cursor() as c:
         print('Tabla finance_caja ya existe.')
 " 2>&1
 
+# If the device_id column doesn't exist on league_devicetoken, add it
+python -c "
+import django, os, sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'league_project.settings'
+django.setup()
+from django.db import connection
+with connection.cursor() as c:
+    c.execute(\"\"\"SELECT 1 FROM information_schema.columns WHERE table_name='league_devicetoken' AND column_name='device_id'\"\"\")
+    if not c.fetchone():
+        c.execute(\"ALTER TABLE league_devicetoken ADD COLUMN device_id varchar(36) NOT NULL DEFAULT ''\")
+        from django.db.migrations.recorder import MigrationRecorder
+        MigrationRecorder.Migration.objects.get_or_create(app='league', name='0056_devicetoken_device_id')
+        MigrationRecorder.Migration.objects.get_or_create(app='league', name='0057_devicetoken_device_id_null')
+        print('Columna device_id agregada directamente y migraciones marcadas como aplicadas.')
+    else:
+        print('Columna device_id ya existe.')
+" 2>&1
+
 exec gunicorn league_project.wsgi --bind 0.0.0.0:$PORT --workers 4 --timeout 120

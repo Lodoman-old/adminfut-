@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='devicetoken',
             name='device_id',
-            field=models.CharField(blank=True, db_index=True, help_text='UUID generado por el cliente para identificar el dispositivo', max_length=36, verbose_name='ID de dispositivo'),
+            field=models.CharField(blank=True, default='', db_index=True, help_text='UUID generado por el cliente para identificar el dispositivo', max_length=36, verbose_name='ID de dispositivo'),
         ),
     ]

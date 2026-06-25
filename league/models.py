@@ -1695,7 +1695,7 @@ class DeviceToken(models.Model):
         related_name="device_tokens", null=True, blank=True,
     )
     token = models.CharField(max_length=500, unique=True)
-    device_id = models.CharField(max_length=36, db_index=True, blank=True,
+    device_id = models.CharField(max_length=36, default='', db_index=True, blank=True, null=True,
         verbose_name="ID de dispositivo",
         help_text="UUID generado por el cliente para identificar el dispositivo")
     plataforma = models.CharField(max_length=10, choices=PLATFORMS, default="android")
