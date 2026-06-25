@@ -87,6 +87,7 @@
                     <a href="{% url 'cedula_arbitral' p.pk %}" class="btn btn-sm btn-outline-success" title="Cédula arbitral"><i class="bi bi-clipboard-check"></i></a>
                     {% endif %}
                 {% endif %}
+                <a href="{% url 'reporte_cedula_arbitral_pdf' p.pk %}" class="btn btn-sm btn-outline-info" title="Rol (PDF)" target="_blank"><i class="bi bi-filetype-pdf"></i></a>
             </td>
         </tr>
         {% endwith %}
