@@ -3,10 +3,7 @@
   "appName": "AdminFut",
   "webDir": "www",
   "server": {
-    "url": "https://adminfut.onrender.com",
-    "allowNavigation": [
-      "adminfut.onrender.com"
-    ]
+    "allowNavigation": ["*"]
   },
   "plugins": {
     "SplashScreen": {

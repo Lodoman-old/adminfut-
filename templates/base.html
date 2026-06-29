@@ -187,6 +187,8 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             {% if user|tiene_permiso:"gestion_usuarios" %}<li><a class="dropdown-item" href="{% url 'usuario_list' %}"><i class="bi bi-people"></i> Usuarios</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_roles" %}<li><a class="dropdown-item" href="{% url 'rol_list' %}"><i class="bi bi-shield-lock"></i> Roles</a></li>{% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'change_server' %}"><i class="bi bi-server"></i> Cambiar servidor</a></li>
                             {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'admin_push_logs' %}"><i class="bi bi-bell"></i> Push & Dispositivos</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-key"></i> Cambiar contraseña</a></li>

@@ -181,3 +181,6 @@ def home(request):
         "finanzas_visible": finanzas_visible,
         "ingresos_data": ingresos_data,
     })
+
+def change_server(request):
+    return render(request, "change_server.html")

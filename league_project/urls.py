@@ -9,6 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("push-logs/", admin_push_logs, name="admin_push_logs"),
     path("", views.home, name="home"),
+    path("change-server/", views.change_server, name="change_server"),
     path("accounts/", include("accounts.urls")),
     path("", include("league.urls")),
     path("finanzas/", include("finance.urls")),
