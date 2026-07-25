@@ -20,6 +20,9 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="social-tab" data-bs-toggle="tab" data-bs-target="#social" type="button" role="tab"><i class="bi bi-facebook"></i> Redes Sociales</button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="reglamento-tab" data-bs-toggle="tab" data-bs-target="#reglamento" type="button" role="tab"><i class="bi bi-file-earmark-text"></i> Reglamento</button>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -187,6 +190,26 @@
                   <li>Genera un Page Access Token con permisos <code>pages_manage_posts</code> y <code>pages_read_engagement</code></li>
                 </ol>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="reglamento" role="tabpanel">
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Sube el reglamento de la liga en formato PDF. Este archivo será visible y descargable para todos los usuarios (autenticados o no) desde el menú de navegación.
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Reglamento (PDF)</label>
+              {{ form.reglamento }}
+              {% if config.reglamento %}
+                <div class="mt-2">
+                  <a href="{{ config.reglamento.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-file-earmark-pdf"></i> Ver reglamento actual
+                  </a>
+                </div>
+              {% endif %}
+              <div class="form-text">Solo se permiten archivos PDF. Tamaño máximo recomendado: 5 MB.</div>
             </div>
           </div>
         </div>

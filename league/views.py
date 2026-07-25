@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import FileResponse, Http404
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -764,6 +765,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "redes_sociales": djforms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "facebook_page_id": djforms.TextInput(attrs={"class": "form-control"}),
             "facebook_access_token": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
+            "reglamento": djforms.FileInput(attrs={"class": "form-control"}),
         }
 
 
@@ -778,6 +780,14 @@ def configuracion_liga(request):
     else:
         form = ConfiguracionLigaForm(instance=config)
     return render(request, "league/configuracion_form.html", {"form": form, "config": config})
+
+
+def descarga_reglamento(request):
+    config = ConfiguracionLiga.obtener()
+    if not config.reglamento:
+        raise Http404("No hay reglamento disponible.")
+    from django.http import HttpResponseRedirect
+    return HttpResponseRedirect(config.reglamento.url)
 
 
 def suscripcion_email(request):

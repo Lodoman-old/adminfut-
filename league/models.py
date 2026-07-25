@@ -1568,6 +1568,8 @@ class ConfiguracionLiga(models.Model):
                   "Para obtenerlo: 1) Crea una App en https://developers.facebook.com, "
                   "2) Ve a 'Graph API Explorer', selecciona tu app y página, "
                   "3) Genera un Page Access Token con permisos 'pages_manage_posts' y 'pages_read_engagement'.")
+    reglamento = models.FileField(upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
+        help_text="Archivo PDF del reglamento de la liga. Visible para todos los usuarios.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"
