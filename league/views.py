@@ -786,8 +786,16 @@ def descarga_reglamento(request):
     config = ConfiguracionLiga.obtener()
     if not config.reglamento:
         raise Http404("No hay reglamento disponible.")
-    from django.http import HttpResponseRedirect
-    return HttpResponseRedirect(config.reglamento.url)
+    try:
+        f = config.reglamento.open("rb")
+        from django.http import FileResponse
+        return FileResponse(f, content_type="application/pdf",
+                            as_attachment=True, filename="Reglamento.pdf")
+    except Exception:
+        import cloudinary
+        url = cloudinary.utils.cloudinary_url(config.reglamento.name, resource_type="raw", secure=True, sign_url=True)[0]
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(url)
 
 
 def suscripcion_email(request):
