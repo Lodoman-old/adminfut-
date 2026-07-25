@@ -23,6 +23,9 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="reglamento-tab" data-bs-toggle="tab" data-bs-target="#reglamento" type="button" role="tab"><i class="bi bi-file-earmark-text"></i> Reglamento</button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="infra-tab" data-bs-toggle="tab" data-bs-target="#infra" type="button" role="tab"><i class="bi bi-cloud"></i> Infraestructura</button>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -213,6 +216,45 @@
             </div>
           </div>
         </div>
+        <div class="tab-pane fade" id="infra" role="tabpanel">
+          <div class="alert alert-warning small py-2">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Importante:</strong> Los cambios en Base de Datos requieren reiniciar el servidor para tomar efecto.
+            Los cambios en Cloudinary se aplican inmediatamente.
+          </div>
+          <h6 class="text-primary"><i class="bi bi-database"></i> Base de Datos</h6>
+          <div class="mb-3">
+            <label class="form-label">DATABASE_URL</label>
+            {{ form.database_url }}
+            <div class="form-text">URL completa de PostgreSQL. Ejemplo: <code>postgresql://user:pass@host/dbname?sslmode=require</code></div>
+          </div>
+          <div class="mb-3 d-flex align-items-center gap-2">
+            <small class="text-muted">Actual: <code>{{ config.database_url|default:"(variable de entorno)"|truncatechars:80 }}</code></small>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnTestDb" onclick="testDbConnection()">
+              <i class="bi bi-lightning"></i> Probar conexión
+            </button>
+            <span id="dbTestResult" class="small"></span>
+          </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-cloud"></i> Cloudinary (Imágenes y Archivos)</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Cloud Name</label>
+              {{ form.cloudinary_cloud_name }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">API Key</label>
+              {{ form.cloudinary_api_key }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">API Secret</label>
+              {{ form.cloudinary_api_secret }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <small class="text-muted">Cloud actual: <code>{{ config.cloudinary_cloud_name|default:"(variable de entorno)" }}</code></small>
+          </div>
+        </div>
       </div>
       <div class="text-center mt-3 pt-2 border-top">
         <button type="submit" class="btn btn-success me-2"><i class="bi bi-save"></i> Guardar Configuración</button>
@@ -221,4 +263,29 @@
     </form>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function testDbConnection() {
+  const btn = document.getElementById('btnTestDb');
+  const result = document.getElementById('dbTestResult');
+  const dbUrl = document.getElementById('id_database_url').value;
+  btn.disabled = true;
+  result.innerHTML = '<span class="text-muted">Probando...</span>';
+  const formData = new FormData();
+  formData.append('database_url', dbUrl);
+  formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  fetch('{% url "test_database_connection" %}', {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        result.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Conectado: ' + data.version.substring(0, 60) + '</span>';
+      } else {
+        result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + data.error.substring(0, 80) + '</span>';
+      }
+    })
+    .catch(() => { result.innerHTML = '<span class="text-danger">Error de red</span>'; })
+    .finally(() => { btn.disabled = false; });
+}
+</script>
 {% endblock %}

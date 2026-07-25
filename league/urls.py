@@ -69,6 +69,7 @@ urlpatterns = [
 
     path("configuracion/", views.configuracion_liga, name="configuracion_liga"),
     path("reglamento/descargar/", views.descarga_reglamento, name="descarga_reglamento"),
+    path("api/test-db-connection/", views.test_database_connection, name="test_database_connection"),
     path("suscripcion/", views.suscripcion_email, name="suscripcion_email"),
     path("enviar-roles/<int:temporada_id>/", views.enviar_roles_semana, name="enviar_roles_semana"),
     path("enviar-rol-jornada/<int:jornada_id>/", views.enviar_rol_jornada, name="enviar_rol_jornada"),

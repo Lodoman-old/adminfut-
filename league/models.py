@@ -1571,6 +1571,12 @@ class ConfiguracionLiga(models.Model):
     reglamento = models.FileField(upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
         help_text="Archivo PDF del reglamento de la liga. Visible para todos los usuarios.")
 
+    database_url = models.URLField(max_length=500, blank=True, default="", verbose_name="Database URL",
+        help_text="URL completa de conexión a la base de datos. Ej: postgresql://user:pass@host/db?sslmode=require. Requiere reiniciar el servidor tras cambiar.")
+    cloudinary_cloud_name = models.CharField(max_length=200, blank=True, default="", verbose_name="Cloudinary Cloud Name")
+    cloudinary_api_key = models.CharField(max_length=200, blank=True, default="", verbose_name="Cloudinary API Key")
+    cloudinary_api_secret = models.CharField(max_length=500, blank=True, default="", verbose_name="Cloudinary API Secret")
+
     class Meta:
         verbose_name = "Configuración de la Liga"
         verbose_name_plural = "Configuración de la Liga"
@@ -1618,6 +1624,14 @@ class ConfiguracionLiga(models.Model):
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
+        if self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret:
+            import cloudinary
+            cloudinary.config(
+                cloud_name=self.cloudinary_cloud_name,
+                api_key=self.cloudinary_api_key,
+                api_secret=self.cloudinary_api_secret,
+                secure=True,
+            )
 
     def get_active_smtp_config(self):
         if self.email_provider == "sendgrid":

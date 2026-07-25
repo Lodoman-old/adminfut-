@@ -142,3 +142,31 @@ try:
     from local_settings import *
 except ImportError:
     pass
+
+def _apply_infra_config():
+    try:
+        from league.models import ConfiguracionLiga
+        config = ConfiguracionLiga.objects.get(pk=1)
+        if config.database_url:
+            import dj_database_url
+            DATABASES['default'] = dj_database_url.parse(
+                config.database_url,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        if config.cloudinary_cloud_name and config.cloudinary_api_key and config.cloudinary_api_secret:
+            import cloudinary
+            cloudinary.config(
+                cloud_name=config.cloudinary_cloud_name,
+                api_key=config.cloudinary_api_key,
+                api_secret=config.cloudinary_api_secret,
+                secure=True,
+            )
+            os.environ['CLOUDINARY_URL'] = f"cloudinary://{config.cloudinary_api_key}:{config.cloudinary_api_secret}@{config.cloudinary_cloud_name}"
+            import cloudinary_storage
+            from django.core.files.storage import default_storage
+            default_storage._wrapped = None
+    except Exception:
+        pass
+
+_apply_infra_config()

@@ -766,6 +766,10 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "facebook_page_id": djforms.TextInput(attrs={"class": "form-control"}),
             "facebook_access_token": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
             "reglamento": djforms.FileInput(attrs={"class": "form-control"}),
+            "database_url": djforms.TextInput(attrs={"class": "form-control", "placeholder": "postgresql://user:pass@host/db?sslmode=require"}),
+            "cloudinary_cloud_name": djforms.TextInput(attrs={"class": "form-control"}),
+            "cloudinary_api_key": djforms.TextInput(attrs={"class": "form-control"}),
+            "cloudinary_api_secret": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
         }
 
 
@@ -796,6 +800,33 @@ def descarga_reglamento(request):
         url = cloudinary.utils.cloudinary_url(config.reglamento.name, resource_type="raw", secure=True, sign_url=True)[0]
         from django.http import HttpResponseRedirect
         return HttpResponseRedirect(url)
+
+
+@login_required
+def test_database_connection(request):
+    if not request.user.is_superuser:
+        from django.http import JsonResponse
+        return JsonResponse({"ok": False, "error": "Solo superusuarios"}, status=403)
+    from django.http import JsonResponse
+    config = ConfiguracionLiga.obtener()
+    db_url = request.POST.get("database_url", "") or config.database_url
+    if not db_url:
+        return JsonResponse({"ok": False, "error": "No hay DATABASE_URL configurada."})
+    try:
+        import dj_database_url
+        import psycopg2
+        parsed = dj_database_url.parse(db_url)
+        conn = psycopg2.connect(parsed["NAME"], user=parsed["USER"], password=parsed["PASSWORD"],
+                                host=parsed["HOST"], port=parsed["PORT"],
+                                sslmode=parsed.get("OPTIONS", {}).get("sslmode", "require"))
+        cur = conn.cursor()
+        cur.execute("SELECT version()")
+        version = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return JsonResponse({"ok": True, "version": version})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)})
 
 
 def suscripcion_email(request):
