@@ -76,12 +76,20 @@ def _try_init():
             if raw:
                 cred = credentials.Certificate(json.loads(raw))
             else:
-                file_path = os.path.join(settings.BASE_DIR, "secrets", "firebase-service-account.json")
-                if os.path.exists(file_path):
-                    cred = credentials.Certificate(file_path)
-                else:
-                    logger.warning("No Firebase credentials found (FIREBASE_SERVICE_ACCOUNT_BASE64 not set)")
-                    return False
+                try:
+                    from .models import ConfiguracionLiga
+                    config = ConfiguracionLiga.obtener()
+                    if config.firebase_service_account_json:
+                        cred = credentials.Certificate(json.loads(config.firebase_service_account_json))
+                    else:
+                        raise Exception("No hay JSON en la config")
+                except Exception:
+                    file_path = os.path.join(settings.BASE_DIR, "secrets", "firebase-service-account.json")
+                    if os.path.exists(file_path):
+                        cred = credentials.Certificate(file_path)
+                    else:
+                        logger.warning("No Firebase credentials found (FIREBASE_SERVICE_ACCOUNT_BASE64 not set)")
+                        return False
 
         firebase_admin.initialize_app(cred)
         _app_initialized = True

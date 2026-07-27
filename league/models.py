@@ -1576,6 +1576,8 @@ class ConfiguracionLiga(models.Model):
     cloudinary_cloud_name = models.CharField(max_length=200, blank=True, default="", verbose_name="Cloudinary Cloud Name")
     cloudinary_api_key = models.CharField(max_length=200, blank=True, default="", verbose_name="Cloudinary API Key")
     cloudinary_api_secret = models.CharField(max_length=500, blank=True, default="", verbose_name="Cloudinary API Secret")
+    firebase_service_account_json = models.TextField(blank=True, default="", verbose_name="Firebase Service Account JSON",
+        help_text="Pega aquí el JSON completo de la service account de Firebase. Se usa para enviar notificaciones push.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"

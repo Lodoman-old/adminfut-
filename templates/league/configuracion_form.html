@@ -254,6 +254,21 @@
           <div class="mb-3">
             <small class="text-muted">Cloud actual: <code>{{ config.cloudinary_cloud_name|default:"(variable de entorno)" }}</code></small>
           </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-bell"></i> Firebase (Notificaciones Push)</h6>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Pega el JSON completo de la Service Account de Firebase. Lo obtienes desde
+            <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a> →
+            Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada.
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Firebase Service Account JSON</label>
+            {{ form.firebase_service_account_json }}
+          </div>
+          <div class="mb-3">
+            <small class="text-muted">Estado: {% if config.firebase_service_account_json %}<span class="text-success"><i class="bi bi-check-circle"></i> Configurado</span>{% else %}<span class="text-warning"><i class="bi bi-exclamation-circle"></i> No configurado (usando variable de entorno o archivo local)</span>{% endif %}</small>
+          </div>
         </div>
       </div>
       <div class="text-center mt-3 pt-2 border-top">

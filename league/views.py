@@ -770,6 +770,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "cloudinary_cloud_name": djforms.TextInput(attrs={"class": "form-control"}),
             "cloudinary_api_key": djforms.TextInput(attrs={"class": "form-control"}),
             "cloudinary_api_secret": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
+            "firebase_service_account_json": djforms.Textarea(attrs={"class": "form-control", "rows": 8, "placeholder": '{"type": "service_account", "project_id": "...", ...}'}),
         }
 
 
