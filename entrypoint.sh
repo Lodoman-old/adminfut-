@@ -7,6 +7,9 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+echo "Running seed (roles, admin, conceptos)..."
+python manage.py seed
+
 echo "Creating superuser if needed..."
 python manage.py shell -c "
 from accounts.models import Usuario
