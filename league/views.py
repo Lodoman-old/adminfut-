@@ -12,6 +12,7 @@ from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
@@ -766,6 +767,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "facebook_page_id": djforms.TextInput(attrs={"class": "form-control"}),
             "facebook_access_token": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
             "reglamento": djforms.FileInput(attrs={"class": "form-control"}),
+            "apk_file": djforms.FileInput(attrs={"class": "form-control", "accept": ".apk"}),
             "database_url": djforms.TextInput(attrs={"class": "form-control", "placeholder": "postgresql://user:pass@host/db?sslmode=require"}),
             "cloudinary_cloud_name": djforms.TextInput(attrs={"class": "form-control"}),
             "cloudinary_api_key": djforms.TextInput(attrs={"class": "form-control"}),
@@ -799,6 +801,22 @@ def descarga_reglamento(request):
     except Exception:
         import cloudinary
         url = cloudinary.utils.cloudinary_url(config.reglamento.name, resource_type="raw", secure=True, sign_url=True)[0]
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(url)
+
+
+def descarga_apk(request):
+    config = ConfiguracionLiga.obtener()
+    if not config.apk_file:
+        raise Http404("No hay aplicación disponible.")
+    try:
+        f = config.apk_file.open("rb")
+        from django.http import FileResponse
+        return FileResponse(f, content_type="application/vnd.android.package-archive",
+                            as_attachment=True, filename="AdminFut.apk")
+    except Exception:
+        import cloudinary
+        url = cloudinary.utils.cloudinary_url(config.apk_file.name, resource_type="raw", secure=True, sign_url=True)[0]
         from django.http import HttpResponseRedirect
         return HttpResponseRedirect(url)
 
@@ -1911,209 +1929,15 @@ def cedula_arbitral(request, partido_id):
     arbitros_list = Arbitro.objects.filter(activo=True).order_by("apellido", "nombre")
 
     if request.method == "POST":
-        if partido.estado == "FIN" and not request.user.tiene_permiso("partido_aperturar"):
-            messages.error(request, "No tienes permiso para modificar un partido finalizado.")
+        from .cedula_service import procesar_cedula
+        result = procesar_cedula(partido, request.POST, request.user)
+        if not result["ok"]:
+            for e in result["errors"]:
+                messages.error(request, e)
             return redirect("cedula_arbitral", partido_id=partido.id)
-        arbitro_id = request.POST.get("arbitro")
-        if not arbitro_id:
-            messages.error(request, "Debes seleccionar un árbitro para guardar la cédula.")
-            return redirect("cedula_arbitral", partido_id=partido.id)
-        default_local = request.POST.get("defaultLocalCheck") == "on"
-        default_visit = request.POST.get("defaultVisitCheck") == "on"
-        # Contar jugadores con participación (T o C) por equipo
-        jugadores_local_ids = {str(j.id) for j in jugadores_local}
-        jugadores_visit_ids = {str(j.id) for j in jugadores_visit}
-        cuenta_local = 0
-        cuenta_visit = 0
-        for key in request.POST:
-            if key.startswith("participacion_"):
-                jid = key.split("_")[1]
-                if jid in jugadores_local_ids:
-                    cuenta_local += 1
-                elif jid in jugadores_visit_ids:
-                    cuenta_visit += 1
-        # Validaciones de liga (min jugadores, cambios, titulares) — se saltan en amistosos
-        if not partido.es_amistoso:
-            min_jugs = partido.temporada.min_jugadores
-            # Si hay default en cualquier equipo, se omite la validación de mínimo
-            if not default_local and not default_visit:
-                errores_min = []
-                if cuenta_local < min_jugs:
-                    errores_min.append(f"{partido.equipo_local.nombre} solo tiene {cuenta_local} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
-                if cuenta_visit < min_jugs:
-                    errores_min.append(f"{partido.equipo_visitante.nombre} solo tiene {cuenta_visit} jugadores en cédula (mínimo {min_jugs}). Activa Default para este equipo o agrega más jugadores.")
-                if errores_min:
-                    for e in errores_min:
-                        messages.error(request, e)
-                    return redirect("cedula_arbitral", partido_id=partido.id)
-
-            # Validar límite de cambios por equipo
-            max_cambios = partido.temporada.cambios_permitidos
-            cambios_local = 0
-            cambios_visit = 0
-            for key, value in request.POST.items():
-                if key.startswith("participacion_") and value == "cambio":
-                    jid = key.split("_")[1]
-                    if jid in jugadores_local_ids:
-                        cambios_local += 1
-                    elif jid in jugadores_visit_ids:
-                        cambios_visit += 1
-            if not default_local and cambios_local > max_cambios:
-                default_local = True
-                messages.warning(request, f"{partido.equipo_local.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
-            if not default_visit and cambios_visit > max_cambios:
-                default_visit = True
-                messages.warning(request, f"{partido.equipo_visitante.nombre} excede el límite de {max_cambios} cambios por partido. Se marca como Default.")
-
-            # Validar límite de titulares por equipo
-            max_tits = partido.temporada.max_titulares or 11
-        else:
-            max_tits = 99  # sin límite en amistosos
-        titulares_local = 0
-        titulares_visit = 0
-        for key, value in request.POST.items():
-            if key.startswith("participacion_") and value == "titular":
-                jid = key.split("_")[1]
-                if jid in jugadores_local_ids:
-                    titulares_local += 1
-                elif jid in jugadores_visit_ids:
-                    titulares_visit += 1
-
-        # Guardar si el default fue forzado por validación (alineación indebida)
-        default_forzado_local = False
-        default_forzado_visit = False
-        if not default_local and titulares_local > max_tits:
-            default_local = True
-            default_forzado_local = True
-            messages.warning(request, f"{partido.equipo_local.nombre} tiene {titulares_local} titulares (máximo {max_tits}). Alineación indebida. Se marca como Default.")
-        if not default_visit and titulares_visit > max_tits:
-            default_visit = True
-            default_forzado_visit = True
-            messages.warning(request, f"{partido.equipo_visitante.nombre} tiene {titulares_visit} titulares (máximo {max_tits}). Alineación indebida. Se marca como Default.")
-
-        Gol.objects.filter(partido=partido).delete()
-        for key, value in request.POST.items():
-            if key.startswith("gol_"):
-                partes = key.split("_")
-                jugador_id = int(partes[1])
-                if value.strip():
-                    cantidad = int(value) if value.isdigit() else 0
-                    for _ in range(cantidad):
-                        Gol.objects.create(
-                            partido=partido,
-                            jugador_id=jugador_id,
-                            equipo_id=request.POST.get(f"equipo_{jugador_id}"),
-                            minuto=0,
-                        )
-        Tarjeta.objects.filter(partido=partido).delete()
-        for key, value in request.POST.items():
-            if key.startswith("tarjeta_"):
-                partes = key.split("_")
-                jugador_id = int(partes[1])
-                tipo = partes[2]
-                if value:
-                    Tarjeta.objects.create(
-                            partido=partido,
-                            jugador_id=jugador_id,
-                            equipo_id=request.POST.get(f"equipo_{jugador_id}"),
-                            tipo=tipo,
-                            minuto=0,
-                        )
-        # Auto-roja cuando un jugador tiene 2+ amarillas en el mismo partido
-        duplas = (Tarjeta.objects.filter(partido=partido, tipo="AMARILLA")
-                  .values("jugador_id")
-                  .annotate(cnt=Count("id"))
-                  .filter(cnt__gte=2))
-        for entry in duplas:
-            if not Tarjeta.objects.filter(partido=partido, jugador_id=entry["jugador_id"], tipo="ROJA").exists():
-                Tarjeta.objects.create(
-                    partido=partido,
-                    jugador_id=entry["jugador_id"],
-                    equipo_id=Jugador.objects.get(id=entry["jugador_id"]).equipo_id,
-                    tipo="ROJA",
-                    minuto=0,
-                )
-        # Guardar suspension_jornadas para cada tarjeta roja
-        for key, value in request.POST.items():
-            if key.startswith("suspension_") and value:
-                jid = int(key.split("_")[1])
-                try:
-                    roja = Tarjeta.objects.get(partido=partido, jugador_id=jid, tipo="ROJA")
-                    roja.suspension_jornadas = int(value)
-                    roja.save()
-                except (Tarjeta.DoesNotExist, ValueError):
-                    pass
-        # Guardar participaciones (titular / cambio)
-        JugadorPartido.objects.filter(partido=partido).delete()
-        for key, value in request.POST.items():
-            if key.startswith("participacion_"):
-                jid = int(key.split("_")[1])
-                JugadorPartido.objects.create(
-                    partido_id=partido.id,
-                    jugador_id=jid,
-                    equipo_id=request.POST.get(f"equipo_{jid}"),
-                    titular=value == "titular",
-                )
-        # Auto-actualizar goles del partido según los goles registrados en la cédula
-        goles_local = Gol.objects.filter(partido=partido, equipo=partido.equipo_local).count()
-        goles_visit = Gol.objects.filter(partido=partido, equipo=partido.equipo_visitante).count()
-        Partido.objects.filter(pk=partido.pk).update(goles_local=goles_local, goles_visitante=goles_visit)
-        # Guardar default (perder por default)
-        # Combinar default marcado por usuario + forzado por validación
-        if not default_forzado_local:
-            default_local = request.POST.get("defaultLocalCheck") == "on"
-        if not default_forzado_visit:
-            default_visit = request.POST.get("defaultVisitCheck") == "on"
-
-        if default_forzado_local:
-            motivo_default_local = "Alineación indebida"
-        else:
-            motivo_default_local = request.POST.get("motivo_default_local", "").strip()
-        if default_forzado_visit:
-            motivo_default_visit = "Alineación indebida"
-        else:
-            motivo_default_visit = request.POST.get("motivo_default_visitante", "").strip()
-        goles_default = partido.temporada.goles_default if partido.temporada_id else 1
-        if default_local or default_visit:
-            if default_forzado_local or default_forzado_visit:
-                update_kwargs = {}
-            else:
-                update_kwargs = {"estado": "FIN"}
-            if default_local:
-                update_kwargs["default_team"] = "local"
-                update_kwargs["motivo_default"] = motivo_default_local
-                update_kwargs["goles_local"] = 0
-                update_kwargs["goles_visitante"] = goles_default
-            if default_visit:
-                update_kwargs["default_visitante"] = True
-                update_kwargs["motivo_default"] = motivo_default_visit
-                update_kwargs["goles_visitante"] = 0
-                update_kwargs["goles_local"] = goles_default
-            if default_local and default_visit:
-                update_kwargs["goles_local"] = 0
-                update_kwargs["goles_visitante"] = 0
-            Partido.objects.filter(pk=partido.pk).update(**update_kwargs)
-            if default_forzado_local or default_forzado_visit:
-                Partido.objects.filter(pk=partido.pk).update(estado=partido.estado if partido.estado != "FIN" else "PEND")
-            # Limpiar goles y tarjetas individuales pues el default los invalida
-            Gol.objects.filter(partido=partido).delete()
-            Tarjeta.objects.filter(partido=partido).delete()
-        else:
-            Partido.objects.filter(pk=partido.pk).update(
-                default_team=None,
-                default_visitante=False,
-                motivo_default="",
-            )
-        # Finalizar partido si el usuario lo solicitó (solo si no hay default forzado)
-        Partido.objects.filter(pk=partido.pk).update(arbitro_id=arbitro_id)
-        if request.POST.get("finalizar") == "1" and not (default_forzado_local or default_forzado_visit):
-            Partido.objects.filter(pk=partido.pk).update(estado="FIN")
-            try:
-                from .push import notify_partido_finalizado
-                partido.refresh_from_db()
-                notify_partido_finalizado(partido)
-            except Exception as e:
-                logger.warning("Error al enviar notificación push al finalizar partido %s: %s", partido.id, e)
+        for w in result["warnings"]:
+            messages.warning(request, w)
+        if result["finalizado"]:
             messages.success(request, "Cédula arbitral guardada y partido finalizado.")
             return redirect("partido_list")
         messages.success(request, "Cédula arbitral guardada correctamente.")
@@ -2994,3 +2818,152 @@ def publicar_campeon_view(request, pk):
         messages.success(request, "Campeon publicado en Facebook (correo no configurado).")
 
     return redirect("temporada_list")
+
+
+# ============ MODO OFFLINE (APP ANDROID) ============
+
+@login_required
+def modo_offline(request):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    import secrets
+    from league.models import OfflineToken
+
+    if not (request.user.tiene_permiso("partido_cedula") or request.user.is_superuser):
+        messages.error(request, "No tienes permiso para usar el modo offline.")
+        return redirect("index")
+
+    if request.method == "POST" and request.POST.get("revocar") == "1":
+        OfflineToken.objects.filter(usuario=request.user, activo=True).update(activo=False)
+        messages.success(request, "Modo offline desactivado. Genera un nuevo token cuando lo necesites.")
+        return redirect("modo_offline")
+
+    token = (OfflineToken.objects.filter(usuario=request.user, activo=True)
+             .order_by("-creado").first())
+    if token is None or token.expira <= tz.now():
+        if token is not None:
+            token.activo = False
+            token.save()
+        token = OfflineToken.objects.create(
+            usuario=request.user,
+            token=secrets.token_urlsafe(32),
+            expira=tz.now() + timedelta(days=180),
+        )
+    return render(request, "league/modo_offline.html", {"token": token})
+
+
+def _get_offline_user(request):
+    from league.models import OfflineToken
+    from django.utils import timezone as tz
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    t = OfflineToken.objects.filter(token=auth[7:].strip(), activo=True, expira__gt=tz.now()).first()
+    return t.usuario if t else None
+
+
+@csrf_exempt
+def api_offline_datos(request):
+    from django.http import JsonResponse
+    user = _get_offline_user(request)
+    if user is None:
+        return JsonResponse({"ok": False, "error": "Token inválido o expirado."}, status=401)
+    if not (user.tiene_permiso("partido_cedula") or user.is_superuser):
+        return JsonResponse({"ok": False, "error": "Sin permisos."}, status=403)
+
+    if user.is_superuser or user.tiene_permiso("gestion_arbitros"):
+        partidos = Partido.objects.filter(estado__in=["PEND", "JUG"]).select_related(
+            "equipo_local", "equipo_visitante", "campo", "temporada", "arbitro"
+        )
+    else:
+        partidos = Partido.objects.filter(estado__in=["PEND", "JUG"], arbitro__usuario=user).select_related(
+            "equipo_local", "equipo_visitante", "campo", "temporada", "arbitro"
+        )
+
+    arbitros = list(Arbitro.objects.filter(activo=True).values("id", "nombre", "apellido"))
+
+    def jugadores_dto(equipo):
+        return [
+            {"id": j.id, "nombre": j.nombre, "apellido": j.apellido, "dorsal": j.dorsal}
+            for j in Jugador.objects.filter(equipo=equipo, activo=True).order_by("apellido", "nombre")
+        ]
+
+    matches = []
+    for p in partidos.order_by("fecha_hora"):
+        matches.append({
+            "id": p.id,
+            "fecha_hora": p.fecha_hora.isoformat(),
+            "campo": p.campo.nombre if p.campo else "",
+            "estado": p.estado,
+            "es_amistoso": p.es_amistoso,
+            "es_liguilla": p.es_liguilla,
+            "goles_default": p.temporada.goles_default if p.temporada_id else 1,
+            "min_jugadores": p.temporada.min_jugadores if p.temporada_id else 7,
+            "cambios_permitidos": p.temporada.cambios_permitidos if p.temporada_id else 3,
+            "max_titulares": (p.temporada.max_titulares or 11) if p.temporada_id else 11,
+            "arbitro_id": p.arbitro_id,
+            "equipo_local": {"id": p.equipo_local_id, "nombre": p.equipo_local.nombre,
+                             "jugadores": jugadores_dto(p.equipo_local)},
+            "equipo_visitante": {"id": p.equipo_visitante_id, "nombre": p.equipo_visitante.nombre,
+                                 "jugadores": jugadores_dto(p.equipo_visitante)},
+        })
+    return JsonResponse({"ok": True, "matches": matches, "arbitros": arbitros})
+
+
+@csrf_exempt
+def api_offline_cedula(request):
+    import json as jsonlib
+    from django.http import JsonResponse
+    from django.http import QueryDict
+    from .cedula_service import procesar_cedula
+    user = _get_offline_user(request)
+    if user is None:
+        return JsonResponse({"ok": False, "error": "Token inválido o expirado."}, status=401)
+    try:
+        payload = jsonlib.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"ok": False, "error": "JSON inválido."}, status=400)
+
+    partido_id = payload.get("partido_id")
+    partido = Partido.objects.filter(pk=partido_id).first()
+    if partido is None:
+        return JsonResponse({"ok": False, "error": "Partido no encontrado."}, status=404)
+
+    data = QueryDict("", mutable=True)
+    data["arbitro"] = str(payload.get("arbitro", "") or "")
+    data["finalizar"] = "1" if payload.get("finalizar") else "0"
+    if payload.get("default_local"):
+        data["defaultLocalCheck"] = "on"
+    if payload.get("default_visitante"):
+        data["defaultVisitCheck"] = "on"
+    if payload.get("motivo_default_local"):
+        data["motivo_default_local"] = str(payload["motivo_default_local"])
+    if payload.get("motivo_default_visitante"):
+        data["motivo_default_visitante"] = str(payload["motivo_default_visitante"])
+
+    for jid, jdata in (payload.get("jugadores") or {}).items():
+        data[f"equipo_{jid}"] = str(jdata.get("equipo", ""))
+        participacion = jdata.get("participacion", "")
+        if participacion in ("titular", "cambio"):
+            data[f"participacion_{jid}"] = participacion
+        goles = int(jdata.get("goles") or 0)
+        if goles > 0:
+            data[f"gol_{jid}"] = str(goles)
+        amarillas = int(jdata.get("amarillas") or 0)
+        if amarillas >= 1:
+            data[f"tarjeta_{jid}_AMARILLA"] = "AMARILLA"
+        if amarillas >= 2:
+            data[f"tarjeta_{jid}_AMARILLA_2"] = "AMARILLA"
+        if jdata.get("roja"):
+            data[f"tarjeta_{jid}_ROJA"] = "ROJA"
+        suspension = int(jdata.get("suspension") or 0)
+        if suspension > 0:
+            data[f"suspension_{jid}"] = str(suspension)
+
+    result = procesar_cedula(partido, data, user)
+    resp = {"ok": result["ok"], "finalizado": result.get("finalizado", False)}
+    if result["errors"]:
+        resp["errors"] = result["errors"]
+    if result["warnings"]:
+        resp["warnings"] = result["warnings"]
+    return JsonResponse(resp)

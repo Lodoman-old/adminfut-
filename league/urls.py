@@ -69,6 +69,10 @@ urlpatterns = [
 
     path("configuracion/", views.configuracion_liga, name="configuracion_liga"),
     path("reglamento/descargar/", views.descarga_reglamento, name="descarga_reglamento"),
+    path("apk/descargar/", views.descarga_apk, name="descarga_apk"),
+    path("modo-offline/", views.modo_offline, name="modo_offline"),
+    path("api/offline/datos/", views.api_offline_datos, name="api_offline_datos"),
+    path("api/offline/cedula/", views.api_offline_cedula, name="api_offline_cedula"),
     path("api/test-db-connection/", views.test_database_connection, name="test_database_connection"),
     path("suscripcion/", views.suscripcion_email, name="suscripcion_email"),
     path("enviar-roles/<int:temporada_id>/", views.enviar_roles_semana, name="enviar_roles_semana"),

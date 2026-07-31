@@ -1570,6 +1570,8 @@ class ConfiguracionLiga(models.Model):
                   "3) Genera un Page Access Token con permisos 'pages_manage_posts' y 'pages_read_engagement'.")
     reglamento = models.FileField(upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
         help_text="Archivo PDF del reglamento de la liga. Visible para todos los usuarios.")
+    apk_file = models.FileField(upload_to="apks/", blank=True, null=True, verbose_name="App Android (APK)",
+        help_text="APK firmada de la app. Descargable por todos los usuarios desde el menú.")
 
     database_url = models.URLField(max_length=500, blank=True, default="", verbose_name="Database URL",
         help_text="URL completa de conexión a la base de datos. Ej: postgresql://user:pass@host/db?sslmode=require. Requiere reiniciar el servidor tras cambiar.")
@@ -1766,3 +1768,21 @@ class PushLog(models.Model):
 
     def __str__(self):
         return f"[{self.tipo}] {self.hora}"
+
+
+class OfflineToken(models.Model):
+    """Token para modo offline de la app Android (árbitros)."""
+    usuario = models.ForeignKey(
+        "accounts.Usuario", on_delete=models.CASCADE, related_name="offline_tokens"
+    )
+    token = models.CharField(max_length=64, unique=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    expira = models.DateTimeField()
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Token Offline"
+        verbose_name_plural = "Tokens Offline"
+
+    def __str__(self):
+        return f"OfflineToken {self.usuario_id} ({self.expira:%d/%m/%Y})"

@@ -141,6 +141,10 @@
                             <li><a class="dropdown-item" href="{% url 'arbitro_list' %}">Árbitros</a></li>{% endif %}
                         </ul>
                     </li>
+                    {% if user|tiene_permiso:"partido_cedula" %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'modo_offline' %}"><i class="bi bi-cloud-arrow-down"></i> Modo Offline</a></li>
+                    {% endif %}
+                    </li>
                     {% if user|tiene_permiso:"ver_finanzas" %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -158,6 +162,9 @@
                     {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'suscripcion_email' %}">Suscripción</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_reglamento' %}"><i class="bi bi-file-earmark-pdf"></i> Reglamento</a></li>
+                    {% if config and config.apk_file %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'descarga_apk' %}"><i class="bi bi-phone"></i> Descargar App</a></li>
+                    {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             Reportes

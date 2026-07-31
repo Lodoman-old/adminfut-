@@ -16,10 +16,32 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def keyFile = file('../../keys/adminfut-release.keystore')
+            if (keyFile.exists()) {
+                def passFile = file('../../keys/ADMINFUT_KEYSTORE_PASSWORD.txt')
+                def storePass = System.getenv('ADMINFUT_STORE_PASSWORD')
+                def keyPass = System.getenv('ADMINFUT_KEY_PASSWORD')
+                if (passFile.exists()) {
+                    def content = passFile.text
+                    def m = content =~ /Store password:\s*(.+)/
+                    if (m) storePass = m[0][1].trim()
+                    m = content =~ /Key password:\s*(.+)/
+                    if (m) keyPass = m[0][1].trim()
+                }
+                storeFile keyFile
+                storePassword storePass
+                keyAlias 'adminfut'
+                keyPassword keyPass
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

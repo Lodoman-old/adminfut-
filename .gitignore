@@ -12,6 +12,7 @@ staticfiles/
 .env.render
 backups/
 secrets/
+keys/
 node_modules/
 *.apk
 www/
@@ -21,3 +22,8 @@ android/.gradle/
 android/local.properties
 android/captures/
 android/.externalNativeBuild/
+backup_render.json
+extract_pptx.py
+fast_load.py
+fast_load2.py
+verify_db.py

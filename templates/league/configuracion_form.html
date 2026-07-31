@@ -22,6 +22,7 @@
       </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="reglamento-tab" data-bs-toggle="tab" data-bs-target="#reglamento" type="button" role="tab"><i class="bi bi-file-earmark-text"></i> Reglamento</button>
+        <button class="nav-link" id="app-tab" data-bs-toggle="tab" data-bs-target="#app" type="button" role="tab"><i class="bi bi-phone"></i> App Android</button>
       </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="infra-tab" data-bs-toggle="tab" data-bs-target="#infra" type="button" role="tab"><i class="bi bi-cloud"></i> Infraestructura</button>
@@ -213,6 +214,26 @@
                 </div>
               {% endif %}
               <div class="form-text">Solo se permiten archivos PDF. Tamaño máximo recomendado: 5 MB.</div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="app" role="tabpanel">
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-phone"></i>
+            Sube la APK firmada de la aplicación. Estará disponible para descarga de todos los usuarios desde el menú de navegación.
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">App Android (APK)</label>
+              {{ form.apk_file }}
+              {% if config.apk_file %}
+                <div class="mt-2">
+                  <a href="{% url 'descarga_apk' %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-download"></i> Probar descarga de la app actual
+                  </a>
+                </div>
+              {% endif %}
+              <div class="form-text">Solo se permiten archivos .apk firmados. Tamaño máximo recomendado: 60 MB.</div>
             </div>
           </div>
         </div>
