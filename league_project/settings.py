@@ -166,7 +166,8 @@ def _apply_infra_config():
             os.environ['CLOUDINARY_URL'] = f"cloudinary://{config.cloudinary_api_key}:{config.cloudinary_api_secret}@{config.cloudinary_cloud_name}"
             import cloudinary_storage
             from django.core.files.storage import default_storage
-            default_storage._wrapped = None
+            from django.utils.functional import empty
+            default_storage._wrapped = empty
     except Exception:
         pass
 
