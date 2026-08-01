@@ -15,6 +15,7 @@ secrets/
 keys/
 node_modules/
 *.apk
+!static/apk/AdminFut.apk
 www/
 android/app/build/
 android/build/

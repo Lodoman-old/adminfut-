@@ -168,7 +168,7 @@
                     {% endif %}
                     {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_reglamento' %}"><i class="bi bi-file-earmark-pdf"></i> Reglamento</a></li>
-                    {% if config and config.apk_file %}
+                    {% if config %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_apk' %}"><i class="bi bi-phone"></i> Descargar App</a></li>
                     {% endif %}
                     <li class="nav-item dropdown">

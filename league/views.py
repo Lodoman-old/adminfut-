@@ -767,7 +767,6 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "facebook_page_id": djforms.TextInput(attrs={"class": "form-control"}),
             "facebook_access_token": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
             "reglamento": djforms.FileInput(attrs={"class": "form-control"}),
-            "apk_file": djforms.FileInput(attrs={"class": "form-control", "accept": ".apk"}),
             "database_url": djforms.TextInput(attrs={"class": "form-control", "placeholder": "postgresql://user:pass@host/db?sslmode=require"}),
             "cloudinary_cloud_name": djforms.TextInput(attrs={"class": "form-control"}),
             "cloudinary_api_key": djforms.TextInput(attrs={"class": "form-control"}),
@@ -806,17 +805,14 @@ def descarga_reglamento(request):
 
 
 def descarga_apk(request):
-    config = ConfiguracionLiga.obtener()
-    if not config.apk_file:
-        raise Http404("No hay aplicación disponible.")
-    try:
-        f = config.apk_file.open("rb")
-        from django.http import FileResponse
-        return FileResponse(f, content_type="application/vnd.android.package-archive",
-                            as_attachment=True, filename="AdminFut.apk")
-    except Exception:
-        from django.http import HttpResponseRedirect
-        return HttpResponseRedirect(config.apk_file.url)
+    from pathlib import Path
+    from django.conf import settings as dj_settings
+    from django.http import FileResponse
+    path = Path(dj_settings.BASE_DIR) / "static" / "apk" / "AdminFut.apk"
+    if not path.exists():
+        raise Http404("La aplicación no está disponible.")
+    return FileResponse(open(path, "rb"), content_type="application/vnd.android.package-archive",
+                        as_attachment=True, filename="AdminFut.apk")
 
 
 @login_required

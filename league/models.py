@@ -1570,9 +1570,6 @@ class ConfiguracionLiga(models.Model):
                   "3) Genera un Page Access Token con permisos 'pages_manage_posts' y 'pages_read_engagement'.")
     reglamento = models.FileField(upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
         help_text="Archivo PDF del reglamento de la liga. Visible para todos los usuarios.")
-    apk_file = models.FileField(upload_to="apk", blank=True, null=True,
-        verbose_name="App Android (APK)",
-        help_text="APK firmada de la app. Descargable por todos los usuarios desde el menú. Se guarda en Cloudinary (sobrevive a redeploys).")
 
     database_url = models.URLField(max_length=500, blank=True, default="", verbose_name="Database URL",
         help_text="URL completa de conexión a la base de datos. Ej: postgresql://user:pass@host/db?sslmode=require. Requiere reiniciar el servidor tras cambiar.")
