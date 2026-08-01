@@ -815,10 +815,7 @@ def descarga_apk(request):
         return FileResponse(f, content_type="application/vnd.android.package-archive",
                             as_attachment=True, filename="AdminFut.apk")
     except Exception:
-        import cloudinary
-        url = cloudinary.utils.cloudinary_url(config.apk_file.name, resource_type="raw", secure=True, sign_url=True)[0]
-        from django.http import HttpResponseRedirect
-        return HttpResponseRedirect(url)
+        raise Http404("El archivo de la aplicación no está disponible.")
 
 
 @login_required
