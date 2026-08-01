@@ -184,7 +184,6 @@
                             {% if not user.is_authenticated or user|tiene_permiso:"reporte_semanal" %}<li><a class="dropdown-item" href="{% url 'reporte_semanal' %}"><i class="bi bi-calendar-week"></i> Juegos de la Semana</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                             {% if user.is_authenticated and user.rol and user.rol.permisos|dict_key:"credenciales_ver" %}<li><a class="dropdown-item" href="{% url 'reporte_credenciales' %}"><i class="bi bi-person-badge"></i> Credenciales</a></li>{% endif %}
-                            {% if user.is_authenticated and user.rol and user.rol.permisos|dict_key:"reporte_suscriptores" %}<li><a class="dropdown-item" href="{% url 'reporte_suscriptores' %}"><i class="bi bi-envelope"></i> Suscriptores</a></li>{% endif %}
                             {% if user.is_authenticated and user.rol and user.rol.permisos|dict_key:"reporte_horarios" %}<li><a class="dropdown-item" href="{% url 'horarios_fijos_report' %}"><i class="bi bi-clock"></i> Horarios Fijos</a></li>{% endif %}
                         </ul>
                     </li>
