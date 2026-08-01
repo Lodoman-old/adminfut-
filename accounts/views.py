@@ -21,6 +21,11 @@ class CustomLoginView(LoginView):
     template_name = "accounts/login.html"
 
     def get_success_url(self):
+        next_url = self.request.POST.get("next") or self.request.GET.get("next")
+        if next_url:
+            next_url = next_url.strip()
+            if next_url.startswith("/") and not next_url.startswith("//"):
+                return next_url
         return reverse("biometric_verify")
 
 
