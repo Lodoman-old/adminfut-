@@ -4,6 +4,8 @@ from django.db.models import Manager
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+from django.core.files.storage import Storage
+from django.utils.deconstruct import deconstructible
 from PIL import Image
 
 
@@ -1529,6 +1531,50 @@ class Tarjeta(models.Model):
         return f"{self.get_tipo_display()} - {self.jugador} ({self.minuto}')"
 
 
+@deconstructible
+class RawCloudinaryStorage(Storage):
+    def __init__(self, folder=""):
+        self.folder = folder
+
+    def _save(self, name, content):
+        import cloudinary.uploader
+        folder = self.folder or (name.rsplit("/", 1)[0] if "/" in name else "")
+        options = {"resource_type": "raw", "use_filename": True, "unique_filename": True}
+        if folder:
+            options["folder"] = folder
+        return cloudinary.uploader.upload(content, **options)["public_id"]
+
+    def open(self, name, mode="rb"):
+        import requests
+        from cloudinary.utils import cloudinary_url
+        from django.core.files.base import ContentFile
+        url = cloudinary_url(name, resource_type="raw", secure=True)[0]
+        response = requests.get(url)
+        response.raise_for_status()
+        file = ContentFile(response.content)
+        file.name = name
+        return file
+
+    def url(self, name):
+        from cloudinary.utils import cloudinary_url
+        return cloudinary_url(name, resource_type="raw", secure=True)[0]
+
+    def exists(self, name):
+        import requests
+        from cloudinary.utils import cloudinary_url
+        return requests.head(cloudinary_url(name, resource_type="raw", secure=True)[0]).status_code == 200
+
+    def size(self, name):
+        import requests
+        from cloudinary.utils import cloudinary_url
+        response = requests.head(cloudinary_url(name, resource_type="raw", secure=True)[0])
+        return int(response.headers.get("content-length", 0)) if response.status_code == 200 else None
+
+    def delete(self, name):
+        import cloudinary.uploader
+        return cloudinary.uploader.destroy(name, resource_type="raw").get("result") == "ok"
+
+
 class ConfiguracionLiga(models.Model):
     nombre_liga = models.CharField(max_length=200, default="Mi Liga")
     logo = models.ImageField(upload_to="ligas/", blank=True, null=True)
@@ -1568,7 +1614,7 @@ class ConfiguracionLiga(models.Model):
                   "Para obtenerlo: 1) Crea una App en https://developers.facebook.com, "
                   "2) Ve a 'Graph API Explorer', selecciona tu app y página, "
                   "3) Genera un Page Access Token con permisos 'pages_manage_posts' y 'pages_read_engagement'.")
-    reglamento = models.FileField(upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
+    reglamento = models.FileField(storage=RawCloudinaryStorage(folder="reglamentos"), upload_to="reglamentos/", blank=True, null=True, verbose_name="Reglamento (PDF)",
         help_text="Archivo PDF del reglamento de la liga. Visible para todos los usuarios.")
 
     database_url = models.URLField(max_length=500, blank=True, default="", verbose_name="Database URL",
