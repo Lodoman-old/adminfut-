@@ -210,7 +210,7 @@
               {{ form.reglamento }}
               {% if config.reglamento %}
                 <div class="mt-2">
-                  <a href="{{ config.reglamento.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                  <a href="{% url 'descarga_reglamento' %}" target="_blank" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-file-earmark-pdf"></i> Ver reglamento actual
                   </a>
                 </div>

@@ -1538,10 +1538,13 @@ class RawCloudinaryStorage(Storage):
 
     def _save(self, name, content):
         import cloudinary.uploader
-        folder = self.folder or (name.rsplit("/", 1)[0] if "/" in name else "")
-        options = {"resource_type": "raw", "use_filename": True, "unique_filename": True}
-        if folder:
-            options["folder"] = folder
+        try:
+            content.name = "Reglamento"
+        except Exception:
+            pass
+        options = {"resource_type": "raw", "public_id": "Reglamento", "overwrite": True}
+        if self.folder:
+            options["folder"] = self.folder
         return cloudinary.uploader.upload(content, **options)["public_id"]
 
     def open(self, name, mode="rb"):
