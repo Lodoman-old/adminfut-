@@ -150,7 +150,7 @@
                         </ul>
                     </li>
                     {% if user|tiene_permiso:"partido_cedula" %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'modo_offline' %}"><i class="bi bi-cloud-arrow-down"></i> Modo Offline</a></li>
+                    <li class="nav-item" id="nav-modo-offline"><a class="nav-link" href="{% url 'modo_offline' %}"><i class="bi bi-cloud-arrow-down"></i> Modo Offline</a></li>
                     {% endif %}
                     {% if user|tiene_permiso:"ver_finanzas" %}
                     <li class="nav-item dropdown">
@@ -167,7 +167,6 @@
                     </li>
                     {% endif %}
                     {% endif %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'suscripcion_email' %}">Suscripción</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_reglamento' %}"><i class="bi bi-file-earmark-pdf"></i> Reglamento</a></li>
                     {% if config and config.apk_file %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_apk' %}"><i class="bi bi-phone"></i> Descargar App</a></li>
@@ -217,6 +216,18 @@
             </div>
         </div>
     </nav>
+
+    <script>
+    // Modo Offline es exclusivo de la APK (Capacitor); ocultarlo en navegador web
+    (function() {
+        var el = document.getElementById('nav-modo-offline');
+        if (!el) return;
+        var inApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
+        if (!inApp) {
+            el.style.display = 'none';
+        }
+    })();
+    </script>
 
     <div class="container-fluid mt-3">
         {% load league_extras %}
