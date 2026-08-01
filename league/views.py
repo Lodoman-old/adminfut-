@@ -815,7 +815,8 @@ def descarga_apk(request):
         return FileResponse(f, content_type="application/vnd.android.package-archive",
                             as_attachment=True, filename="AdminFut.apk")
     except Exception:
-        raise Http404("El archivo de la aplicación no está disponible.")
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(config.apk_file.url)
 
 
 @login_required

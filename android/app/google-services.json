@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "410912981446",
-    "project_id": "adminfut-a5964",
-    "storage_bucket": "adminfut-a5964.firebasestorage.app"
+    "project_number": "1076058854494",
+    "project_id": "adminfut-a5a2c",
+    "storage_bucket": "adminfut-a5a2c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:410912981446:android:327e297dc2e400f22732c7",
+        "mobilesdk_app_id": "1:1076058854494:android:732c9a3efbe6f8888fd0cf",
         "android_client_info": {
           "package_name": "com.adminfut.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCtSAi8tZAsKnLqVqW9R6Z3tvIs7l6Ezkk"
+          "current_key": "AIzaSyDgbEem6jJLeYxoTsagQMHbVSqQLxKSr3U"
         }
       ],
       "services": {
