@@ -155,19 +155,6 @@ def _apply_infra_config():
                 conn_max_age=600,
                 conn_health_checks=True,
             )
-        if config.cloudinary_cloud_name and config.cloudinary_api_key and config.cloudinary_api_secret:
-            import cloudinary
-            cloudinary.config(
-                cloud_name=config.cloudinary_cloud_name,
-                api_key=config.cloudinary_api_key,
-                api_secret=config.cloudinary_api_secret,
-                secure=True,
-            )
-            os.environ['CLOUDINARY_URL'] = f"cloudinary://{config.cloudinary_api_key}:{config.cloudinary_api_secret}@{config.cloudinary_cloud_name}"
-            import cloudinary_storage
-            from django.core.files.storage import default_storage
-            from django.utils.functional import empty
-            default_storage._wrapped = empty
     except Exception:
         pass
 
