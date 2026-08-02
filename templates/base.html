@@ -113,6 +113,21 @@
 </head>
 <body>
 
+    <script>
+    // APK (Capacitor): si hay sesión iniciada pero aún no se verificó la huella
+    // en esta sesión, forzar /verify/ antes de usar la app (solo dentro de la APK).
+    (function() {
+        {% if user.is_authenticated %}
+        var inApp = typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences;
+        {% if not request.session.bio_verified %}
+        if (inApp && window.location.pathname.indexOf('/accounts/verify/') === -1) {
+            window.location.replace('{% url "biometric_verify" %}');
+        }
+        {% endif %}
+        {% endif %}
+    })();
+    </script>
+
     <nav class="navbar navbar-expand-xl navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">

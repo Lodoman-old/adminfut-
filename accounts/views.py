@@ -25,7 +25,9 @@ class CustomLoginView(LoginView):
         if next_url:
             next_url = next_url.strip()
             if next_url.startswith("/") and not next_url.startswith("//"):
-                return next_url
+                self.request.session["next_after_bio"] = next_url
+        # La verificación con huella nunca se salta: se redirige a /verify/
+        # y, tras verificar, se continúa hacia next_after_bio si existía.
         return reverse("biometric_verify")
 
 
@@ -224,12 +226,15 @@ def biometric_verify(request):
     if not request.user.is_authenticated:
         return redirect("login")
 
+    def destino():
+        return request.session.pop("next_after_bio", None) or reverse("home")
+
     if request.method == "POST":
         request.session["bio_verified"] = True
-        return JsonResponse({"ok": True, "redirect": str(reverse("home"))})
+        return JsonResponse({"ok": True, "redirect": destino()})
 
     if request.session.get("bio_verified"):
-        return redirect("home")
+        return redirect(destino())
 
     return render(request, "accounts/biometric_verify.html")
 
