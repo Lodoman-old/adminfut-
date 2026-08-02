@@ -3,10 +3,44 @@ from urllib.parse import quote
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import Resolver404, resolve
 
 NGROK_RE = re.compile(r'^https://[a-zA-Z0-9.-]+\.ngrok-free\.(app|dev)$')
+
+
+class CorsMiddleware:
+    """Habilita CORS para los endpoints que consume la APK Android desde el
+    WebView de Capacitor (origen https://localhost): el chequeo de conexión
+    (/accounts/login/) y las APIs offline con Bearer token (/api/...).
+    No expone sesión: las cookies no se envían en requests cross-origin y no
+    se activa Access-Control-Allow-Credentials."""
+
+    PREFIJOS = ('/api/', '/accounts/login/')
+    HEADERS = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, Accept',
+        'Access-Control-Max-Age': '86400',
+    }
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.path.startswith(self.PREFIJOS):
+            return self.get_response(request)
+
+        if request.method == 'OPTIONS':
+            response = HttpResponse(status=200, content=b'')
+            for key, value in self.HEADERS.items():
+                response[key] = value
+            return response
+
+        response = self.get_response(request)
+        for key, value in self.HEADERS.items():
+            response[key] = value
+        return response
 
 
 class AutoNgrokCSRFMiddleware:
