@@ -260,6 +260,43 @@ class JugadorForm(forms.ModelForm):
                 return ch
         return 'X'
 
+    # Claves de entidad federativa (posiciones 12-13 de la CURP) + NE extranjero
+    ENTIDADES_CURP = frozenset({
+        "AS", "BC", "BS", "CC", "CL", "CM", "CS", "CH", "DF", "DG", "GT", "GR",
+        "HG", "JC", "MC", "MN", "MS", "NT", "NL", "OC", "PL", "QT", "QR", "SP",
+        "SL", "SR", "TC", "TS", "TL", "VZ", "YN", "ZS", "NE",
+    })
+
+    @staticmethod
+    def _calcular_digito_curp(curp):
+        """Calcula el dígito verificador (posición 18) según el algoritmo de RENAPO."""
+        tabla = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+        # Peso: 18 para la 1ª letra, 17 para la 2ª ... 2 para la 17ª
+        suma = sum(tabla.index(ch) * (18 - i) for i, ch in enumerate(curp[:17]))
+        return (10 - (suma % 10)) % 10
+
+    @classmethod
+    def _errores_estructura_curp(cls, curp):
+        """Valida estructura + entidad + dígito verificador. Devuelve lista de errores."""
+        import re
+        curp = curp.upper()
+        errores = []
+        if len(curp) != 18:
+            return ["El CURP debe tener exactamente 18 caracteres."]
+        # 17ª posición: dígito homonimia (0-9 nacidos ≤1999, A-Z nacidos ≥2000); 18ª: dígito verificador
+        if not re.match(r'^[A-Z][AEIOU][A-Z][A-Z]\d{6}[HM][A-Z]{2}[A-Z]{3}[0-9A-Z]\d$', curp):
+            errores.append("Formato de CURP inválido. Ej: AXXX000101HDFXXX00")
+            return errores
+        entidad = curp[11:13]
+        if entidad not in cls.ENTIDADES_CURP:
+            errores.append(f"Entidad de nacimiento inválida '{entidad}'.")
+        try:
+            if cls._calcular_digito_curp(curp) != int(curp[17]):
+                errores.append("El CURP no pasa el dígito verificador (posible error de captura).")
+        except Exception:
+            pass
+        return errores
+
     def _validar_curp_contra_datos(self, curp, nombre, apellido, fecha_nac):
         """Valida que el CURP codificado coincida con nombre, apellido y fecha."""
         curp = curp.upper()
@@ -314,11 +351,9 @@ class JugadorForm(forms.ModelForm):
         # CURP: validar formato y coherencia con datos del jugador
         curp = cleaned.get("curp")
         if curp:
-            import re
-            if len(curp) != 18:
-                self.add_error("curp", "El CURP debe tener exactamente 18 caracteres.")
-            elif not re.match(r'^[A-Z][AEIOU][A-Z][A-Z]\d{6}[HM][A-Z]{2}[A-Z]{3}\d{2}$', curp.upper()):
-                self.add_error("curp", "Formato de CURP inválido. Ej: AXXX000101HDFXXX00")
+            errs_estructura = self._errores_estructura_curp(curp)
+            if errs_estructura:
+                self.add_error("curp", "; ".join(errs_estructura))
             else:
                 curp = curp.upper()
                 cleaned["curp"] = curp
