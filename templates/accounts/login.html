@@ -36,14 +36,84 @@
     </div>
 </div>
 <script>
-// Only mark logged-in for push notification registration
 (function() {
-    if (typeof Capacitor === 'undefined' || !Capacitor.Plugins || !Capacitor.Plugins.Preferences) return;
+    function prefsOk() { return typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences; }
+    function bioOk() { return typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric; }
     var form = document.querySelector('form');
     if (!form) return;
+
+    // Al enviar el login manual: guarda las credenciales protegidas por huella
+    // para que en este mismo dispositivo se pueda entrar con huella después.
     form.addEventListener('submit', function() {
-        Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+        if (prefsOk()) Capacitor.Plugins.Preferences.set({ key: 'is_logged_in', value: 'true' });
+        if (!form.__viaHuella && bioOk()) {
+            var u = form.querySelector('input[name="username"]');
+            var p = form.querySelector('input[name="password"]');
+            if (u && p && u.value && p.value) {
+                Capacitor.Plugins.NativeBiometric.setCredentials({
+                    username: u.value, password: p.value, server: 'adminfut'
+                });
+            }
+        }
     });
+
+    function viaHuellaLogin(creds) {
+        var u = form.querySelector('input[name="username"]');
+        var p = form.querySelector('input[name="password"]');
+        if (!u || !p || !creds.username || !creds.password) return;
+        var h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'via_huella'; h.value = '1';
+        form.appendChild(h);
+        form.__viaHuella = true;
+        u.value = creds.username;
+        p.value = creds.password;
+        form.submit();
+    }
+
+    function pedirHuella() {
+        if (!bioOk()) return Promise.resolve(false);
+        return Capacitor.Plugins.NativeBiometric.verifyIdentity({
+            reason: 'Acceder a AdminFut',
+            title: 'Huella digital',
+            subtitle: 'Usa tu huella para entrar',
+            description: 'Coloca tu dedo en el sensor'
+        }).then(function() { return true; })
+          .catch(function() { return false; });
+    }
+
+    function accesoConHuella() {
+        if (!bioOk()) return;
+        Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
+            if (!creds || !creds.username) return;
+            pedirHuella().then(function(ok) {
+                if (ok) viaHuellaLogin(creds);
+            });
+        }).catch(function() {});
+    }
+
+    // Botón manual "Acceso con huella" (visible si hay credenciales guardadas)
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-outline-success w-100 mt-2';
+    btn.innerHTML = '<i class="bi bi-fingerprint"></i> Acceso con huella';
+    btn.style.display = 'none';
+    btn.onclick = accesoConHuella;
+    var cardBody = document.querySelector('.card-body');
+    if (cardBody) cardBody.appendChild(btn);
+
+    // Auto-login con huella si en este dispositivo ya se había iniciado sesión
+    if (bioOk()) {
+        Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
+            if (!creds || !creds.username) return;
+            btn.style.display = 'block';
+            Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
+                if (r.value !== 'true') return;
+                pedirHuella().then(function(ok) {
+                    if (ok) viaHuellaLogin(creds);
+                });
+            }).catch(function() {});
+        }).catch(function() {});
+    }
 })();
 </script>
 {% endblock %}

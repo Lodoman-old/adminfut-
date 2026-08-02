@@ -6,8 +6,13 @@
 </div>
 <script>
 (function() {
-    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
-        Capacitor.Plugins.Preferences.remove({ key: 'is_logged_in' });
+    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
+        if (Capacitor.Plugins.Preferences) {
+            Capacitor.Plugins.Preferences.remove({ key: 'is_logged_in' });
+        }
+        if (Capacitor.Plugins.NativeBiometric) {
+            Capacitor.Plugins.NativeBiometric.deleteCredentials({ server: 'adminfut' });
+        }
     }
     setTimeout(function() { window.location.href = '/'; }, 1500);
 })();
