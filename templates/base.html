@@ -149,7 +149,7 @@
                             <li><a class="dropdown-item" href="{% url 'arbitro_list' %}">Árbitros</a></li>{% endif %}
                         </ul>
                     </li>
-                    {% if user|tiene_permiso:"partido_cedula" %}
+                    {% if user.es_arbitro %}
                     <li class="nav-item" id="nav-modo-offline"><a class="nav-link" href="{% url 'modo_offline' %}"><i class="bi bi-cloud-arrow-down"></i> Modo Offline</a></li>
                     {% endif %}
                     {% if user|tiene_permiso:"ver_finanzas" %}
@@ -229,10 +229,13 @@
         // Guardar el rol del usuario para que la APK decida si muestra el modo offline
         try {
             var rol = {% if user.rol %}"{{ user.rol.nombre }}"{% else %}""{% endif %};
+            var esArb = {{ user.es_arbitro|yesno:"'1','0'" }};
             if (inApp) {
                 Capacitor.Plugins.Preferences.set({ key: 'offlineRole', value: rol });
+                Capacitor.Plugins.Preferences.set({ key: 'offlineEsArbitro', value: esArb });
             }
             localStorage.setItem('offlineRole', rol);
+            localStorage.setItem('offlineEsArbitro', esArb);
         } catch (e) {}
         {% endif %}
     })();

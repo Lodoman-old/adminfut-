@@ -2823,8 +2823,8 @@ def modo_offline(request):
     import secrets
     from league.models import OfflineToken
 
-    if not (request.user.tiene_permiso("partido_cedula") or request.user.is_superuser):
-        messages.error(request, "No tienes permiso para usar el modo offline.")
+    if not request.user.es_arbitro:
+        messages.error(request, "El modo offline solo está disponible para árbitros.")
         return redirect("index")
 
     if request.method == "POST" and request.POST.get("revocar") == "1":
@@ -2862,17 +2862,12 @@ def api_offline_datos(request):
     user = _get_offline_user(request)
     if user is None:
         return JsonResponse({"ok": False, "error": "Token inválido o expirado."}, status=401)
-    if not (user.tiene_permiso("partido_cedula") or user.is_superuser):
-        return JsonResponse({"ok": False, "error": "Sin permisos."}, status=403)
+    if not user.es_arbitro:
+        return JsonResponse({"ok": False, "error": "El modo offline solo es para árbitros."}, status=403)
 
-    if user.is_superuser or user.tiene_permiso("gestion_arbitros"):
-        partidos = Partido.objects.filter(estado__in=["PEND", "JUG"]).select_related(
-            "equipo_local", "equipo_visitante", "campo", "temporada", "arbitro"
-        )
-    else:
-        partidos = Partido.objects.filter(estado__in=["PEND", "JUG"], arbitro__usuario=user).select_related(
-            "equipo_local", "equipo_visitante", "campo", "temporada", "arbitro"
-        )
+    partidos = Partido.objects.filter(estado__in=["PEND", "JUG"], arbitro__usuario=user).select_related(
+        "equipo_local", "equipo_visitante", "campo", "temporada", "arbitro"
+    )
 
     arbitros = list(Arbitro.objects.filter(activo=True).values("id", "nombre", "apellido"))
 
@@ -2913,6 +2908,8 @@ def api_offline_cedula(request):
     user = _get_offline_user(request)
     if user is None:
         return JsonResponse({"ok": False, "error": "Token inválido o expirado."}, status=401)
+    if not user.es_arbitro:
+        return JsonResponse({"ok": False, "error": "El modo offline solo es para árbitros."}, status=403)
     try:
         payload = jsonlib.loads(request.body or "{}")
     except Exception:

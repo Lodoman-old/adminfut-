@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+import unicodedata
 
 
 PERMISOS_MENU = {
@@ -174,3 +175,18 @@ class Usuario(AbstractUser):
     @property
     def es_admin(self):
         return self.is_superuser
+
+    @property
+    def es_arbitro(self):
+        """Solo los usuarios con perfil de árbitro o rol de árbitro.
+        Superusuario/administradores/finanzas/invitados NO cuentan."""
+        if self.is_superuser:
+            return False
+        if hasattr(self, "perfil_arbitro") and self.perfil_arbitro is not None:
+            return True
+        if self.rol:
+            nombre = unicodedata.normalize("NFD", self.rol.nombre.lower())
+            nombre = "".join(c for c in nombre if unicodedata.category(c) != "Mn")
+            if "arbitr" in nombre:
+                return True
+        return False
