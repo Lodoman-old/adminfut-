@@ -225,6 +225,16 @@
         if (!inApp) {
             el.style.display = 'none';
         }
+        {% if user.is_authenticated %}
+        // Guardar el rol del usuario para que la APK decida si muestra el modo offline
+        try {
+            var rol = {% if user.rol %}"{{ user.rol.nombre }}"{% else %}""{% endif %};
+            if (inApp) {
+                Capacitor.Plugins.Preferences.set({ key: 'offlineRole', value: rol });
+            }
+            localStorage.setItem('offlineRole', rol);
+        } catch (e) {}
+        {% endif %}
     })();
     </script>
 
