@@ -53,7 +53,12 @@ def register_device_token(request):
 @csrf_exempt
 @require_POST
 def register_guest_device(request):
-    """Register a device token with guest info and category preferences."""
+    """Register a device token with guest info and category preferences.
+
+    El teléfono es obligatorio y actúa como identidad del invitado: si ya
+    existe otro registro activo con el mismo teléfono, el dispositivo nuevo
+    hereda nombre y categorías y el registro anterior se desactiva.
+    """
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -63,7 +68,7 @@ def register_guest_device(request):
     plataforma = data.get("plataforma", "android")
     device_id = data.get("device_id", "").strip()
     nombre = data.get("nombre", "").strip()
-    telefono = data.get("telefono", "").strip()
+    telefono = "".join(ch for ch in str(data.get("telefono", "")) if ch.isdigit())
     categoria_ids = data.get("categorias", [])
 
     if not token:
@@ -71,6 +76,12 @@ def register_guest_device(request):
 
     if not nombre:
         return JsonResponse({"error": "nombre required"}, status=400)
+
+    if not telefono:
+        return JsonResponse({"error": "El teléfono es obligatorio para recibir notificaciones."}, status=400)
+
+    if len(telefono) < 10:
+        return JsonResponse({"error": "El teléfono debe tener al menos 10 dígitos."}, status=400)
 
     obj, created = DeviceToken.objects.update_or_create(
         token=token,
@@ -85,7 +96,24 @@ def register_guest_device(request):
         },
     )
 
-    if categoria_ids:
+    transferido = False
+    existente = (
+        DeviceToken.objects
+        .filter(telefono=telefono, es_invitado=True, activo=True)
+        .exclude(token=token)
+        .order_by("-actualizado")
+        .first()
+    )
+    if existente:
+        transferido = True
+        if not categoria_ids:
+            obj.categorias.set(existente.categorias.all())
+        else:
+            obj.categorias.set(categoria_ids)
+        existente.activo = False
+        existente.save()
+        obj.save()
+    elif categoria_ids:
         cats = Categoria.objects.filter(id__in=categoria_ids, activo=True)
         obj.categorias.set(cats)
     else:
@@ -98,8 +126,9 @@ def register_guest_device(request):
     return JsonResponse({
         "ok": True,
         "created": created,
+        "transferido": transferido,
         "device_id": device_id,
-        "nombre": nombre,
+        "nombre": obj.nombre,
         "categorias": list(obj.categorias.values_list("id", flat=True)),
     })
 

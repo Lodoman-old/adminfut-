@@ -15,8 +15,9 @@
                         <input type="text" class="form-control form-control-lg" id="id_nombre" required placeholder="Tu nombre">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Teléfono (opcional)</label>
-                        <input type="tel" class="form-control" id="id_telefono" placeholder="Ej: 6441234567">
+                        <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="id_telefono" required placeholder="Ej: 6441234567">
+                        <div class="form-text">Obligatorio: es tu identificación para recibir las notificaciones. Si ya estás registrado con este teléfono, el registro nuevo reemplaza al dispositivo anterior.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Categorías de interés</label>
@@ -35,9 +36,6 @@
                     <button type="submit" class="btn btn-info btn-lg w-100" id="btnRegistro">
                         <i class="bi bi-person-check"></i> Registrarse como Invitado
                     </button>
-                    <a href="{% url 'login' %}" class="btn btn-outline-secondary w-100 mt-2">
-                        <i class="bi bi-box-arrow-in-right"></i> Ya tengo cuenta, iniciar sesión
-                    </a>
                 </form>
                 <div id="resultado" class="mt-3"></div>
             </div>
