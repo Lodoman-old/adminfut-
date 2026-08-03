@@ -70,7 +70,7 @@ RUTAS_PUBLICAS = {
     '/apk/descargar/',
     '/suscripcion/',
     '/accounts/login/',
-    '/invitado/registro/',
+    '/accounts/invitado/registro/',
     '/reporte-semanal/',
     '/reportes/jornadas/',
     '/reportes/jornadas/pdf/',
