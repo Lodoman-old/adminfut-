@@ -346,6 +346,18 @@ class Temporada(models.Model):
         from .models import Equipo
         return list(Equipo.objects.filter(categoria=self.categoria, activo=True))
 
+    def equipos_descansan(self, jornada):
+        """Equipos habilitados de la temporada que descansan en la jornada
+        (no tienen ningún partido asignado en ella, sin importar su estado)."""
+        from .models import Partido
+        ids_jugaron = set(
+            Partido.objects.filter(jornada=jornada).values_list("equipo_local_id", flat=True)
+        )
+        ids_jugaron.update(
+            Partido.objects.filter(jornada=jornada).values_list("equipo_visitante_id", flat=True)
+        )
+        return [eq for eq in self.equipos_habilitados() if eq.id not in ids_jugaron]
+
     def equipos_pagados(self):
         """Equipos que ya pagaron inscripción para esta temporada"""
         return self._equipos_con_pago()

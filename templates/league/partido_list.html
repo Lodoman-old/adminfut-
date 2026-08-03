@@ -57,7 +57,7 @@
     <tbody>
         {% for p in partidos %}
         {% with agregado=p.agregado_info %}
-        <tr>
+        <tr class="{% if p.estado == 'SUSP' %}table-danger{% endif %}">
             <td>{% if p.jornada %}{{ p.jornada.nombre }}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-info text-dark">IDA</span>{% endif %}{% else %}-{% endif %}</td>
             {% if tipo == 'amistoso' %}<td><span class="badge bg-info">Amistoso</span></td>{% endif %}
             <td>{% if p.grupo %}<span class="badge bg-secondary">Grupo {{ p.grupo }}</span>{% else %}-{% endif %}</td>
@@ -97,4 +97,11 @@
     </tbody>
 </table>
 </div>
+
+{% if descansan %}
+<div class="alert alert-secondary mt-3">
+    <strong><i class="bi bi-moon-stars"></i> Descansan esta jornada:</strong>
+    {% for eq in descansan %}{% if not forloop.first %}, {% endif %}<strong>{{ eq.nombre }}</strong>{% endfor %}
+</div>
+{% endif %}
 {% endblock %}

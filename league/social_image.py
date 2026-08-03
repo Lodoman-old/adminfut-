@@ -318,7 +318,10 @@ def generar_imagen_rol(
         campo = p["campo"][:12]
         fecha = p["fecha"][:12]
         T(ox + 5, oy + 4, local, COLOR_TEXT, fnt_b if p.get("is_fin") and p.get("local_win") else fnt)
-        T(ox + 115, oy + 4, score, COLOR_GREEN if p.get("is_fin") else COLOR_TEXT_LIGHT, fnt_b)
+        if p.get("susp"):
+            T(ox + 115, oy + 4, "SUSP", "#b00020", fnt_b)
+        else:
+            T(ox + 115, oy + 4, score, COLOR_GREEN if p.get("is_fin") else COLOR_TEXT_LIGHT, fnt_b)
         T(ox + 140, oy + 4, vis, COLOR_TEXT, fnt_b if p.get("is_fin") and p.get("vis_win") else fnt)
         T(ox + 245, oy + 4, campo, COLOR_TEXT_LIGHT, fnt)
         T(ox + 340, oy + 4, fecha, COLOR_TEXT_LIGHT, fnt)
@@ -358,7 +361,14 @@ def generar_imagen_rol(
             if i < len(col2):
                 col2_y = draw_match(right_x, col2_y, col2[i], col_w)
 
-        y = max(col1_y, col2_y) + 6
+        y = max(col1_y, col2_y)
+        descansan = j.get("descansan") or []
+        if descansan:
+            fnt_desc = _font(9)
+            T(ROL_MARGIN, y + 4, "Descansan: " + ", ".join(descansan), COLOR_TEXT_LIGHT, fnt_desc)
+            y += _th(fnt_desc) + 10
+        else:
+            y += 6
 
     y += 4
     fnt_f = _font(11)

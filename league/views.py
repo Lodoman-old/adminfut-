@@ -1106,7 +1106,7 @@ def enviar_roles_semana(request, temporada_id):
         return redirect("configuracion_liga")
 
     jornada_id = request.GET.get("jornada")
-    partidos_qs = Partido.objects.filter(temporada=temporada, estado="PEND").select_related(
+    partidos_qs = Partido.objects.filter(temporada=temporada, estado__in=["PEND", "SUSP"]).select_related(
         "equipo_local", "equipo_visitante", "campo", "jornada"
     ).order_by("jornada__numero", "fecha_hora")
 
@@ -1122,6 +1122,10 @@ def enviar_roles_semana(request, temporada_id):
         messages.warning(request, "No hay partidos pendientes para enviar.")
         return redirect("temporada_list")
 
+    descansan_por_jornada = {}
+    for j in Jornada.objects.filter(pk__in={p.jornada_id for p in partidos}):
+        descansan_por_jornada[j.numero] = [eq.nombre for eq in temporada.equipos_descansan(j)]
+
     suscriptores = SuscripcionEmail.objects.filter(activo=True, recibir_roles=True)
     count = 0
     for sus in suscriptores:
@@ -1131,6 +1135,7 @@ def enviar_roles_semana(request, temporada_id):
         ctx = {
             "temporada": temporada,
             "partidos": partidos,
+            "descansan_por_jornada": descansan_por_jornada,
         }
         count += _enviar_correo_suscriptores(
             [sus], config, f"Rol de juegos - {temporada.nombre}",
@@ -1188,6 +1193,7 @@ def enviar_rol_jornada(request, jornada_id):
             "jornada": jornada,
             "jornada_fecha": jornada_fecha,
             "partidos": list(partidos),
+            "descansan": temporada.equipos_descansan(jornada),
             "tabla": tabla,
             "tablas_por_grupo": tablas_por_grupo,
             "por_grupo": por_grupo,
@@ -1754,6 +1760,11 @@ class PartidoListView(ListView):
             ctx["jornadas"] = Jornada.objects.filter(temporada_id=temp_id).order_by("numero")
         else:
             ctx["jornadas"] = Jornada.objects.filter(temporada__finalizada=False).order_by("numero")
+        jorn = self.request.GET.get("jornada")
+        if jorn and self.request.GET.get("tipo", "liga") != "amistoso":
+            j_obj = Jornada.objects.filter(pk=jorn).select_related("temporada").first()
+            if j_obj:
+                ctx["descansan"] = j_obj.temporada.equipos_descansan(j_obj)
         return ctx
 
 
@@ -2597,6 +2608,7 @@ def publicar_rol_facebook(request, temporada_id):
                 "campo": p.campo.nombre if p.campo else "",
                 "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m %H:%M") if p.fecha_hora else "Pendiente",
                 "is_fin": p.estado == "FIN",
+                "susp": p.estado == "SUSP",
             }
             if p.estado == "FIN":
                 gl, gv = p.goles_local, p.goles_visitante
@@ -2608,7 +2620,11 @@ def publicar_rol_facebook(request, temporada_id):
                 d["local_win"] = False
                 d["vis_win"] = False
             partidos_data.append(d)
-        jornadas_data.append({"nombre": j.nombre, "partidos": partidos_data})
+        jornadas_data.append({
+            "nombre": j.nombre,
+            "partidos": partidos_data,
+            "descansan": [eq.nombre for eq in temporada.equipos_descansan(j)],
+        })
 
     from .social_image import generar_imagen_rol
     from .social import publicar_imagen_en_facebook
@@ -2665,6 +2681,7 @@ def publicar_jornada_facebook(request, jornada_id):
             "campo": p.campo.nombre if p.campo else "",
             "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m %H:%M") if p.fecha_hora else "",
             "is_fin": p.estado == "FIN",
+            "susp": p.estado == "SUSP",
         }
         if p.estado == "FIN":
             gl, gv = p.goles_local, p.goles_visitante
@@ -2706,7 +2723,11 @@ def publicar_jornada_facebook(request, jornada_id):
     # Imagen 1: Partidos
     img_partidos = generar_imagen_rol(
         temporada.nombre,
-        [{"nombre": f"Jornada {jornada.numero}", "partidos": partidos_data}],
+        [{
+            "nombre": f"Jornada {jornada.numero}",
+            "partidos": partidos_data,
+            "descansan": [eq.nombre for eq in temporada.equipos_descansan(jornada)],
+        }],
         ahora_str,
     )
     imagenes.append((img_partidos, ""))

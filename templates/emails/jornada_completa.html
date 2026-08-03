@@ -18,10 +18,15 @@
             </td>
             <td>{{ p.equipo_visitante.nombre }}</td>
             <td class="campo">{{ p.campo.nombre|default:"-" }}</td>
-            <td class="fecha">{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td class="fecha">{{ p.fecha_hora|date:"d/m/Y H:i" }}{% if p.estado == "SUSP" %} <span style="color:#b00;font-weight:bold">(Suspendido)</span>{% endif %}</td>
         </tr>
         {% endfor %}
     </table>
+
+    {% if descansan %}
+    <h3>Descansan esta jornada</h3>
+    <p>{{ descansan|join:", " }}</p>
+    {% endif %}
 
     <h3>🏆 Tabla de Posiciones</h3>
     {% if tablas_por_grupo %}

@@ -3,7 +3,9 @@
   "appName": "AdminFut",
   "webDir": "www",
   "server": {
-    "allowNavigation": ["*"]
+    "url": "https://juventinorosasliga.com",
+    "allowNavigation": ["*"],
+    "errorPath": "index.html"
   },
   "plugins": {
     "SplashScreen": {

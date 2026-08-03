@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load league_extras %}
 <html>
 <head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px}.container{max-width:600px;margin:auto;background:white;border-radius:10px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}h1{color:#2d5a27;border-bottom:3px solid #ffd700;padding-bottom:10px}table{width:100%;border-collapse:collapse;margin:15px 0}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #ddd}th{background:#2d5a27;color:white}.footer{margin-top:20px;font-size:12px;color:#666;text-align:center}</style></head>
 <body>
@@ -13,10 +14,13 @@
         {% for p in item.list %}
         <tr>
             <td>{{ p.equipo_local }}</td><td>vs</td><td>{{ p.equipo_visitante }}</td>
-            <td>{{ p.campo|default:"-" }}</td><td>{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>{{ p.campo|default:"-" }}</td><td>{{ p.fecha_hora|date:"d/m/Y H:i" }}{% if p.estado == "SUSP" %} <span style="color:#b00;font-weight:bold">(Suspendido)</span>{% endif %}</td>
         </tr>
         {% endfor %}
     </table>
+    {% if descansan_por_jornada|length and descansan_por_jornada|get_item:item.grouper %}
+    <p style="font-size:13px;color:#666;margin-top:4px">Descansan esta jornada: <strong>{{ descansan_por_jornada|get_item:item.grouper|join:", " }}</strong></p>
+    {% endif %}
     {% endfor %}
     <div class="footer">
         <p>Recibes este correo porque estás suscrito a {{ config.nombre_liga }}.</p>
