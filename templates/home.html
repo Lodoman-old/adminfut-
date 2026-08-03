@@ -221,7 +221,7 @@ body {
 .cat-selector option { background: #2d6b2e; color: white; }
 .hero-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
   margin: -0.4rem 0 0 -0.5rem;
@@ -255,25 +255,40 @@ body {
 .hero-filter {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   flex-shrink: 0;
   margin-left: auto;
 }
+.hero-filter .cat-selector {
+  min-width: 200px;
+  font-size: 1rem;
+}
 .hero-sub {
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
 }
 @media (max-width: 768px) {
-  .hero-logo { height: 62px; }
+  .hero-logo { height: 64px; }
   .hero-title, .hero-title2 { font-size: 1.15rem; }
-  .cat-selector { max-width: 150px; }
+  .hero-filter .cat-selector { min-width: 170px; font-size: 0.95rem; }
 }
 @media (max-width: 576px) {
-  .hero-top { flex-wrap: nowrap; gap: 0.35rem 0.5rem; margin: -0.3rem 0 0 -0.3rem; }
-  .hero-brand { gap: 0.4rem; }
-  .hero-logo { height: 50px; }
-  .hero-title, .hero-title2 { font-size: 0.92rem; }
-  .hero-filter .cat-selector { max-width: 108px; font-size: 0.78rem; padding: 0.3rem 0.45rem; }
-  .hero-sub { font-size: 0.62rem; }
+  .hero-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    margin: -0.3rem 0 0 -0.3rem;
+  }
+  .hero-brand { gap: 0.5rem; }
+  .hero-logo { height: 56px; }
+  .hero-title, .hero-title2 { font-size: 1.05rem; }
+  .hero-filter { margin-left: 0; width: 100%; }
+  .hero-filter .cat-selector {
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 0.95rem;
+    padding: 0.45rem 0.75rem;
+  }
+  .hero-sub { font-size: 0.7rem; margin-top: 0.4rem; }
 }
 </style>
 {% endblock %}
@@ -683,24 +698,27 @@ body {
       ctx.drawImage(img, 0, 0, c.width, c.height);
       var im = ctx.getImageData(0, 0, c.width, c.height);
       var d = im.data, w = c.width, h = c.height;
-      var counts = {};
+      var counts = {}, opaco = true;
       function countBorder(x, y) {
         var i = (y * w + x) * 4;
+        if (d[i + 3] < 255) opaco = false;
         var k = d[i] + ',' + d[i + 1] + ',' + d[i + 2];
         counts[k] = (counts[k] || 0) + 1;
       }
       var x, y;
       for (x = 0; x < w; x++) { countBorder(x, 0); countBorder(x, h - 1); }
       for (y = 0; y < h; y++) { countBorder(0, y); countBorder(w - 1, y); }
+      // Solo se procesa si el borde es opaco y de color claro (blanco/gris):
+      // un logo ya transparente o con fondo oscuro no se toca.
       var mejor = null, bg = null;
       for (var k in counts) {
         if (!mejor || counts[k] > mejor[1]) mejor = [k, counts[k]];
       }
-      if (mejor) {
+      if (mejor && opaco) {
         var partes = mejor[0].split(',');
         bg = { r: +partes[0], g: +partes[1], b: +partes[2] };
       }
-      if (!bg) return;
+      if (!bg || bg.r < 180 || bg.g < 180 || bg.b < 180) return;
       var visited = new Uint8Array(w * h);
       var stack = [];
       function cercaDeFondo(px, py) {
