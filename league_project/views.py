@@ -1,8 +1,19 @@
 from django.shortcuts import render
 from django.db.models import Sum, Count
+from django.db import connection
+from django.http import JsonResponse
 from django.utils import timezone
 from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta
 from finance.models import Ingreso
+
+
+def health(request):
+    try:
+        connection.ensure_connection()
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return JsonResponse({"status": "ok" if db_ok else "degraded", "db": db_ok}, status=200 if db_ok else 503)
 
 
 def home(request):

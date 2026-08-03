@@ -85,6 +85,7 @@ RUTAS_PUBLICAS = {
     '/api/update-preferences/',
     '/api/categorias/',
     '/api/cron-notificar-arbitros/',
+    '/health/',
 }
 
 PREFIJOS_PUBLICOS = (
