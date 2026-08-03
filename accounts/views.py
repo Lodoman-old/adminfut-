@@ -20,6 +20,13 @@ PERMISOS_FLAT = get_permisos_flat()
 class CustomLoginView(LoginView):
     template_name = "accounts/login.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["via_huella_fallida"] = (
+            self.request.method == "POST" and self.request.POST.get("via_huella") == "1"
+        )
+        return ctx
+
     def get_success_url(self):
         next_url = self.request.POST.get("next") or self.request.GET.get("next")
         if next_url:

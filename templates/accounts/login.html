@@ -37,10 +37,20 @@
 </div>
 <script>
 (function() {
+    var huellaFallida = {{ via_huella_fallida|yesno:"true,false" }};
     function prefsOk() { return typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences; }
     function bioOk() { return typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric; }
     var form = document.querySelector('form');
     if (!form) return;
+
+    if (huellaFallida) {
+        if (bioOk()) Capacitor.Plugins.NativeBiometric.deleteCredentials({ server: 'adminfut' });
+        if (prefsOk()) Capacitor.Plugins.Preferences.remove({ key: 'is_logged_in' });
+        var aviso = document.createElement('div');
+        aviso.className = 'alert alert-danger mt-3';
+        aviso.innerHTML = '<i class="bi bi-exclamation-triangle"></i> La huella no pudo iniciar sesión. Ingresa tu usuario y contraseña para actualizar el acceso.';
+        form.parentNode.insertBefore(aviso, form);
+    }
 
     // Al enviar el login manual: guarda las credenciales protegidas por huella
     // para que en este mismo dispositivo se pueda entrar con huella después.
@@ -102,7 +112,7 @@
     if (cardBody) cardBody.appendChild(btn);
 
     // Auto-login con huella si en este dispositivo ya se había iniciado sesión
-    if (bioOk()) {
+    if (bioOk() && !huellaFallida) {
         Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
             if (!creds || !creds.username) return;
             btn.style.display = 'block';
