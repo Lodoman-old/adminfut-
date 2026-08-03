@@ -192,7 +192,7 @@
                     {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_reglamento' %}"><i class="bi bi-file-earmark-pdf"></i> Reglamento</a></li>
                     {% if config %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'descarga_apk' %}"><i class="bi bi-phone"></i> Descargar App</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalDescargarApp"><i class="bi bi-phone"></i> Descargar App</a></li>
                     {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -414,6 +414,72 @@
             if (attempts < 20) setTimeout(checkPush, 200);
         }
         checkPush();
+    })();
+    </script>
+    <!-- Modal Descargar App -->
+    <div class="modal fade" id="modalDescargarApp" tabindex="-1" aria-labelledby="modalDescargarAppLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalDescargarAppLabel"><i class="bi bi-phone"></i> Descargar App</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-4" id="filaDescargarApp">
+              <div class="col-md-6 order-2 order-md-1" id="cardAndroid">
+                <div class="card h-100 border-success">
+                  <div class="card-header bg-success text-white"><i class="bi bi-android2"></i> Android</div>
+                  <div class="card-body text-center">
+                    <i class="bi bi-android2" style="font-size: 3rem; color: #3ddc84;"></i>
+                    <p class="mt-3">Descarga e instala la aplicación de AdminFut en tu teléfono Android.</p>
+                    {% if apk_disponible %}
+                    <a href="{% url 'descarga_apk' %}" class="btn btn-success btn-lg"><i class="bi bi-download"></i> Descargar APK</a>
+                    {% else %}
+                    <button type="button" class="btn btn-secondary btn-lg" disabled><i class="bi bi-download"></i> APK no disponible</button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 order-1 order-md-2" id="cardIphone">
+                <div class="card h-100 border-primary">
+                  <div class="card-header bg-primary text-white"><i class="bi bi-apple"></i> iPhone</div>
+                  <div class="card-body">
+                    <p>En iPhone no se instala una APK: la liga funciona como <strong>app web</strong>. Para recibir notificaciones push sigue estos pasos:</p>
+                    <ol class="mb-3">
+                      <li>Abre esta página en <strong>Safari</strong> (obligatorio, no funciona en Chrome de iPhone).</li>
+                      <li>Toca el botón <strong>Compartir</strong> <i class="bi bi-box-arrow-up"></i> (cuadro con flecha hacia arriba).</li>
+                      <li>Toca <strong>&quot;Añadir a pantalla de inicio&quot;</strong>.</li>
+                      <li>Pulsa <strong>&quot;Añadir&quot;</strong> para confirmar.</li>
+                      <li>Abre AdminFut desde el icono que se creó en tu pantalla.</li>
+                      <li>Pulsa el botón <strong>&quot;Activar notificaciones&quot;</strong> y toca <strong>&quot;Permitir&quot;</strong> cuando Safari lo pida.</li>
+                    </ol>
+                    <div class="alert alert-info mb-0"><i class="bi bi-bell"></i> Se requieren iOS 16.4 o posterior para las notificaciones push.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    // Si el usuario está en iPhone/iPad, mostrar primero las instrucciones de iPhone
+    (function() {
+      var fila = document.getElementById('filaDescargarApp');
+      if (!fila) return;
+      var esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (esIOS) {
+        var android = document.getElementById('cardAndroid');
+        var iphone = document.getElementById('cardIphone');
+        if (android && iphone) {
+          fila.prepend(iphone);
+          android.classList.remove('order-2', 'order-md-1');
+          iphone.classList.remove('order-1', 'order-md-2');
+          android.classList.add('order-2', 'order-md-2');
+          iphone.classList.add('order-1', 'order-md-1');
+        }
+      }
     })();
     </script>
     {% block extra_js %}{% endblock %}
