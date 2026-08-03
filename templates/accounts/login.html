@@ -120,7 +120,14 @@
             Capacitor.Plugins.Preferences.get({ key: 'guest_phone' }).then(function(r) {
                 if (!r.value || huellaFallida) return;
                 pedirHuella().then(function(ok) {
-                    if (ok) window.location.href = '/';
+                    if (!ok) return;
+                    // Restaurar la categoría principal del invitado antes de entrar al home
+                    Capacitor.Plugins.Preferences.get({ key: 'guest_categoria' }).then(function(pref) {
+                        if (pref && pref.value) {
+                            document.cookie = 'cat_preferida=' + pref.value + '; path=/; max-age=31536000; SameSite=Lax';
+                        }
+                        window.location.href = '/';
+                    }).catch(function() { window.location.href = '/'; });
                 });
             }).catch(function() {});
         }).catch(function() {});

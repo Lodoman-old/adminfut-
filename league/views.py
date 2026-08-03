@@ -2029,17 +2029,25 @@ def tabla_goleo(request):
 
 
 def cedula_arbitral(request, partido_id):
+    es_invitado = not request.user.is_authenticated
     partido = get_object_or_404(Partido, pk=partido_id)
-    if _ida_no_fin(partido):
+
+    if es_invitado:
+        # Los invitados solo ven cédulas de partidos finalizados. Si el partido
+        # se reabre para ajuste (deja de estar FIN), la cédula se oculta.
+        if partido.estado != "FIN":
+            return render(request, "league/cedula_invitado_no_disponible.html", {"partido": partido}, status=404)
+    elif _ida_no_fin(partido):
         messages.error(request, "Debes finalizar el partido de ida antes de capturar la vuelta.")
         return redirect("partido_list")
+
     jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).select_related("equipo"))
     jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).select_related("equipo"))
     goles = Gol.objects.filter(partido=partido).select_related("jugador", "equipo")
     tarjetas = Tarjeta.objects.filter(partido=partido).select_related("jugador", "equipo")
     arbitros_list = Arbitro.objects.filter(activo=True).order_by("apellido", "nombre")
 
-    if request.method == "POST":
+    if request.method == "POST" and not es_invitado:
         from .cedula_service import procesar_cedula
         result = procesar_cedula(partido, request.POST, request.user)
         if not result["ok"]:
@@ -2172,11 +2180,12 @@ def cedula_arbitral(request, partido_id):
         for j in jugadores_local + jugadores_visit:
             j.elegible_liguilla = True
 
-    return render(request, "league/cedula_arbitral.html", {
+    return render(request, "league/cedula_arbitral.html" if not es_invitado else "league/cedula_invitado.html", {
         "partido": partido,
         "jugadores_local": jugadores_local,
         "jugadores_visit": jugadores_visit,
         "arbitros": arbitros_list,
+        "es_invitado": es_invitado,
     })
 
 

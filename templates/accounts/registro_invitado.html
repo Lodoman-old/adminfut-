@@ -86,6 +86,13 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
         });
         const data = await resp.json();
         if (data.ok) {
+            const cats = Array.from(document.querySelectorAll('input[name="categorias"]:checked')).map(cb => parseInt(cb.value));
+            // La primera categoría escogida es la principal del invitado en el home
+            const primaria = cats.length ? String(cats[0]) : '';
+            document.cookie = 'cat_preferida=' + primaria + '; path=/; max-age=31536000; SameSite=Lax';
+            if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Preferences) {
+                Capacitor.Plugins.Preferences.set({ key: 'guest_categoria', value: primaria });
+            }
             if (isNative && Capacitor.Plugins.NativeBiometric) {
                 try {
                     await Capacitor.Plugins.NativeBiometric.setCredentials({

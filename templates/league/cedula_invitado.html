@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Cédula Arbitral - {{ partido }}{% endblock %}
+{% block content %}
+<div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <span><i class="bi bi-info-circle"></i> Vista de solo lectura: cédula del partido finalizado.</span>
+    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <strong>{{ partido.equipo_local.nombre }}</strong>
+            <span class="badge bg-light text-dark" style="font-size:1.1rem">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
+            <strong>{{ partido.equipo_visitante.nombre }}</strong>
+        </div>
+        <span class="small">{{ partido.fecha_hora|date:"d/m/Y H:i" }} | {{ partido.campo.nombre }}</span>
+    </div>
+</div>
+{% if partido.arbitro %}
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <strong><i class="bi bi-person-badge"></i> Árbitro:</strong>
+        <span class="ms-2">{{ partido.arbitro.nombre_completo }}</span>
+    </div>
+</div>
+{% endif %}
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    {% if partido.equipo_local.logo %}
+                    <img src="{{ partido.equipo_local.logo.url }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
+                    {% else %}
+                    <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center">
+                        <i class="bi bi-shield" style="font-size:1rem"></i>
+                    </div>
+                    {% endif %}
+                    <strong style="font-size:1.15rem">{{ partido.equipo_local.nombre }}</strong>
+                </div>
+                {% if partido.default_team == 'local' %}<span class="badge bg-warning text-dark">Default</span>{% endif %}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0" style="table-layout:fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:26%" class="sticky-col">Jugador</th>
+                            <th style="width:9%" class="text-center">T</th>
+                            <th style="width:9%" class="text-center">C</th>
+                            <th style="width:10%" class="text-center">Gol</th>
+                            <th style="width:10%" class="text-center">🟨</th>
+                            <th style="width:8%" class="text-center">🟥</th>
+                            <th style="width:14%" class="text-center">Susp.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in jugadores_local %}
+                        <tr{% if not j.elegible_liguilla %} style="opacity:0.5"{% endif %}>
+                            <td>{{ j.dorsal|default:"-" }}</td>
+                            <td class="sticky-col cedula-name">{{ j.nombre }} {{ j.apellido }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
+                            <td class="text-center">{% if j.es_titular == True %}<i class="bi bi-check-lg text-success"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.es_titular == False %}<i class="bi bi-check-lg text-success"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.cantidad_goles %}{{ j.cantidad_goles }}{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.cantidad_amarillas %}<i class="bi bi-check-lg text-warning"></i> x{{ j.cantidad_amarillas }}{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.tiene_roja %}<i class="bi bi-check-lg text-danger"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.suspension_jornadas %}{{ j.suspension_jornadas }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-muted text-center">Sin jugadores</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    {% if partido.equipo_visitante.logo %}
+                    <img src="{{ partido.equipo_visitante.logo.url }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
+                    {% else %}
+                    <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center">
+                        <i class="bi bi-shield" style="font-size:1rem"></i>
+                    </div>
+                    {% endif %}
+                    <strong style="font-size:1.15rem">{{ partido.equipo_visitante.nombre }}</strong>
+                </div>
+                {% if partido.default_visitante %}<span class="badge bg-warning text-dark">Default</span>{% endif %}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0" style="table-layout:fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:26%" class="sticky-col">Jugador</th>
+                            <th style="width:9%" class="text-center">T</th>
+                            <th style="width:9%" class="text-center">C</th>
+                            <th style="width:10%" class="text-center">Gol</th>
+                            <th style="width:10%" class="text-center">🟨</th>
+                            <th style="width:8%" class="text-center">🟥</th>
+                            <th style="width:14%" class="text-center">Susp.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in jugadores_visit %}
+                        <tr{% if not j.elegible_liguilla %} style="opacity:0.5"{% endif %}>
+                            <td>{{ j.dorsal|default:"-" }}</td>
+                            <td class="sticky-col cedula-name">{{ j.nombre }} {{ j.apellido }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
+                            <td class="text-center">{% if j.es_titular == True %}<i class="bi bi-check-lg text-success"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.es_titular == False %}<i class="bi bi-check-lg text-success"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.cantidad_goles %}{{ j.cantidad_goles }}{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.cantidad_amarillas %}<i class="bi bi-check-lg text-warning"></i> x{{ j.cantidad_amarillas }}{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.tiene_roja %}<i class="bi bi-check-lg text-danger"></i>{% else %}-{% endif %}</td>
+                            <td class="text-center">{% if j.suspension_jornadas %}{{ j.suspension_jornadas }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-muted text-center">Sin jugadores</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% if partido.motivo_default %}
+<div class="alert alert-warning">
+    <strong><i class="bi bi-exclamation-triangle"></i> Motivo del default:</strong> {{ partido.motivo_default }}
+</div>
+{% endif %}
+<div class="text-center mb-4">
+    <a href="{% url 'home' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+{% endblock %}

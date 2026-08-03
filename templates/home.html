@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load permisos %}
 {% block extra_head %}
 <style>
 :root {
@@ -429,6 +430,9 @@ body {
             <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
             {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
+            {% if not user.is_authenticated or user|tiene_permiso:"partido_cedula" %}
+            <a href="{% url 'cedula_arbitral' p.id %}" class="btn btn-outline-light btn-sm mt-2" style="--bs-btn-color:#1a3a15;--bs-btn-border-color:rgba(26,58,21,0.4)"><i class="bi bi-clipboard-data"></i> Ver cédula</a>
+            {% endif %}
           </div>
           <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
             {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}

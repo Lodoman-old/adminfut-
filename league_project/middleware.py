@@ -229,6 +229,12 @@ class LoginPermisoMiddleware:
         if path.startswith(PREFIJOS_PUBLICOS) or path in RUTAS_PUBLICAS:
             return self.get_response(request)
 
+        # Invitados: pueden ver la cédula de partidos finalizados (solo lectura,
+        # se valida dentro de la vista). Usuarios autenticados siguen pasando
+        # por el control de permisos normal.
+        if path.startswith('/cedula-arbitral/') and not request.user.is_authenticated:
+            return self.get_response(request)
+
         if not request.user.is_authenticated:
             login_url = settings.LOGIN_URL
             return HttpResponseRedirect(

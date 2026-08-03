@@ -20,13 +20,19 @@ def home(request):
     categorias = Categoria.objects.filter(activo=True)
 
     cat_id = request.GET.get("categoria")
-    if not cat_id and request.user.is_authenticated and request.user.categoria_preferida:
-        default_cat = request.user.categoria_preferida
-    else:
-        default_cat = Categoria.objects.filter(es_principal=True).first()
     if cat_id:
         categoria_sel = Categoria.objects.filter(id=cat_id).first()
     else:
+        default_cat = None
+        if request.user.is_authenticated and request.user.categoria_preferida:
+            default_cat = request.user.categoria_preferida
+        elif not request.user.is_authenticated:
+            # Invitado: su categoría principal (la primera que escogió al registrarse)
+            pref_id = request.COOKIES.get("cat_preferida")
+            if pref_id:
+                default_cat = Categoria.objects.filter(id=pref_id, activo=True).first()
+        if default_cat is None:
+            default_cat = Categoria.objects.filter(es_principal=True).first()
         categoria_sel = default_cat or categorias.first()
 
     if categoria_sel:
