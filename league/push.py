@@ -129,6 +129,150 @@ def send_push_notification(tokens, title, body, data=None):
         return None
 
 
+def _enviar_webpush(devices, title, body, data=None):
+    """Envía una notificación Web Push (PWA) a los DeviceToken dados.
+
+    Cada device debe tener webpush_endpoint/p256dh/auth. Los endpoints que el
+    push service marca como 404/410 (suscripción inválida) se desactivan.
+    """
+    from .models import DeviceToken
+
+    if not devices:
+        return {"success": 0, "failure": 0}
+
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        logger.warning("pywebpush no instalado; omitiendo Web Push")
+        return {"success": 0, "failure": len(devices)}
+
+    private_key, _ = _vapid_keys()
+    claims_sub = _vapid_claims_sub()
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "data": data or {},
+    }, ensure_ascii=False)
+
+    def _enviar_uno(dt):
+        if not dt.webpush_endpoint or not dt.webpush_p256dh or not dt.webpush_auth:
+            return "fail"
+        try:
+            webpush(
+                {
+                    "endpoint": dt.webpush_endpoint,
+                    "keys": {"p256dh": dt.webpush_p256dh, "auth": dt.webpush_auth},
+                },
+                payload,
+                vapid_private_key=private_key,
+                vapid_claims={"sub": claims_sub},
+                ttl=86400,
+                timeout=15,
+            )
+            return "ok"
+        except WebPushException as e:
+            status = e.response.status_code if e.response is not None else None
+            if status in (404, 410):
+                return "gone"
+            return "fail"
+        except Exception as e:
+            logger.warning("Web push falló: %s", e)
+            return "fail"
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        resultados = list(pool.map(_enviar_uno, devices))
+
+    ok = 0
+    invalid = []
+    for dt, estado in zip(devices, resultados):
+        if estado == "ok":
+            ok += 1
+        elif estado == "gone":
+            invalid.append(dt.pk)
+
+    if invalid:
+        try:
+            DeviceToken.objects.filter(pk__in=invalid).update(activo=False)
+        except Exception:
+            pass
+
+    return {"success": ok, "failure": len(devices) - ok}
+
+
+def _generar_claves_vapid():
+    """Genera el par de claves VAPID (formato py_vapid).
+
+    Devuelve (clave_privada, clave_publica) en base64url:
+      - privada: 32 bytes crudos de la clave ECDSA P-256
+      - pública: 65 bytes del punto (applicationServerKey del navegador)
+    """
+    from cryptography.hazmat.primitives.asymmetric import ec
+    priv = ec.generate_private_key(ec.SECP256R1())
+    raw_priv = priv.private_numbers().private_value.to_bytes(32, "big")
+    pub = priv.public_key().public_numbers()
+    raw_pub = b"\x04" + pub.x.to_bytes(32, "big") + pub.y.to_bytes(32, "big")
+    private_b64 = base64.urlsafe_b64encode(raw_priv).rstrip(b"=").decode()
+    public_b64 = base64.urlsafe_b64encode(raw_pub).rstrip(b"=").decode()
+    return private_b64, public_b64
+
+
+def _vapid_keys():
+    """Devuelve (clave_privada, clave_publica) VAPID, generándolas si faltan."""
+    from .models import ConfiguracionLiga
+    config = ConfiguracionLiga.obtener()
+    if config.webpush_vapid_private_key and config.webpush_vapid_public_key:
+        return config.webpush_vapid_private_key, config.webpush_vapid_public_key
+    private_b64, public_b64 = _generar_claves_vapid()
+    config.webpush_vapid_private_key = private_b64
+    config.webpush_vapid_public_key = public_b64
+    config.save(update_fields=["webpush_vapid_private_key", "webpush_vapid_public_key"])
+    return private_b64, public_b64
+
+
+def _vapid_claims_sub():
+    from .models import ConfiguracionLiga
+    config = ConfiguracionLiga.obtener()
+    email = config.correo_electronico or config.email_from or "notificaciones@juventinorosasliga.com"
+    return "mailto:{}".format(email)
+
+
+def _enviar_push_mixto(qs, title, body, data, tipo, partido_id=None, categoria=""):
+    """Envía a tokens FCM y suscripciones Web Push (PWA) de un queryset y registra un único log."""
+    from .models import DeviceToken
+
+    total_activos = DeviceToken.objects.filter(activo=True).count()
+    fcm_tokens = list(qs.filter(webpush_endpoint="").values_list("token", flat=True))
+    pwa = list(qs.exclude(webpush_endpoint=""))
+    guests = qs.filter(es_invitado=True).count()
+
+    ok_fcm = fail_fcm = 0
+    ok_pwa = fail_pwa = 0
+    if fcm_tokens:
+        r = send_push_notification(fcm_tokens, title, body, data)
+        if r:
+            ok_fcm = r.get("success", 0)
+            fail_fcm = r.get("failure", 0)
+    if pwa:
+        r = _enviar_webpush(pwa, title, body, data)
+        ok_pwa = r.get("success", 0)
+        fail_pwa = r.get("failure", 0)
+
+    _add_log({
+        "tipo": tipo,
+        "partido_id": partido_id,
+        "categoria": str(categoria) if categoria else "",
+        "detalle": "Activos={}, FCM={}, PWA={}, invitados={}".format(
+            total_activos, len(fcm_tokens), len(pwa), guests
+        ),
+        "total_activos": total_activos,
+        "tokens_encontrados": len(fcm_tokens) + len(pwa),
+        "guests_incluidos": guests,
+        "success": ok_fcm + ok_pwa,
+        "failure": fail_fcm + fail_pwa,
+    })
+
+
 def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo="suspension"):
     """Push a invitados cuando un partido queda pendiente o se suspende una jornada."""
     from .models import DeviceToken
@@ -140,25 +284,11 @@ def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo
         )
     qs = qs.distinct()
 
-    tokens = list(qs.values_list("token", flat=True))
-    guests = len(tokens)
-
-    _add_log({
-        "tipo": "SUSPENSION",
-        "partido_id": partido_id,
-        "categoria": str(categoria) if categoria else "(todas)",
-        "detalle": f"Invitados={guests}",
-        "total_activos": DeviceToken.objects.filter(activo=True).count(),
-        "tokens_encontrados": len(tokens),
-        "guests_incluidos": guests,
-        "success": 0,
-        "failure": 0,
-    })
-
-    if not tokens:
+    if not qs.exists():
         _add_log({
             "tipo": "SUSPENSION",
             "partido_id": partido_id,
+            "categoria": str(categoria) if categoria else "(todas)",
             "detalle": "Sin tokens de invitados, se omite push",
         })
         return
@@ -166,7 +296,11 @@ def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo
     data = {"type": data_tipo, "partido_id": str(partido_id) if partido_id else ""}
     if categoria:
         data["categoria_id"] = str(categoria.id)
-    send_push_notification(tokens, titulo, cuerpo, data)
+    _enviar_push_mixto(
+        qs, titulo, cuerpo, data, "SUSPENSION",
+        partido_id=partido_id,
+        categoria=str(categoria) if categoria else "(todas)",
+    )
 
 
 def notify_partido_finalizado(partido):
@@ -189,26 +323,13 @@ def notify_partido_finalizado(partido):
         )
     qs = qs.distinct()
 
-    tokens = list(qs.values_list("token", flat=True))
-    guests = qs.filter(es_invitado=True).count() if tokens else 0
-
-    _add_log({
-        "tipo": "PARTIDO_FIN",
-        "partido_id": partido.id,
-        "categoria": str(categoria) if categoria else "(sin categoría)",
-        "detalle": f"Activos totales={total_activos}, tokens_match={len(tokens)}, invitados={guests}",
-        "total_activos": total_activos,
-        "tokens_encontrados": len(tokens),
-        "guests_incluidos": guests,
-        "success": 0,
-        "failure": 0,
-    })
-
-    if not tokens:
+    if not qs.exists():
         _add_log({
             "tipo": "PARTIDO_FIN",
             "partido_id": partido.id,
-            "detalle": "Sin tokens coincidentes, se omite push",
+            "categoria": str(categoria) if categoria else "(sin categoría)",
+            "detalle": "Sin tokens coincidentes, se omite push. Activos={}".format(total_activos),
+            "total_activos": total_activos,
         })
         return
 
@@ -226,4 +347,8 @@ def notify_partido_finalizado(partido):
         "temporada_id": str(partido.temporada_id),
     }
 
-    send_push_notification(tokens, title, body, data)
+    _enviar_push_mixto(
+        qs, title, body, data, "PARTIDO_FIN",
+        partido_id=partido.id,
+        categoria=str(categoria) if categoria else "(sin categoría)",
+    )

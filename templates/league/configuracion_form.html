@@ -237,6 +237,32 @@
               <div class="form-text mt-2">El archivo servido corresponde a la versión incluida en el último deploy.</div>
             </div>
           </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-globe"></i> PWA / Web Push (iPhone)</h6>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Las notificaciones Web Push permiten a los invitados de iPhone (iOS 16.4+) y otros navegadores
+            recibir notificaciones sin instalar la APK. Requieren claves VAPID generadas automáticamente.
+          </div>
+          <div class="mb-3">
+            <span class="text-muted">Estado:
+              {% if config.webpush_vapid_public_key %}
+                <span class="text-success"><i class="bi bi-check-circle"></i> Claves VAPID generadas</span>
+              {% else %}
+                <span class="text-warning"><i class="bi bi-exclamation-circle"></i> Sin claves VAPID</span>
+              {% endif %}
+            </span>
+            <div class="mt-2">
+              <a href="{% url 'generar_vapid_keys' %}" class="btn btn-sm btn-outline-warning" onclick="return confirm('¿Generar nuevas claves VAPID? Los dispositivos PWA ya suscritos deberán volver a suscribirse.');">
+                <i class="bi bi-key"></i> Generar claves VAPID
+              </a>
+            </div>
+            {% if config.webpush_vapid_public_key %}
+            <div class="form-text mt-2">
+              Clave pública: <code>{{ config.webpush_vapid_public_key|truncatechars:80 }}</code>
+            </div>
+            {% endif %}
+          </div>
         </div>
         <div class="tab-pane fade" id="infra" role="tabpanel">
           <div class="alert alert-warning small py-2">

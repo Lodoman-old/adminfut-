@@ -100,3 +100,87 @@ class CedulaInvitadoTest(TestCase):
         c.cookies["cat_preferida"] = str(self.cat.id)
         r2 = c.get("/")
         self.assertContains(r2, f"Máximos Goleadores - {self.cat.nombre}")
+
+
+class PwaWebPushTest(TestCase):
+    def test_endpoints_pwa_publicos(self):
+        c = Client()
+        r = c.get("/sw.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertContains(r, "showNotification")
+
+        r = c.get("/manifest.webmanifest")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/manifest+json")
+        self.assertIn("standalone", r.json().get("display", ""))
+
+        r = c.get("/pwa-icon/icon-192.png")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "image/png")
+        r = c.get("/pwa-icon/no-existe.png")
+        self.assertEqual(r.status_code, 404)
+
+        r = c.get("/api/vapid-public-key/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json().get("public_key"))
+
+    def test_registro_invitado_guarda_suscripcion_webpush(self):
+        import json
+        from .models import DeviceToken
+        c = Client()
+        r = c.post(
+            "/api/register-guest/",
+            data=json.dumps({
+                "token": "web-111",
+                "plataforma": "web",
+                "device_id": "dev-pwa-001",
+                "nombre": "Invitado PWA",
+                "telefono": "6441112233",
+                "email": "",
+                "categorias": [],
+                "subscripcion": {
+                    "endpoint": "https://push.example.com/sub/abc123",
+                    "p256dh": "BGhT9lP2T-k=",
+                    "auth": "SxM9gQ==",
+                },
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 200)
+        dt = DeviceToken.objects.get(device_id="dev-pwa-001")
+        self.assertEqual(dt.plataforma, "pwa")
+        self.assertEqual(dt.webpush_endpoint, "https://push.example.com/sub/abc123")
+        self.assertEqual(dt.webpush_p256dh, "BGhT9lP2T-k=")
+        self.assertEqual(dt.webpush_auth, "SxM9gQ==")
+        self.assertTrue(dt.activo)
+
+    def test_envio_webpush_desactiva_endpoint_410(self):
+        from unittest import mock
+
+        from pywebpush import WebPushException
+
+        from .models import DeviceToken
+        from .push import _enviar_webpush
+
+        dt = DeviceToken.objects.create(
+            token="w-410", device_id="dev-410",
+            plataforma="pwa", activo=True,
+            webpush_endpoint="https://push.example.com/sub/gone",
+            webpush_p256dh="BGhT9lP2T-k=", webpush_auth="SxM9gQ==",
+        )
+
+        class Resp410:
+            status_code = 410
+
+        def fake_webpush(info, data, **kw):
+            raise WebPushException("gone", Resp410())
+
+        with mock.patch("pywebpush.webpush", side_effect=fake_webpush), \
+                mock.patch("league.push._vapid_keys", return_value=("priv", "pub")):
+            res = _enviar_webpush([dt], "T", "B", {"x": 1})
+
+        self.assertEqual(res["success"], 0)
+        self.assertEqual(res["failure"], 1)
+        dt.refresh_from_db()
+        self.assertFalse(dt.activo)

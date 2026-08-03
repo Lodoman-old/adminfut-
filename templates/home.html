@@ -755,4 +755,84 @@ body {
   if (img.complete) { process(); } else { img.onload = process; }
 })();
 </script>
+{% if not user.is_authenticated %}
+<button type="button" id="btnActivarPush" class="btn btn-success btn-lg position-fixed d-none"
+        style="bottom: 1rem; right: 1rem; z-index: 1050; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+  <i class="bi bi-bell"></i> Activar notificaciones
+</button>
+<div id="pushAviso" class="position-fixed d-none" style="bottom: 1rem; right: 1rem; z-index: 1060; max-width: 300px;"></div>
+<script>
+(function () {
+  var esNativa = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+  if (esNativa) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  var btn = document.getElementById('btnActivarPush');
+  var aviso = document.getElementById('pushAviso');
+  btn.classList.remove('d-none');
+
+  function mostrar(tipo, texto) {
+    aviso.className = 'position-fixed alert alert-' + tipo;
+    aviso.style.cssText = 'bottom: 5rem; right: 1rem; z-index: 1060; max-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);';
+    aviso.innerHTML = texto;
+    aviso.classList.remove('d-none');
+    clearTimeout(aviso._t);
+    aviso._t = setTimeout(function () { aviso.classList.add('d-none'); }, 6000);
+  }
+
+  btn.addEventListener('click', async function () {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Activando...';
+    try {
+      var sub = await window.obtenerSuscripcionWebPush();
+      if (!sub) {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+          mostrar('danger', 'Permisos de notificación bloqueados. Habilítalos desde Ajustes del navegador.');
+        } else {
+          mostrar('warning', 'En iPhone: instala la app desde Compartir → Añadir a pantalla de inicio y vuelve a intentarlo.');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-bell"></i> Activar notificaciones';
+        return;
+      }
+      var perfil = null;
+      try { perfil = JSON.parse(localStorage.getItem('adminfut_guest') || 'null'); } catch (e) {}
+      if (!perfil || !perfil.telefono) {
+        window.location.href = '/accounts/invitado/registro/';
+        return;
+      }
+      var resp = await fetch('/api/register-guest/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({
+          token: perfil.token || ('web-' + Date.now()),
+          plataforma: 'pwa',
+          device_id: perfil.device_id || window.__deviceId || '',
+          nombre: perfil.nombre || '',
+          telefono: perfil.telefono,
+          email: perfil.email || '',
+          categorias: perfil.categorias || [],
+          subscripcion: sub
+        })
+      });
+      var data = await resp.json();
+      if (data.ok) {
+        localStorage.setItem('adminfut_guest', JSON.stringify(Object.assign(perfil, {
+          token: perfil.token || ('web-' + Date.now()), device_id: window.__deviceId || ''
+        })));
+        mostrar('success', '<i class="bi bi-check-circle"></i> Notificaciones activadas. Recibirás los resultados de tus categorías.');
+        btn.remove();
+      } else {
+        throw new Error(data.error || 'Error al activar');
+      }
+    } catch (err) {
+      mostrar('danger', err.message || 'No se pudieron activar las notificaciones.');
+    }
+    btn.disabled = false;
+    if (document.body.contains(btn)) {
+      btn.innerHTML = '<i class="bi bi-bell"></i> Activar notificaciones';
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import FileResponse, Http404
+from django.http import FileResponse, HttpResponse, Http404
+from django.core.exceptions import PermissionDenied
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -747,6 +748,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
     class Meta:
         model = ConfiguracionLiga
         fields = "__all__"
+        exclude = ("webpush_vapid_private_key", "webpush_vapid_public_key")
         widgets = {
             "nombre_liga": djforms.TextInput(attrs={"class": "form-control"}),
             "segunda_linea": djforms.TextInput(attrs={"class": "form-control", "placeholder": "Ej: Juventino Rosas"}),
@@ -795,6 +797,21 @@ def configuracion_liga(request):
     return render(request, "league/configuracion_form.html", {"form": form, "config": config})
 
 
+@login_required
+def generar_vapid_keys(request):
+    """Genera (o regenera) las claves VAPID para Web Push y muestra la clave pública."""
+    if not request.user.tiene_permiso("gestion_configuracion"):
+        raise PermissionDenied
+    config = ConfiguracionLiga.obtener()
+    from .push import _generar_claves_vapid
+    private_b64, public_b64 = _generar_claves_vapid()
+    config.webpush_vapid_private_key = private_b64
+    config.webpush_vapid_public_key = public_b64
+    config.save(update_fields=["webpush_vapid_private_key", "webpush_vapid_public_key"])
+    messages.success(request, "Claves VAPID generadas correctamente. Los dispositivos PWA deberán volver a suscribirse.")
+    return redirect("configuracion_liga")
+
+
 def descarga_reglamento(request):
     config = ConfiguracionLiga.obtener()
     if not config.reglamento:
@@ -820,6 +837,59 @@ def descarga_apk(request):
         raise Http404("La aplicación no está disponible.")
     return FileResponse(open(path, "rb"), content_type="application/vnd.android.package-archive",
                         as_attachment=True, filename="AdminFut.apk")
+
+
+def service_worker(request):
+    """Servicio worker de la PWA (Web Push). Se sirve en /sw.js para alcance raíz."""
+    from pathlib import Path
+    from django.conf import settings as dj_settings
+    path = Path(dj_settings.BASE_DIR) / "static" / "sw.js"
+    if not path.exists():
+        raise Http404("Service worker no disponible")
+    content = path.read_text(encoding="utf-8")
+    return HttpResponse(content, content_type="application/javascript; charset=utf-8")
+
+
+def manifest_webmanifest(request):
+    """Manifest de la PWA."""
+    config = ConfiguracionLiga.obtener()
+    nombre_corto = (config.segunda_linea or config.nombre_liga)[:12]
+    manifest = {
+        "name": config.nombre_liga,
+        "short_name": nombre_corto,
+        "description": f"Resultados, tablas y notificaciones de {config.nombre_liga}",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#1a3a15",
+        "theme_color": "#1a3a15",
+        "icons": [
+            {"src": "/pwa-icon/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/pwa-icon/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+        ],
+    }
+    return JsonResponse(manifest, content_type="application/manifest+json")
+
+
+ICONOS_PWA = {
+    "icon-192.png": "static/icons/icon-192.png",
+    "icon-512.png": "static/icons/icon-512.png",
+    "apple-touch-icon.png": "static/icons/apple-touch-icon.png",
+    "badge-96.png": "static/icons/badge-96.png",
+}
+
+
+def pwa_icon(request, nombre):
+    """Iconos de la PWA servidos con URL estable (sin hash de collectstatic)."""
+    from pathlib import Path
+    from django.conf import settings as dj_settings
+    rel = ICONOS_PWA.get(nombre)
+    if not rel:
+        raise Http404("Icono no disponible")
+    path = Path(dj_settings.BASE_DIR) / rel
+    if not path.exists():
+        raise Http404("Icono no disponible")
+    return HttpResponse(path.read_bytes(), content_type="image/png")
 
 
 @login_required

@@ -68,6 +68,7 @@ urlpatterns = [
     path("cedula-arbitral/<int:partido_id>/", views.cedula_arbitral, name="cedula_arbitral"),
 
     path("configuracion/", views.configuracion_liga, name="configuracion_liga"),
+    path("configuracion/generar-vapid/", views.generar_vapid_keys, name="generar_vapid_keys"),
     path("reglamento/descargar/", views.descarga_reglamento, name="descarga_reglamento"),
     path("apk/descargar/", views.descarga_apk, name="descarga_apk"),
     path("modo-offline/", views.modo_offline, name="modo_offline"),
@@ -90,5 +91,11 @@ urlpatterns = [
     path("api/register-guest/", api_views.register_guest_device, name="register_guest_device"),
     path("api/update-preferences/", api_views.update_device_preferences, name="update_device_preferences"),
     path("api/categorias/", api_views.lista_categorias, name="api_categorias"),
+    path("api/vapid-public-key/", api_views.vapid_public_key, name="vapid_public_key"),
     path("api/cron-notificar-arbitros/", api_views.cron_notificar_arbitros, name="cron_notificar_arbitros"),
+
+    # PWA / Web Push (alcance raíz)
+    path("sw.js", views.service_worker, name="sw_js"),
+    path("manifest.webmanifest", views.manifest_webmanifest, name="manifest_webmanifest"),
+    path("pwa-icon/<str:nombre>", views.pwa_icon, name="pwa_icon"),
 ]

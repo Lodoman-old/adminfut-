@@ -114,6 +114,17 @@ def register_guest_device(request):
     obj.email = email
     obj.usuario = None
     obj.activo = True
+
+    sub = data.get("subscripcion")
+    if sub and isinstance(sub, dict):
+        endpoint = (sub.get("endpoint") or "").strip()
+        if endpoint:
+            obj.webpush_endpoint = endpoint
+            obj.webpush_p256dh = (sub.get("p256dh") or "").strip()
+            obj.webpush_auth = (sub.get("auth") or "").strip()
+            obj.plataforma = "pwa"
+            obj.activo = True
+
     obj.save()
 
     transferido = False
@@ -218,6 +229,15 @@ def lista_categorias(request):
     """Return active categories for guest registration."""
     cats = Categoria.objects.filter(activo=True).values("id", "nombre")
     return JsonResponse({"categorias": list(cats)})
+
+
+@csrf_exempt
+@require_GET
+def vapid_public_key(request):
+    """Return the VAPID public key (applicationServerKey) for Web Push."""
+    from .push import _vapid_keys
+    _, public_key = _vapid_keys()
+    return JsonResponse({"public_key": public_key})
 
 
 @csrf_exempt

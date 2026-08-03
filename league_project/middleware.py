@@ -84,8 +84,12 @@ RUTAS_PUBLICAS = {
     '/api/register-guest/',
     '/api/update-preferences/',
     '/api/categorias/',
+    '/api/vapid-public-key/',
     '/api/cron-notificar-arbitros/',
     '/health/',
+    # PWA / Web Push
+    '/sw.js',
+    '/manifest.webmanifest',
 }
 
 PREFIJOS_PUBLICOS = (
@@ -93,6 +97,7 @@ PREFIJOS_PUBLICOS = (
     '/static/',
     '/admin/',
     '/api/offline/',  # autenticación propia con Bearer token
+    '/pwa-icon/',
 )
 
 # url_name -> permiso(s) requerido(s). '__staff__' exige is_staff.

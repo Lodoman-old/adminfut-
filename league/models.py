@@ -1644,6 +1644,10 @@ class ConfiguracionLiga(models.Model):
     cloudinary_api_secret = models.CharField(max_length=500, blank=True, default="", verbose_name="Cloudinary API Secret")
     firebase_service_account_json = models.TextField(blank=True, default="", verbose_name="Firebase Service Account JSON",
         help_text="Pega aquí el JSON completo de la service account de Firebase. Se usa para enviar notificaciones push.")
+    webpush_vapid_private_key = models.TextField(blank=True, default="", verbose_name="Clave privada VAPID (Web Push)",
+        help_text="Clave privada VAPID para notificaciones Web Push (PWA). Se genera automáticamente; no compartir.")
+    webpush_vapid_public_key = models.TextField(blank=True, default="", verbose_name="Clave pública VAPID (Web Push)",
+        help_text="Clave pública VAPID (applicationServerKey) que usan los navegadores al suscribirse a notificaciones Web Push. Se genera automáticamente.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"
@@ -1776,6 +1780,8 @@ class DeviceToken(models.Model):
     PLATFORMS = [
         ("android", "Android"),
         ("ios", "iOS"),
+        ("web", "Web"),
+        ("pwa", "PWA / Web Push"),
     ]
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -1799,6 +1805,12 @@ class DeviceToken(models.Model):
         "Categoria", blank=True, verbose_name="Categorías de interés",
         help_text="Categorías sobre las que quiere recibir notificaciones"
     )
+    webpush_endpoint = models.TextField(blank=True, default="", verbose_name="Endpoint Web Push",
+        help_text="Endpoint de suscripción Web Push del navegador (PWA / iPhone)")
+    webpush_p256dh = models.TextField(blank=True, default="", verbose_name="Clave p256dh (Web Push)",
+        help_text="Clave pública de cifrado de la suscripción Web Push")
+    webpush_auth = models.TextField(blank=True, default="", verbose_name="Clave auth (Web Push)",
+        help_text="Secreto de autenticación de la suscripción Web Push")
 
     class Meta:
         verbose_name = "Token de dispositivo"
@@ -1815,6 +1827,7 @@ class PushLog(models.Model):
         ("PARTIDO_FIN", "Partido finalizado"),
         ("RECORDATORIO", "Recordatorio 30 min"),
         ("SUSPENSION", "Suspensión / pendiente"),
+        ("WEBPUSH", "Web Push (PWA)"),
     ]
     hora = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
