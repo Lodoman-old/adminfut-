@@ -230,7 +230,7 @@ body {
     <div class="col-md-8">
       <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
         {% if config and config.logo %}
-        <img src="{{ config.logo.url }}" alt="{{ config.nombre_liga }}" class="rounded" style="height:46px;width:46px;object-fit:contain;background:rgba(255,255,255,0.9);">
+        <img src="{{ config.logo.url }}" alt="{{ config.nombre_liga }}" style="height:48px;width:auto;max-width:170px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35));">
         {% endif %}
         <h1 class="text-white fw-bold mb-0" style="font-size:clamp(1.1rem, 3.5vw, 1.6rem); line-height:1.25;">
           {{ config.nombre_liga|default:"AdminFut" }}
