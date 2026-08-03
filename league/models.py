@@ -1592,6 +1592,9 @@ class RawCloudinaryStorage(Storage):
 
 class ConfiguracionLiga(models.Model):
     nombre_liga = models.CharField(max_length=200, default="Mi Liga")
+    segunda_linea = models.CharField(max_length=200, blank=True, default="",
+        verbose_name="Segunda línea del nombre",
+        help_text="Opcional. Se muestra centrado bajo el nombre (ej: 'Juventino Rosas'). Si se deja vacío se divide el nombre automáticamente.")
     logo = models.ImageField(upload_to="ligas/", blank=True, null=True)
     direccion = models.TextField(blank=True)
     telefonos = models.TextField(blank=True, help_text="Teléfonos de contacto separados por coma")

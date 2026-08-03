@@ -743,6 +743,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
         fields = "__all__"
         widgets = {
             "nombre_liga": djforms.TextInput(attrs={"class": "form-control"}),
+            "segunda_linea": djforms.TextInput(attrs={"class": "form-control", "placeholder": "Ej: Juventino Rosas"}),
             "logo": djforms.FileInput(attrs={"class": "form-control"}),
             "direccion": djforms.TextInput(attrs={"class": "form-control"}),
             "telefonos": djforms.TextInput(attrs={"class": "form-control"}),

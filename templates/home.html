@@ -219,40 +219,99 @@ body {
   cursor: pointer;
 }
 .cat-selector option { background: #2d6b2e; color: white; }
+.hero-top {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: -0.4rem 0 0 -0.5rem;
+}
+.hero-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.hero-logo {
+  height: 96px;
+  width: auto;
+  max-width: 40%;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.hero-titles {
+  text-align: center;
+  min-width: 0;
+}
+.hero-title,
+.hero-title2 {
+  font-size: clamp(1.05rem, 3.2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  color: #fff;
+}
+.hero-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.hero-sub {
+  margin-top: 0.4rem;
+}
+@media (max-width: 768px) {
+  .hero-logo { height: 62px; }
+  .hero-title, .hero-title2 { font-size: 1.15rem; }
+  .cat-selector { max-width: 150px; }
+}
+@media (max-width: 576px) {
+  .hero-top { flex-wrap: nowrap; gap: 0.35rem 0.5rem; margin: -0.3rem 0 0 -0.3rem; }
+  .hero-brand { gap: 0.4rem; }
+  .hero-logo { height: 50px; }
+  .hero-title, .hero-title2 { font-size: 0.92rem; }
+  .hero-filter .cat-selector { max-width: 108px; font-size: 0.78rem; padding: 0.3rem 0.45rem; }
+  .hero-sub { font-size: 0.62rem; }
+}
 </style>
 {% endblock %}
 {% block content %}
 {% load static %}
+{% load league_extras %}
 
 <!-- Hero / selector -->
 <div class="hero-section">
-  <div class="row align-items-center">
-    <div class="col-md-8">
-      <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
-        {% if config and config.logo %}
-        <img id="logoLiga" src="{{ config.logo.url }}" alt="{{ config.nombre_liga }}" style="height:96px;width:auto;max-width:340px;object-fit:contain;">
+  <div class="hero-top">
+    <div class="hero-brand">
+      {% if config and config.logo %}
+      <img id="logoLiga" class="hero-logo" src="{{ config.logo.url }}" alt="{{ config.nombre_liga }}">
+      {% endif %}
+      <div class="hero-titles">
+        {% if config.segunda_linea %}
+        <div class="hero-title">{{ config.nombre_liga|default:"AdminFut" }}</div>
+        <div class="hero-title2">{{ config.segunda_linea }}</div>
+        {% else %}
+        {% with lineas=config.nombre_liga|dos_lineas %}
+        <div class="hero-title">{{ lineas.0 }}</div>
+        {% if lineas.1 %}<div class="hero-title2">{{ lineas.1 }}</div>{% endif %}
+        {% endwith %}
         {% endif %}
-        <h1 class="text-white fw-bold mb-0" style="font-size:clamp(1.05rem, 3.2vw, 1.5rem); line-height:1.25; max-width:430px;">
-          {{ config.nombre_liga|default:"AdminFut" }}
-        </h1>
       </div>
-      <p class="text-white-50 mb-0" style="font-size:0.7rem;">
-        <i class="bi bi-trophy text-warning"></i> AdminFut · Sistema de Administración de Liga de Fútbol
-      </p>
     </div>
-    <div class="col-md-4">
-      <form method="get" class="d-flex flex-wrap align-items-center gap-2">
-        <i class="bi bi-funnel text-warning"></i>
-        <select name="categoria" class="form-select cat-selector flex-grow-1" onchange="this.form.submit()">
-          {% for c in categorias %}
-          <option value="{{ c.id }}" {% if categoria_sel.id == c.id %}selected{% endif %}>
-            {{ c.nombre }}
-          </option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
+    <form method="get" class="hero-filter">
+      <i class="bi bi-funnel text-warning"></i>
+      <select name="categoria" class="form-select cat-selector" onchange="this.form.submit()">
+        {% for c in categorias %}
+        <option value="{{ c.id }}" {% if categoria_sel.id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+        {% endfor %}
+      </select>
+    </form>
   </div>
+  <p class="text-white-50 mb-0 hero-sub">
+    <i class="bi bi-trophy text-warning"></i> AdminFut · Sistema de Administración de Liga de Fútbol
+  </p>
 </div>
 
 {% if categoria_sel %}
@@ -624,25 +683,42 @@ body {
       ctx.drawImage(img, 0, 0, c.width, c.height);
       var im = ctx.getImageData(0, 0, c.width, c.height);
       var d = im.data, w = c.width, h = c.height;
+      var counts = {};
+      function countBorder(x, y) {
+        var i = (y * w + x) * 4;
+        var k = d[i] + ',' + d[i + 1] + ',' + d[i + 2];
+        counts[k] = (counts[k] || 0) + 1;
+      }
+      var x, y;
+      for (x = 0; x < w; x++) { countBorder(x, 0); countBorder(x, h - 1); }
+      for (y = 0; y < h; y++) { countBorder(0, y); countBorder(w - 1, y); }
+      var mejor = null, bg = null;
+      for (var k in counts) {
+        if (!mejor || counts[k] > mejor[1]) mejor = [k, counts[k]];
+      }
+      if (mejor) {
+        var partes = mejor[0].split(',');
+        bg = { r: +partes[0], g: +partes[1], b: +partes[2] };
+      }
+      if (!bg) return;
       var visited = new Uint8Array(w * h);
       var stack = [];
-      function isWhite(x, y) {
-        var i = (y * w + x) * 4;
-        return d[i] >= 200 && d[i + 1] >= 200 && d[i + 2] >= 200;
+      function cercaDeFondo(px, py) {
+        var i = (py * w + px) * 4;
+        return Math.abs(d[i] - bg.r) + Math.abs(d[i + 1] - bg.g) + Math.abs(d[i + 2] - bg.b) < 130;
       }
-      function push(x, y) {
-        var i = y * w + x;
+      function push(px, py) {
+        var i = py * w + px;
         if (visited[i]) return;
         visited[i] = 1;
         stack.push(i);
       }
-      var x, y;
       for (x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
       for (y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
       while (stack.length) {
         var i = stack.pop();
         x = i % w; y = (i / w) | 0;
-        if (!isWhite(x, y)) continue;
+        if (!cercaDeFondo(x, y)) continue;
         d[i * 4 + 3] = 0;
         if (x > 0) push(x - 1, y);
         if (x < w - 1) push(x + 1, y);
