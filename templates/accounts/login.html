@@ -111,10 +111,44 @@
     var cardBody = document.querySelector('.card-body');
     if (cardBody) cardBody.appendChild(btn);
 
-    // Auto-login con huella si en este dispositivo ya se había iniciado sesión
+    // Flujo invitado: si hay huella de invitado guardada, entra directo al home
+    // reconociendo al invitado (en vez de exigir usuario/contraseña).
+    function revisarInvitado() {
+        if (!bioOk()) return;
+        Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut_invitado' }).then(function(creds) {
+            if (!creds || !creds.username) return;
+            Capacitor.Plugins.Preferences.get({ key: 'guest_phone' }).then(function(r) {
+                if (!r.value) return;
+                var btnG = document.createElement('button');
+                btnG.type = 'button';
+                btnG.className = 'btn btn-outline-info w-100 mt-2';
+                btnG.innerHTML = '<i class="bi bi-fingerprint"></i> Continuar como invitado';
+                btnG.onclick = function() {
+                    Capacitor.Plugins.NativeBiometric.verifyIdentity({
+                        reason: 'Acceder a AdminFut',
+                        title: 'Huella digital',
+                        subtitle: 'Usa tu huella para entrar',
+                        description: 'Coloca tu dedo en el sensor'
+                    }).then(function() { window.location.href = '/'; }).catch(function() {});
+                };
+                if (cardBody) cardBody.appendChild(btnG);
+                if (!huellaFallida) {
+                    pedirHuella().then(function(ok) {
+                        if (ok) window.location.href = '/';
+                    });
+                }
+            }).catch(function() {});
+        }).catch(function() {});
+    }
+
+    // Auto-login con huella si en este dispositivo ya se había iniciado sesión.
+    // Primero el de staff; si no hay, se revisa el de invitado.
     if (bioOk() && !huellaFallida) {
         Capacitor.Plugins.NativeBiometric.getCredentials({ server: 'adminfut' }).then(function(creds) {
-            if (!creds || !creds.username) return;
+            if (!creds || !creds.username) {
+                revisarInvitado();
+                return;
+            }
             btn.style.display = 'block';
             Capacitor.Plugins.Preferences.get({ key: 'is_logged_in' }).then(function(r) {
                 if (r.value !== 'true') return;
@@ -122,7 +156,9 @@
                     if (ok) viaHuellaLogin(creds);
                 });
             }).catch(function() {});
-        }).catch(function() {});
+        }).catch(function() { revisarInvitado(); });
+    } else if (!bioOk()) {
+        revisarInvitado();
     }
 })();
 </script>

@@ -80,6 +80,16 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
         });
         const data = await resp.json();
         if (data.ok) {
+            if (isNative && Capacitor.Plugins.NativeBiometric) {
+                try {
+                    await Capacitor.Plugins.NativeBiometric.setCredentials({
+                        username: 'invitado:' + (data.telefono || ''),
+                        password: (data.telefono || ''),
+                        server: 'adminfut_invitado'
+                    });
+                    await Capacitor.Plugins.Preferences.set({ key: 'guest_phone', value: data.telefono || '' });
+                } catch (e) {}
+            }
             resultado.className = 'mt-3 alert alert-success';
             resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. Redirigiendo...';
             setTimeout(() => { window.location.href = '/'; }, 1500);

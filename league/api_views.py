@@ -129,6 +129,7 @@ def register_guest_device(request):
         "transferido": transferido,
         "device_id": device_id,
         "nombre": obj.nombre,
+        "telefono": obj.telefono,
         "categorias": list(obj.categorias.values_list("id", flat=True)),
     })
 
