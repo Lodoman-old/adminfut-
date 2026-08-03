@@ -20,6 +20,11 @@
                         <div class="form-text">Obligatorio: es tu identificación para recibir las notificaciones. Si ya estás registrado con este teléfono, el registro nuevo reemplaza al dispositivo anterior.</div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Correo electrónico <span class="text-muted small">(opcional)</span></label>
+                        <input type="email" class="form-control" id="id_email" placeholder="tucorreo@ejemplo.com">
+                        <div class="form-text">Si lo capturas, además del push recibirás por correo el rol de juegos de tus categorías cada semana.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Categorías de interés</label>
                         <p class="text-muted small">Selecciona las categorías sobre las que quieres recibir notificaciones:</p>
                         <div class="row">
@@ -75,6 +80,7 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
                 device_id: window.__deviceId || '',
                 nombre: document.getElementById('id_nombre').value.trim(),
                 telefono: document.getElementById('id_telefono').value.trim(),
+                email: document.getElementById('id_email').value.trim(),
                 categorias: cats,
             }),
         });

@@ -8,10 +8,25 @@ from io import StringIO
 from .models import DeviceToken, Categoria
 
 
+def _buscar_o_crear_token(device_id, token):
+    """Devuelve el registro del dispositivo por device_id (o por token) o crea uno nuevo."""
+    obj = None
+    if device_id:
+        obj = DeviceToken.objects.filter(device_id=device_id).order_by("-actualizado").first()
+    if obj is None:
+        obj = DeviceToken.objects.filter(token=token).first()
+    created = obj is None
+    if obj is None:
+        obj = DeviceToken()
+    # Liberar el token: no debe quedar duplicado en otro registro
+    DeviceToken.objects.filter(token=token).exclude(pk=obj.pk).delete()
+    return obj, created
+
+
 @csrf_exempt
 @require_POST
 def register_device_token(request):
-    """Register or update a device push notification token."""
+    """Register or update a device push notification token (un único registro por dispositivo)."""
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -24,28 +39,25 @@ def register_device_token(request):
     if not token:
         return JsonResponse({"error": "token required"}, status=400)
 
-    defaults = {
-        "plataforma": plataforma,
-        "device_id": device_id,
-        "usuario": request.user if request.user.is_authenticated else None,
-        "activo": True,
-    }
-
+    obj, created = _buscar_o_crear_token(device_id, token)
+    obj.token = token
+    obj.plataforma = plataforma
+    obj.device_id = device_id
+    obj.activo = True
     if request.user.is_authenticated:
-        defaults["es_invitado"] = False
-        defaults["nombre"] = ""
-
-    obj, created = DeviceToken.objects.update_or_create(
-        token=token,
-        defaults=defaults,
-    )
-
-    if request.user.is_authenticated:
+        obj.usuario = request.user
+        obj.es_invitado = False
+        obj.nombre = ""
+        obj.telefono = ""
+        obj.email = ""
         obj.categorias.clear()
+    elif not obj.pk:
+        obj.usuario = None
+    obj.save()
 
-    # Desactivar tokens viejos del mismo dispositivo (mismo device_id, token diferente)
+    # Desactivar otros registros del mismo dispositivo (un solo activo por dispositivo)
     if device_id:
-        DeviceToken.objects.filter(device_id=device_id).exclude(token=token).update(activo=False)
+        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(activo=False)
 
     return JsonResponse({"ok": True, "created": created, "device_id": device_id})
 
@@ -69,6 +81,7 @@ def register_guest_device(request):
     device_id = data.get("device_id", "").strip()
     nombre = data.get("nombre", "").strip()
     telefono = "".join(ch for ch in str(data.get("telefono", "")) if ch.isdigit())
+    email = data.get("email", "").strip()
     categoria_ids = data.get("categorias", [])
 
     if not token:
@@ -83,24 +96,32 @@ def register_guest_device(request):
     if len(telefono) < 10:
         return JsonResponse({"error": "El teléfono debe tener al menos 10 dígitos."}, status=400)
 
-    obj, created = DeviceToken.objects.update_or_create(
-        token=token,
-        defaults={
-            "plataforma": plataforma,
-            "device_id": device_id,
-            "es_invitado": True,
-            "nombre": nombre,
-            "telefono": telefono,
-            "usuario": None,
-            "activo": True,
-        },
-    )
+    if email:
+        from django.core.exceptions import ValidationError as VE
+        from django.core.validators import validate_email
+        try:
+            validate_email(email)
+        except VE:
+            return JsonResponse({"error": "El correo electrónico no es válido."}, status=400)
+
+    obj, created = _buscar_o_crear_token(device_id, token)
+    obj.token = token
+    obj.plataforma = plataforma
+    obj.device_id = device_id
+    obj.es_invitado = True
+    obj.nombre = nombre
+    obj.telefono = telefono
+    obj.email = email
+    obj.usuario = None
+    obj.activo = True
+    obj.save()
 
     transferido = False
     existente = (
         DeviceToken.objects
         .filter(telefono=telefono, es_invitado=True, activo=True)
         .exclude(token=token)
+        .exclude(pk=obj.pk)
         .order_by("-actualizado")
         .first()
     )
@@ -119,9 +140,9 @@ def register_guest_device(request):
     else:
         obj.categorias.clear()
 
-    # Desactivar tokens viejos del mismo dispositivo
+    # Desactivar otros registros del mismo dispositivo
     if device_id:
-        DeviceToken.objects.filter(device_id=device_id).exclude(token=token).update(activo=False)
+        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(activo=False)
 
     return JsonResponse({
         "ok": True,

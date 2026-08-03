@@ -129,6 +129,46 @@ def send_push_notification(tokens, title, body, data=None):
         return None
 
 
+def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo="suspension"):
+    """Push a invitados cuando un partido queda pendiente o se suspende una jornada."""
+    from .models import DeviceToken
+
+    qs = DeviceToken.objects.filter(activo=True, es_invitado=True)
+    if categoria:
+        qs = qs.filter(
+            models.Q(categorias=categoria) | models.Q(categorias__isnull=True)
+        )
+    qs = qs.distinct()
+
+    tokens = list(qs.values_list("token", flat=True))
+    guests = len(tokens)
+
+    _add_log({
+        "tipo": "SUSPENSION",
+        "partido_id": partido_id,
+        "categoria": str(categoria) if categoria else "(todas)",
+        "detalle": f"Invitados={guests}",
+        "total_activos": DeviceToken.objects.filter(activo=True).count(),
+        "tokens_encontrados": len(tokens),
+        "guests_incluidos": guests,
+        "success": 0,
+        "failure": 0,
+    })
+
+    if not tokens:
+        _add_log({
+            "tipo": "SUSPENSION",
+            "partido_id": partido_id,
+            "detalle": "Sin tokens de invitados, se omite push",
+        })
+        return
+
+    data = {"type": data_tipo, "partido_id": str(partido_id) if partido_id else ""}
+    if categoria:
+        data["categoria_id"] = str(categoria.id)
+    send_push_notification(tokens, titulo, cuerpo, data)
+
+
 def notify_partido_finalizado(partido):
     from .models import DeviceToken
 

@@ -45,6 +45,8 @@ class Categoria(models.Model):
     genero = models.CharField(max_length=20, blank=True)
     activo = models.BooleanField(default=True)
     es_principal = models.BooleanField(default=False)
+    curp_obligatoria = models.BooleanField(default=False, verbose_name="CURP obligatoria",
+        help_text="Si está activa, el CURP será obligatorio al registrar jugadores en esta categoría.")
     min_jugadores = models.IntegerField(default=7, verbose_name="Mínimo de jugadores por equipo")
     max_jugadores = models.IntegerField(default=26, verbose_name="Máximo de jugadores por equipo")
     dias_juego = models.JSONField(default=list, blank=True, verbose_name="Días de juego")
@@ -1791,6 +1793,8 @@ class DeviceToken(models.Model):
         help_text="Registrado como invitado sin cuenta completa")
     nombre = models.CharField(max_length=100, blank=True, verbose_name="Nombre o apodo")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
+    email = models.EmailField(blank=True, default="", verbose_name="Correo",
+        help_text="Si se captura, el invitado también recibe por correo el rol de juegos de sus categorías")
     categorias = models.ManyToManyField(
         "Categoria", blank=True, verbose_name="Categorías de interés",
         help_text="Categorías sobre las que quiere recibir notificaciones"
@@ -1810,6 +1814,7 @@ class PushLog(models.Model):
         ("SEND", "Envío directo"),
         ("PARTIDO_FIN", "Partido finalizado"),
         ("RECORDATORIO", "Recordatorio 30 min"),
+        ("SUSPENSION", "Suspensión / pendiente"),
     ]
     hora = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)

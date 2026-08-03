@@ -18,7 +18,7 @@ class ConfiguracionLigaAdmin(admin.ModelAdmin):
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ["nombre", "activo"]
+    list_display = ["nombre", "activo", "curp_obligatoria"]
 
 
 @admin.register(Equipo)

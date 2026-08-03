@@ -375,6 +375,28 @@ class JugadorForm(forms.ModelForm):
                     if errs:
                         self.add_error("curp", "El CURP no coincide con los datos capturados: " + "; ".join(errs))
 
+        # CURP obligatoria según las categorías (principal + secundarias)
+        if not curp:
+            cat_ids_req = set()
+            equipo_prim = cleaned.get("equipo")
+            if equipo_prim:
+                cat_ids_req.add(equipo_prim.categoria_id)
+            raw_sec = cleaned.get("secondary_data")
+            if raw_sec:
+                try:
+                    parsed_sec = json.loads(raw_sec)
+                    if isinstance(parsed_sec, list):
+                        for item in parsed_sec:
+                            if item.get("categoria_id"):
+                                cat_ids_req.add(item["categoria_id"])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if cat_ids_req:
+                cats_oblig = list(Categoria.objects.filter(id__in=cat_ids_req, curp_obligatoria=True))
+                if cats_oblig:
+                    self.add_error("curp",
+                        "El CURP es obligatorio para: " + ", ".join(c.nombre for c in cats_oblig) + ".")
+
         # Detect if fecha_nacimiento changed and check age violations
         if self.instance and self.instance.pk:
             old_fn = Jugador.objects.filter(pk=self.instance.pk).values_list("fecha_nacimiento", flat=True).first()
@@ -767,7 +789,7 @@ class PartidoForm(forms.ModelForm):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "activo", "es_principal", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos", "fondo_credencial"]
+        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "activo", "es_principal", "curp_obligatoria", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos", "fondo_credencial"]
         widgets = {
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -777,6 +799,7 @@ class CategoriaForm(forms.ModelForm):
             "genero": forms.TextInput(attrs={"class": "form-control"}),
             "activo": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "es_principal": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "curp_obligatoria": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "min_jugadores": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "max_jugadores": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "categorias_compatibles": forms.SelectMultiple(attrs={"class": "form-select", "size": 4}),

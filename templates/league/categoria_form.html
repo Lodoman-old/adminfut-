@@ -56,6 +56,12 @@
                         {{ form.es_principal }}
                         {% if form.es_principal.errors %}<div class="text-danger small">{{ form.es_principal.errors }}</div>{% endif %}
                     </div>
+                    <div class="ms-5">
+                        <label class="form-label d-block">{{ form.curp_obligatoria.label }}</label>
+                        {{ form.curp_obligatoria }}
+                        <small class="text-muted d-block">{{ form.curp_obligatoria.help_text }}</small>
+                        {% if form.curp_obligatoria.errors %}<div class="text-danger small">{{ form.curp_obligatoria.errors }}</div>{% endif %}
+                    </div>
                 </div>
             </div>
             <div class="mb-3">

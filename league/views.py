@@ -639,7 +639,7 @@ def admin_push_logs(request):
     from .push import get_push_logs
     from .models import DeviceToken
     logs = get_push_logs(limit=200)
-    tokens = DeviceToken.objects.select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
+    tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
     return render(request, "admin/push_logs.html", {"logs": logs, "tokens": tokens})
 
 
@@ -686,6 +686,12 @@ def suspender_jornada(request, jornada_id):
 
     # Update season end date
     jornada.temporada.actualizar_fecha_fin()
+
+    # Avisar a invitados (push + correo) de la suspensión
+    try:
+        _notificar_suspension_jornada(request, jornada, motivo, semanas)
+    except Exception as e:
+        logger.warning("Error notificando suspensión de jornada: %s", e)
 
     messages.success(
         request,
@@ -919,7 +925,7 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
     count = 0
 
     for sus in suscriptores:
-        ctx = {**ctx_extra, "suscriptor_email": sus.email, "unsubscribe_token": sus.token, "config": config, "site_url": site_url}
+        ctx = {**ctx_extra, "suscriptor_email": sus.email, "unsubscribe_token": getattr(sus, "token", ""), "config": config, "site_url": site_url}
         html = render_to_string(template, ctx)
         text = strip_tags(html)
 
@@ -933,6 +939,111 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
             if request:
                 messages.warning(request, f"Error al enviar a {sus.email}: {e}")
     return count
+
+
+def _destinatarios_roles_email(temporada):
+    """Suscriptores + invitados con correo que siguen la categoría de la temporada."""
+    from .models import DeviceToken
+    destinatarios = []
+    for sus in SuscripcionEmail.objects.filter(activo=True, recibir_roles=True).prefetch_related("categorias"):
+        cats = list(sus.categorias.all())
+        if cats and temporada.categoria_id not in {c.id for c in cats}:
+            continue
+        destinatarios.append(sus)
+    for g in DeviceToken.objects.filter(
+        activo=True, es_invitado=True
+    ).exclude(email="").prefetch_related("categorias"):
+        cats = list(g.categorias.all())
+        if cats and temporada.categoria_id not in {c.id for c in cats}:
+            continue
+        destinatarios.append(g)
+    return destinatarios
+
+
+def _enviar_suspension_email(titulo, ctx, categoria=None, request=None):
+    """Envía correo de suspensión a invitados con correo que siguen la categoría."""
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from .models import DeviceToken
+    config = ConfiguracionLiga.obtener()
+    smtp = config.get_active_smtp_config()
+    if not smtp["host"]:
+        return 0
+    qs = DeviceToken.objects.filter(activo=True, es_invitado=True).exclude(email="")
+    if categoria:
+        qs = qs.filter(Q(categorias=categoria) | Q(categorias__isnull=True))
+    site_url = f"{request.scheme}://{request.get_host()}" if request else "https://adminfut.onrender.com"
+    count = 0
+    vistos = set()
+    for g in qs.distinct():
+        email = g.email.strip().lower()
+        if not email or email in vistos:
+            continue
+        vistos.add(email)
+        c = {**ctx, "suscriptor_email": email, "unsubscribe_token": "", "config": config, "site_url": site_url}
+        html = render_to_string("emails/suspension.html", c)
+        text = strip_tags(html)
+        try:
+            _enviar_smtp(smtp, titulo, html, text, [email])
+            count += 1
+        except Exception:
+            pass
+    return count
+
+
+def _notificar_suspension_jornada(request, jornada, motivo, semanas):
+    """Push + correo a invitados cuando se suspende una jornada."""
+    temporada = jornada.temporada
+    categoria = temporada.categoria
+    afectados = list(
+        Partido.objects.filter(
+            temporada=temporada, jornada__numero__gte=jornada.numero
+        ).exclude(estado="FIN").select_related("equipo_local", "equipo_visitante")[:6]
+    )
+    titulo = f"Jornada {jornada.numero} suspendida"
+    if categoria:
+        titulo += f" - {categoria.nombre}"
+    cuerpo = f"Se suspende la jornada {jornada.numero}"
+    if categoria:
+        cuerpo += f" de {categoria.nombre}"
+    cuerpo += f" por: {motivo}. Se recorren {semanas} semana(s)."
+    from .push import notify_suspension
+    notify_suspension(
+        titulo, cuerpo, categoria=categoria,
+        partido_id=afectados[0].id if afectados else None,
+        data_tipo="jornada_suspendida",
+    )
+    ctx = {
+        "temporada": temporada, "jornada": jornada,
+        "motivo": motivo, "semanas": semanas, "partidos": afectados,
+    }
+    _enviar_suspension_email(titulo, ctx, categoria, request)
+
+
+def _notificar_partido_pendiente(request, partido, motivo="Partido pendiente"):
+    """Push + correo a invitados cuando un partido queda pendiente/reagendado."""
+    try:
+        categoria = partido.jornada.temporada.categoria
+    except AttributeError:
+        categoria = None
+    local = partido.equipo_local.nombre if partido.equipo_local else "Local"
+    visit = partido.equipo_visitante.nombre if partido.equipo_visitante else "Visitante"
+    titulo = "Partido pendiente"
+    if categoria:
+        titulo += f" - {categoria.nombre}"
+    cuerpo = f"{local} vs {visit} quedó pendiente."
+    fh = partido.fecha_hora
+    if fh:
+        cuerpo += f" Nueva fecha: {fh}"
+    if motivo and motivo != "Partido pendiente":
+        cuerpo += f" Motivo: {motivo}"
+    from .push import notify_suspension
+    notify_suspension(
+        titulo, cuerpo, categoria=categoria,
+        partido_id=partido.id, data_tipo="partido_pendiente",
+    )
+    ctx = {"partido": partido, "motivo": motivo, "categoria": categoria}
+    _enviar_suspension_email(titulo, ctx, categoria, request)
 
 
 def _enviar_smtp(smtp, subject, html, text, to_emails):
@@ -1127,12 +1238,9 @@ def enviar_roles_semana(request, temporada_id):
     for j in Jornada.objects.filter(pk__in={p.jornada_id for p in partidos}):
         descansan_por_jornada[j.numero] = [eq.nombre for eq in temporada.equipos_descansan(j)]
 
-    suscriptores = SuscripcionEmail.objects.filter(activo=True, recibir_roles=True)
+    suscriptores = _destinatarios_roles_email(temporada)
     count = 0
     for sus in suscriptores:
-        cats = sus.categorias.all()
-        if cats and not cats.filter(id=temporada.categoria_id).exists():
-            continue
         ctx = {
             "temporada": temporada,
             "partidos": partidos,
@@ -1181,12 +1289,9 @@ def enviar_rol_jornada(request, jornada_id):
     goleadores = _goleadores_hasta_jornada(temporada, jornada.numero)
     castigados = _castigados_hasta_jornada(temporada, jornada.numero)
 
-    suscriptores = SuscripcionEmail.objects.filter(activo=True, recibir_roles=True)
+    suscriptores = _destinatarios_roles_email(temporada)
     count = 0
     for sus in suscriptores:
-        cats = sus.categorias.all()
-        if cats and not cats.filter(id=temporada.categoria_id).exists():
-            continue
         fechas = [p.fecha_hora for p in partidos if p.fecha_hora]
         jornada_fecha = min(fechas).date() if fechas else None
         ctx = {
@@ -2346,6 +2451,11 @@ def reagendar_partido(request, pk):
             partido.save()
             if partido.temporada_id:
                 partido.temporada.actualizar_fecha_fin()
+            # Avisar a invitados (push + correo) de que el partido quedó pendiente
+            try:
+                _notificar_partido_pendiente(request, partido)
+            except Exception as e:
+                logger.warning("Error notificando partido pendiente: %s", e)
             messages.success(request, f"Partido reagendado correctamente.")
             return redirect("partido_list")
     else:
