@@ -1710,7 +1710,7 @@ def reporte_credenciales_pdf(request):
             if cfg.logo:
                 bar_center_x = x + 54 + (card_w - 54) / 2  # avoid overlap with logo
             p.setFillColor(colors.white)
-            bar_text_y = y + card_h - bar_h + 5
+            bar_text_y = y + card_h - bar_h + 8
             league_label = cfg.nombre_liga.upper()
             max_w_team = card_w - 56
             p.setFont(name_font, 12)
@@ -1820,7 +1820,7 @@ def reporte_credenciales_pdf(request):
                     name_lines = lines
                     break
                 name_size -= 1
-            name_y = content_y + content_h - 30
+            name_y = content_y + content_h - 40
             line_h = name_size * 1.15
             name_cx = text_x + avail_w / 2
             for k, ln in enumerate(name_lines):
@@ -1829,15 +1829,15 @@ def reporte_credenciales_pdf(request):
                 outlined_text(name_cx - ln_w / 2, ly, ln, name_font, name_size)
 
             # Category (9pt)
-            outlined_text(text_x, content_y + content_h - 46, f"Categoría: {cat.nombre}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 56, f"Categoría: {cat.nombre}", data_font, 9)
 
             # Position (9pt)
             pos_map = dict(Jugador.POSICIONES)
-            outlined_text(text_x, content_y + content_h - 62, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 72, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 9)
 
             # CURP (9pt)
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 78, f"CURP: {curp_text}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 88, f"CURP: {curp_text}", data_font, 9)
 
             # Team name at bottom-left corner
             team_name_x = x + 4
@@ -1880,9 +1880,9 @@ def reporte_credenciales_pdf(request):
                     p.drawPath(star, fill=1, stroke=1)
 
             # Dorsal jersey badge (replicating dashboard CSS jersey shape)
-            jersey_w = 36
-            jersey_body_h = 30
-            jersey_tail = 7
+            jersey_w = 32
+            jersey_body_h = 24
+            jersey_tail = 5
             jersey_x = x + card_w - 12 - jersey_w
             jersey_y = y + 4  # bottom of the tail
             jersey_body_y = jersey_y + jersey_tail
@@ -1909,9 +1909,9 @@ def reporte_credenciales_pdf(request):
 
             # Number centered in body
             p.setFillColor(colors.white)
-            p.setFont(name_font, 11)
+            p.setFont(name_font, 10)
             dorsal_str = str(j.dorsal) if j.dorsal is not None else "-"
-            p.drawCentredString(jersey_cx, jersey_cy - 4, dorsal_str)
+            p.drawCentredString(jersey_cx, jersey_cy - 3, dorsal_str)
 
         p.showPage()
         p.save()
