@@ -11,6 +11,7 @@ from collections import Counter
 import openpyxl
 from io import BytesIO
 import os
+import math
 from django.conf import settings
 from league.models import Partido, Gol, Temporada, Equipo, Jugador, Jornada, Tarjeta, Arbitro, JugadorPartido, Categoria, ConfiguracionLiga, SuscripcionEmail
 from finance.models import Ingreso, ConceptoIngreso
@@ -1795,11 +1796,35 @@ def reporte_credenciales_pdf(request):
             text_x = x + 86
             avail_w = 110
 
-            # Name (11pt bold)
-            label = f"{j.nombre} {j.apellido}"
-            while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
-                label = label[:-1]
-            outlined_text(text_x, content_y + content_h - 30, label, name_font, 11)
+            # Name (bold, wraps to 2 lines expanding upward, centered)
+            full_name = f"{j.nombre} {j.apellido}"
+            name_size = 11
+            name_lines = []
+            while name_size >= 8:
+                words = full_name.split()
+                lines = []
+                cur = ""
+                for word in words:
+                    cand = (cur + " " + word).strip()
+                    if p.stringWidth(cand, name_font, name_size) <= avail_w:
+                        cur = cand
+                    else:
+                        if cur:
+                            lines.append(cur)
+                        cur = word
+                if cur:
+                    lines.append(cur)
+                if len(lines) <= 2:
+                    name_lines = lines
+                    break
+                name_size -= 1
+            name_y = content_y + content_h - 30
+            line_h = name_size * 1.15
+            name_cx = text_x + avail_w / 2
+            for k, ln in enumerate(name_lines):
+                y = name_y + (len(name_lines) - 1 - k) * line_h
+                ln_w = p.stringWidth(ln, name_font, name_size)
+                outlined_text(name_cx - ln_w / 2, y, ln, name_font, name_size)
 
             # Category (9pt)
             outlined_text(text_x, content_y + content_h - 46, f"Categoría: {cat.nombre}", data_font, 9)
@@ -1824,6 +1849,29 @@ def reporte_credenciales_pdf(request):
                     logo_drawn = True
                 except Exception:
                     pass
+            if not logo_drawn:
+                # Escudo generico de relleno para saber donde va el logo del equipo
+                lcx = tl_x + team_logo_size / 2
+                lcy = tl_y + team_logo_size / 2
+                p.setFillColor(colors.HexColor("#d7d7d7"))
+                p.setStrokeColor(colors.HexColor("#9a9a9a"))
+                p.setLineWidth(0.6)
+                p.circle(lcx, lcy, team_logo_size / 2 - 1, fill=1, stroke=1)
+                r = team_logo_size * 0.32
+                pts = []
+                for i in range(10):
+                    rad = r if i % 2 == 0 else r * 0.45
+                    ang = -math.pi / 2 + i * math.pi / 5
+                    pts.append((lcx + rad * math.cos(ang), lcy + rad * math.sin(ang)))
+                star = p.beginPath()
+                star.moveTo(*pts[0])
+                for pt in pts[1:]:
+                    star.lineTo(*pt)
+                star.close()
+                p.setFillColor(colors.HexColor("#777777"))
+                p.setStrokeColor(colors.HexColor("#9a9a9a"))
+                p.drawPath(star, fill=1, stroke=1)
+                logo_drawn = True
             team_name_x = tl_x + (team_logo_size + 5 if logo_drawn else 0)
             outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, name_font, 11)
 
