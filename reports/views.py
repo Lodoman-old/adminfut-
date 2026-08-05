@@ -1784,7 +1784,7 @@ def reporte_credenciales_pdf(request):
             # Helper to draw text with outline (shadow method, compatible with all ReportLab versions)
             def outlined_text(x, y, text, font_name, font_size, outline_color=colors.HexColor("#000000"), fill_color=colors.white):
                 p.setFillColor(outline_color)
-                for dx, dy in [(-0.8, -0.8), (-0.8, 0), (0.8, 0), (-0.8, 0.8), (0, 0.8), (0.8, 0.8), (0.8, -0.8), (0, -0.8)]:
+                for dx, dy in [(-1.0, -1.0), (-1.0, 0), (1.0, 0), (-1.0, 1.0), (0, 1.0), (1.0, 1.0), (1.0, -1.0), (0, -1.0)]:
                     p.setFont(font_name, font_size)
                     p.drawString(x + dx, y + dy, text)
                 p.setFillColor(fill_color)
@@ -1795,13 +1795,6 @@ def reporte_credenciales_pdf(request):
             text_x = x + 86
             avail_w = 110
 
-            # Panel semitransparente para que el texto se lea sobre cualquier fondo
-            p.saveState()
-            p.setFillColor(colors.HexColor("#000000"))
-            p.setFillAlpha(0.35)
-            p.roundRect(text_x - 3, content_y + content_h - 88, avail_w + 8, 66, 4, fill=1, stroke=0)
-            p.restoreState()
-
             # Name (11pt bold)
             label = f"{j.nombre} {j.apellido}"
             while p.stringWidth(label, name_font, 11) > avail_w and len(label) > 3:
@@ -1809,7 +1802,7 @@ def reporte_credenciales_pdf(request):
             outlined_text(text_x, content_y + content_h - 30, label, name_font, 11)
 
             # Category (9pt)
-            outlined_text(text_x, content_y + content_h - 46, cat.nombre, data_font, 9)
+            outlined_text(text_x, content_y + content_h - 46, f"Categoría: {cat.nombre}", data_font, 9)
 
             # Position (9pt)
             pos_map = dict(Jugador.POSICIONES)
