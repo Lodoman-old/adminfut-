@@ -30,10 +30,7 @@ def draw_header(p, width, height, extra_line=""):
         if os.path.exists(local_path):
             logo_src = local_path
         else:
-            try:
-                logo_src = cfg.logo.url
-            except Exception:
-                pass
+            logo_src = _imagen_pdf(cfg.logo)
     if logo_src:
         try:
             p.drawImage(logo_src, 30, y - 25, width=50, height=50, preserveAspectRatio=True)
@@ -1543,6 +1540,34 @@ def reporte_suscriptores_pdf(request):
     return response
 
 
+def _imagen_pdf(filefield, timeout=15):
+    """Descarga una imagen (FileField) y devuelve un ImageReader para ReportLab.
+
+    Usa la URL del storage (con fallback entre nubes de Cloudinary). Devuelve
+    None si no hay imagen o falla la descarga.
+    """
+    try:
+        url = filefield.url
+    except Exception:
+        return None
+    if not url:
+        return None
+    import urllib.request
+
+    from reportlab.lib.utils import ImageReader
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; AdminFut)"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = r.read()
+        if not data:
+            return None
+        buf = BytesIO(data)
+        buf.seek(0)
+        return ImageReader(buf)
+    except Exception:
+        return None
+
+
 def reporte_credenciales(request):
     if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("credenciales_ver", False):
         messages.error(request, "No tienes permiso para generar credenciales.")
@@ -1654,11 +1679,9 @@ def reporte_credenciales_pdf(request):
             clip = p.beginPath()
             clip.roundRect(x, y, card_w, card_h, 6)
             p.clipPath(clip, stroke=0, fill=0)
-            if cat.fondo_credencial:
-                try:
-                    p.drawImage(cat.fondo_credencial.url, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
-                except Exception:
-                    pass
+            fondo_buf = _imagen_pdf(cat.fondo_credencial) if cat.fondo_credencial else None
+            if fondo_buf:
+                p.drawImage(fondo_buf, x, y, width=card_w, height=card_h, preserveAspectRatio=False)
             else:
                 draw_soccer_bg(x, y, card_w, card_h)
             p.restoreState()
@@ -1712,12 +1735,13 @@ def reporte_credenciales_pdf(request):
                     p.drawCentredString(bar_center_x, bar_text_y - 4, line2)
 
             # League logo on the left side of the bar, bigger
-            if cfg.logo:
+            logo_buf = _imagen_pdf(cfg.logo) if cfg.logo else None
+            if logo_buf:
                 try:
                     logo_size = 44
                     logo_x = x + 2
                     logo_y = y + card_h - logo_size
-                    p.drawImage(cfg.logo.url, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(logo_buf, logo_x, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
                 except Exception:
                     pass
 
@@ -1735,13 +1759,14 @@ def reporte_credenciales_pdf(request):
             p.circle(cx, cy, cr + 1, fill=1, stroke=1)
 
             initials = f"{j.nombre[0]}{j.apellido[0]}" if j.nombre and j.apellido else "?"
-            if j.foto:
+            foto_buf = _imagen_pdf(j.foto) if j.foto else None
+            if foto_buf:
                 try:
                     p.saveState()
                     clip_photo = p.beginPath()
                     clip_photo.circle(cx, cy, cr)
                     p.clipPath(clip_photo, stroke=0, fill=0)
-                    p.drawImage(j.foto.url, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
+                    p.drawImage(foto_buf, photo_x, photo_y, width=photo_size, height=photo_size, preserveAspectRatio=True, mask="auto")
                     p.restoreState()
                 except Exception:
                     p.setFillColor(colors.HexColor("#ddd"))
@@ -1757,9 +1782,9 @@ def reporte_credenciales_pdf(request):
                 p.drawCentredString(cx, cy - 7, initials)
 
             # Helper to draw text with outline (shadow method, compatible with all ReportLab versions)
-            def outlined_text(x, y, text, font_name, font_size, outline_color=colors.HexColor("#222222"), fill_color=colors.white):
+            def outlined_text(x, y, text, font_name, font_size, outline_color=colors.HexColor("#000000"), fill_color=colors.white):
                 p.setFillColor(outline_color)
-                for dx, dy in [(-0.6, -0.6), (-0.6, 0.6), (0.6, -0.6), (0.6, 0.6)]:
+                for dx, dy in [(-0.8, -0.8), (-0.8, 0), (0.8, 0), (-0.8, 0.8), (0, 0.8), (0.8, 0.8), (0.8, -0.8), (0, -0.8)]:
                     p.setFont(font_name, font_size)
                     p.drawString(x + dx, y + dy, text)
                 p.setFillColor(fill_color)
@@ -1769,6 +1794,13 @@ def reporte_credenciales_pdf(request):
             # Player info (right of photo)
             text_x = x + 86
             avail_w = 110
+
+            # Panel semitransparente para que el texto se lea sobre cualquier fondo
+            p.saveState()
+            p.setFillColor(colors.HexColor("#000000"))
+            p.setFillAlpha(0.35)
+            p.roundRect(text_x - 3, content_y + content_h - 88, avail_w + 8, 66, 4, fill=1, stroke=0)
+            p.restoreState()
 
             # Name (11pt bold)
             label = f"{j.nombre} {j.apellido}"
@@ -1792,9 +1824,10 @@ def reporte_credenciales_pdf(request):
             tl_y = y + 4
             team_logo_size = 30
             logo_drawn = False
-            if j.equipo.logo:
+            eq_logo_buf = _imagen_pdf(j.equipo.logo) if j.equipo.logo else None
+            if eq_logo_buf:
                 try:
-                    p.drawImage(j.equipo.logo.url, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(eq_logo_buf, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
                     logo_drawn = True
                 except Exception:
                     pass
