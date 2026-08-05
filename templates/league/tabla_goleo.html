@@ -123,7 +123,7 @@
             <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
             {% endif %}
             <div class="jersey-mini" style="background:#333">
-                {{ g.jugador__dorsal|default:'?' }}
+                {{ g.jugador__dorsal|default:'-' }}
             </div>
             <div class="fw-bold" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
             <small class="text-white-50">{{ g.equipo__nombre }}</small>

@@ -485,7 +485,7 @@ body {
                   </div>
                   {% endif %}
                   <div class="jersey" style="background: #333; color: white;">
-                    {{ g.jugador__dorsal|default:'?' }}
+                    {{ g.jugador__dorsal|default:'-' }}
                   </div>
                   <small class="text-white-50">{{ g.equipo__nombre }}</small>
                   <div class="fw-bold mt-1" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
@@ -515,7 +515,7 @@ body {
                   </div>
                   {% endif %}
                   <div class="jersey" style="background: #333; color: white;">
-                    {{ g.jugador__dorsal|default:'?' }}
+                    {{ g.jugador__dorsal|default:'-' }}
                   </div>
                   <small class="text-white-50">{{ g.equipo__nombre }}</small>
                   <div class="fw-bold mt-1" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
@@ -557,7 +557,7 @@ body {
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
               <div class="jersey" style="--jersey-color: {{ t.equipo__color|default:'#333' }}; background: {{ t.equipo__color|default:'#333' }}; color: white;">
-                {{ t.jugador__dorsal|default:'?' }}
+                {{ t.jugador__dorsal|default:'-' }}
               </div>
               <small class="text-white-50">{{ t.equipo__nombre }}</small>
               <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>
@@ -591,7 +591,7 @@ body {
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
               <div class="jersey" style="--jersey-color: {{ t.equipo__color|default:'#333' }}; background: {{ t.equipo__color|default:'#333' }}; color: white;">
-                {{ t.jugador__dorsal|default:'?' }}
+                {{ t.jugador__dorsal|default:'-' }}
               </div>
               <small class="text-white-50">{{ t.equipo__nombre }}</small>
               <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador__nombre }} {{ t.jugador__apellido }}</div>

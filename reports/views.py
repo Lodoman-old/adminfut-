@@ -1858,7 +1858,7 @@ def reporte_credenciales_pdf(request):
             # Number centered in body
             p.setFillColor(colors.white)
             p.setFont(name_font, 11)
-            dorsal_str = str(j.dorsal) if j.dorsal is not None else "?"
+            dorsal_str = str(j.dorsal) if j.dorsal is not None else "-"
             p.drawCentredString(jersey_cx, jersey_cy - 4, dorsal_str)
 
         p.showPage()
