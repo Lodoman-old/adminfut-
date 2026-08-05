@@ -1591,6 +1591,7 @@ def reporte_credenciales(request):
         "cat_id": int(cat_id) if cat_id else None,
         "equipo_id": int(equipo_id) if equipo_id else None,
         "jugadores": jugadores,
+        "mostrar_logo": request.GET.get("logo", "1") != "0",
     })
 
 
@@ -1600,6 +1601,7 @@ def reporte_credenciales_pdf(request):
 
     jugadores_ids = request.GET.get("jugadores")
     equipo_id = request.GET.get("equipo")
+    mostrar_logo = request.GET.get("logo", "1") != "0"
 
     if jugadores_ids:
         ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
@@ -1822,9 +1824,9 @@ def reporte_credenciales_pdf(request):
             line_h = name_size * 1.15
             name_cx = text_x + avail_w / 2
             for k, ln in enumerate(name_lines):
-                y = name_y + (len(name_lines) - 1 - k) * line_h
+                ly = name_y + (len(name_lines) - 1 - k) * line_h
                 ln_w = p.stringWidth(ln, name_font, name_size)
-                outlined_text(name_cx - ln_w / 2, y, ln, name_font, name_size)
+                outlined_text(name_cx - ln_w / 2, ly, ln, name_font, name_size)
 
             # Category (9pt)
             outlined_text(text_x, content_y + content_h - 46, f"Categoría: {cat.nombre}", data_font, 9)
@@ -1837,50 +1839,52 @@ def reporte_credenciales_pdf(request):
             curp_text = j.curp if j.curp else "S/C"
             outlined_text(text_x, content_y + content_h - 78, f"CURP: {curp_text}", data_font, 9)
 
-            # Team logo at bottom-left corner
-            tl_x = x + 4
-            tl_y = y + 4
-            team_logo_size = 30
-            logo_drawn = False
-            eq_logo_buf = _imagen_pdf(j.equipo.logo) if j.equipo.logo else None
-            if eq_logo_buf:
-                try:
-                    p.drawImage(eq_logo_buf, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
-                    logo_drawn = True
-                except Exception:
-                    pass
-            if not logo_drawn:
-                # Escudo generico de relleno para saber donde va el logo del equipo
-                lcx = tl_x + team_logo_size / 2
-                lcy = tl_y + team_logo_size / 2
-                p.setFillColor(colors.HexColor("#d7d7d7"))
-                p.setStrokeColor(colors.HexColor("#9a9a9a"))
-                p.setLineWidth(0.6)
-                p.circle(lcx, lcy, team_logo_size / 2 - 1, fill=1, stroke=1)
-                r = team_logo_size * 0.32
-                pts = []
-                for i in range(10):
-                    rad = r if i % 2 == 0 else r * 0.45
-                    ang = -math.pi / 2 + i * math.pi / 5
-                    pts.append((lcx + rad * math.cos(ang), lcy + rad * math.sin(ang)))
-                star = p.beginPath()
-                star.moveTo(*pts[0])
-                for pt in pts[1:]:
-                    star.lineTo(*pt)
-                star.close()
-                p.setFillColor(colors.HexColor("#777777"))
-                p.setStrokeColor(colors.HexColor("#9a9a9a"))
-                p.drawPath(star, fill=1, stroke=1)
-                logo_drawn = True
-            team_name_x = tl_x + (team_logo_size + 5 if logo_drawn else 0)
-            outlined_text(team_name_x, tl_y + 5, j.equipo.nombre, name_font, 11)
+            # Team name at bottom-left corner
+            team_name_x = x + 4
+            outlined_text(team_name_x, y + 9, j.equipo.nombre, name_font, 11)
+
+            # Team logo at top-right corner, just below the green bar
+            if mostrar_logo:
+                team_logo_size = 30
+                tl_x = x + card_w - 4 - team_logo_size
+                tl_y = y + card_h - bar_h - team_logo_size - 4
+                logo_drawn = False
+                eq_logo_buf = _imagen_pdf(j.equipo.logo) if j.equipo.logo else None
+                if eq_logo_buf:
+                    try:
+                        p.drawImage(eq_logo_buf, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
+                        logo_drawn = True
+                    except Exception:
+                        pass
+                if not logo_drawn:
+                    # Escudo generico de relleno para saber donde va el logo del equipo
+                    lcx = tl_x + team_logo_size / 2
+                    lcy = tl_y + team_logo_size / 2
+                    p.setFillColor(colors.HexColor("#d7d7d7"))
+                    p.setStrokeColor(colors.HexColor("#9a9a9a"))
+                    p.setLineWidth(0.6)
+                    p.circle(lcx, lcy, team_logo_size / 2 - 1, fill=1, stroke=1)
+                    r = team_logo_size * 0.32
+                    pts = []
+                    for i in range(10):
+                        rad = r if i % 2 == 0 else r * 0.45
+                        ang = -math.pi / 2 + i * math.pi / 5
+                        pts.append((lcx + rad * math.cos(ang), lcy + rad * math.sin(ang)))
+                    star = p.beginPath()
+                    star.moveTo(*pts[0])
+                    for pt in pts[1:]:
+                        star.lineTo(*pt)
+                    star.close()
+                    p.setFillColor(colors.HexColor("#777777"))
+                    p.setStrokeColor(colors.HexColor("#9a9a9a"))
+                    p.drawPath(star, fill=1, stroke=1)
 
             # Dorsal jersey badge (replicating dashboard CSS jersey shape)
             jersey_w = 36
             jersey_body_h = 30
             jersey_tail = 7
             jersey_x = x + card_w - 12 - jersey_w
-            jersey_y = tl_y  # bottom of the tail
+            jersey_y = y + 4  # bottom of the tail
             jersey_body_y = jersey_y + jersey_tail
             jersey_top = jersey_body_y + jersey_body_h
             jersey_cx = jersey_x + jersey_w / 2

@@ -21,11 +21,17 @@
                     {% for e in equipos %}<option value="{{ e.id }}" {% if equipo_id == e.id %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
                 </select>
             </div>
+            <div class="col-12">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="idLogo" name="logo" value="1" {% if mostrar_logo %}checked{% endif %}>
+                    <label class="form-check-label" for="idLogo">Mostrar logo del equipo en la credencial</label>
+                </div>
+            </div>
             <div class="col-12 d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Consultar</button>
                 <a href="{% url 'reporte_credenciales' %}" class="btn btn-secondary">Limpiar filtros</a>
                 {% if equipo_id and jugadores %}
-                <a href="{% url 'reporte_credenciales_pdf' %}?equipo={{ equipo_id }}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF (todos)</a>
+                <a href="{% url 'reporte_credenciales_pdf' %}?equipo={{ equipo_id }}&logo={% if mostrar_logo %}1{% else %}0{% endif %}" class="btn btn-danger" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF (todos)</a>
                 {% endif %}
                 <button type="button" id="btnSelectedPdf" class="btn btn-outline-danger" disabled onclick="generateSelectedPdf()"><i class="bi bi-filetype-pdf"></i> PDF seleccionados <span id="selectedCount">0</span></button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">Limpiar selección</button>
@@ -113,7 +119,8 @@ function updateSelectedBtn() {
 function generateSelectedPdf() {
     if (selected.size === 0) return;
     const ids = Array.from(selected).join(',');
-    window.open("{% url 'reporte_credenciales_pdf' %}?jugadores=" + ids, '_blank');
+    const logo = document.getElementById('idLogo').checked ? '1' : '0';
+    window.open("{% url 'reporte_credenciales_pdf' %}?jugadores=" + ids + "&logo=" + logo, '_blank');
 }
 
 function clearSelection() {
