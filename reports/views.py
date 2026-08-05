@@ -1845,7 +1845,7 @@ def reporte_credenciales_pdf(request):
 
             # Team logo at top-right corner, just below the green bar
             if mostrar_logo:
-                team_logo_size = 30
+                team_logo_size = 36
                 tl_x = x + card_w - 4 - team_logo_size
                 tl_y = y + card_h - bar_h - team_logo_size - 4
                 logo_drawn = False
@@ -1879,37 +1879,26 @@ def reporte_credenciales_pdf(request):
                     p.setStrokeColor(colors.HexColor("#9a9a9a"))
                     p.drawPath(star, fill=1, stroke=1)
 
-            # Dorsal jersey badge (replicating dashboard CSS jersey shape)
-            jersey_w = 32
-            jersey_body_h = 24
-            jersey_tail = 5
+            # Dorsal badge (rectangular)
+            jersey_w = 28
+            jersey_body_h = 20
             jersey_x = x + card_w - 12 - jersey_w
-            jersey_y = y + 4  # bottom of the tail
-            jersey_body_y = jersey_y + jersey_tail
-            jersey_top = jersey_body_y + jersey_body_h
+            jersey_y = y + 4
             jersey_cx = jersey_x + jersey_w / 2
-            jersey_cy = jersey_body_y + jersey_body_h / 2
+            jersey_cy = jersey_y + jersey_body_h / 2
 
-            # Tail triangle (the V-shaped bottom of the jersey)
+            # Badge body (rounded rectangle)
             p.setFillColor(colors.HexColor("#222222"))
-            tail = p.beginPath()
-            tail.moveTo(jersey_cx, jersey_y)
-            tail.lineTo(jersey_x + jersey_w, jersey_body_y)
-            tail.lineTo(jersey_x, jersey_body_y)
-            tail.close()
-            p.drawPath(tail, fill=1, stroke=0)
-
-            # Jersey body (rectangle with rounded top corners)
-            p.roundRect(jersey_x, jersey_body_y, jersey_w, jersey_body_h, 5, fill=1, stroke=0)
+            p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=1, stroke=0)
 
             # Thin white outline around the body
             p.setStrokeColor(colors.HexColor("#cccccc"))
             p.setLineWidth(0.5)
-            p.roundRect(jersey_x, jersey_body_y, jersey_w, jersey_body_h, 5, fill=0, stroke=1)
+            p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=0, stroke=1)
 
             # Number centered in body
             p.setFillColor(colors.white)
-            p.setFont(name_font, 10)
+            p.setFont(name_font, 9)
             dorsal_str = str(j.dorsal) if j.dorsal is not None else "-"
             p.drawCentredString(jersey_cx, jersey_cy - 3, dorsal_str)
 
