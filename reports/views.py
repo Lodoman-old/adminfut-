@@ -1835,9 +1835,10 @@ def reporte_credenciales_pdf(request):
             pos_map = dict(Jugador.POSICIONES)
             outlined_text(text_x, content_y + content_h - 72, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 9)
 
-            # CURP (9pt)
+            # Documento (9pt)
+            tipo_label = {"CURP": "CURP", "PAS": "PASAPORTE", "INM": "INM", "OTR": "DOC"}.get(j.tipo_documento, "CURP")
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 88, f"CURP: {curp_text}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 88, f"{tipo_label}: {curp_text}", data_font, 9)
 
             # Team name at bottom-left corner
             team_name_x = x + 4

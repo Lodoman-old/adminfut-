@@ -29,7 +29,7 @@ class EquipoAdmin(admin.ModelAdmin):
 
 @admin.register(Jugador)
 class JugadorAdmin(admin.ModelAdmin):
-    list_display = ["nombre", "apellido", "curp", "posicion", "equipo", "dorsal", "suspendido_pago", "equipos_extra"]
+    list_display = ["nombre", "apellido", "tipo_documento", "curp", "posicion", "equipo", "dorsal", "suspendido_pago", "equipos_extra"]
     list_filter = ["equipo__categoria", "posicion", "suspendido_pago"]
     search_fields = ["curp", "nombre", "apellido"]
 

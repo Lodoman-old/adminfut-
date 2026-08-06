@@ -59,6 +59,26 @@ def publicar_en_facebook(mensaje, request=None):
     return True
 
 
+def publicar_post_prueba(page_id, sys_token, request=None):
+    """Publica un post de prueba REAL en la página de Facebook con la config que está en pantalla."""
+    if not page_id or not sys_token:
+        return False, "Facebook no configurado. Ingresa el ID de página y el Access Token."
+    page_token = _get_page_token(page_id, sys_token, request)
+    if not page_token:
+        return False, "No se pudo obtener el Page Token."
+    url = f"{FACEBOOK_GRAPH_URL}/{page_id}/feed"
+    mensaje = ("Post de prueba de AdminFut. Si ves este mensaje en tu página, "
+               "la publicación en Facebook funciona correctamente.")
+    resp = requests.post(url, data={"message": mensaje, "access_token": page_token}, timeout=15)
+    if resp.status_code != 200:
+        err = resp.json().get("error", {}).get("message", str(resp.text))
+        logger.error("Error en post de prueba de Facebook: %s", err)
+        return False, f"Error al publicar: {err}"
+    post_id = resp.json().get("id", "")
+    logger.info("Post de prueba publicado en Facebook: %s", post_id)
+    return True, f"Post de prueba publicado (ID: {post_id})"
+
+
 def publicar_varias_imagenes_en_facebook(imagenes_captions, request=None, mensaje=""):
     """Publica multiples imagenes en un solo post de Facebook.
 

@@ -21,16 +21,23 @@
             {% for e in equipos %}<option value="{{ e.id }}" {% if request.GET.equipo == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
         </select>
     </div>
-    <div class="col-auto"><input type="text" class="form-control" name="q" placeholder="Buscar nombre o CURP..." value="{{ request.GET.q }}" oninput="filtrarJugadores(this)"></div>
+    <div class="col-auto"><input type="text" class="form-control" name="q" placeholder="Buscar nombre o documento..." value="{{ request.GET.q }}" oninput="filtrarJugadores(this)"></div>
 </form>
 <div class="table-responsive">
 <table class="table table-striped table-hover" id="tabla-jugadores">
-    <thead><tr><th>Nombre</th><th>CURP</th><th>Edad</th><th>Posición</th><th>Equipo</th><th>Dorsal</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <thead><tr><th>Nombre</th><th>Documento</th><th>Edad</th><th>Posición</th><th>Equipo</th><th>Dorsal</th><th>Activo</th><th>Acciones</th></tr></thead>
     <tbody>
         {% for j in jugadores %}
         <tr class="fila-jugador">
             <td class="nombre-jugador">{{ j.nombre }} {{ j.apellido }}{% if j.suspendido_pago %} <span class="badge bg-danger" title="Suspendido por multa">S</span>{% endif %}</td>
-            <td class="curp-jugador"><code style="font-size:.8em">{{ j.curp|default:"-" }}</code></td>
+            <td class="curp-jugador">
+                {% if j.curp %}
+                <code style="font-size:.8em">{{ j.curp }}</code>
+                {% if j.tipo_documento and j.tipo_documento != "CURP" %}
+                <span class="badge bg-secondary" style="font-size:.65em">{{ j.get_tipo_documento_display }}</span>
+                {% endif %}
+                {% else %}-{% endif %}
+            </td>
             <td>{% if j.fecha_nacimiento %}{{ j.edad }} años{% else %}-{% endif %}</td>
             <td>{{ j.get_posicion_display }}</td>
             <td>
@@ -56,10 +63,10 @@
             <td>
                 {% with cat_id=j.equipo.categoria_id %}
                 {% if user|tiene_permiso:"jugador_editar" %}
-                {% if cat_id in categorias_periodo_abierto or user.is_superuser %}
+                {% if cat_id in categorias_editables or user.is_superuser %}
                 <a href="{% url 'jugador_update' j.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
                 {% else %}
-                <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Periodo de altas cerrado"><i class="bi bi-pencil"></i></a>
+                <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Temporada en curso sin período de altas activo"><i class="bi bi-pencil"></i></a>
                 {% endif %}
                 {% endif %}
                 {% if user|tiene_permiso:"jugador_eliminar" %}

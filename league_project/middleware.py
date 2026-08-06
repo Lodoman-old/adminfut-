@@ -210,6 +210,8 @@ PERMISO_POR_URL = {
     # Configuración
     'configuracion_liga': 'gestion_configuracion',
     'test_database_connection': 'gestion_configuracion',
+    'test_email_connection': 'gestion_configuracion',
+    'test_facebook_post': 'gestion_configuracion',
     'usuario_list': 'gestion_usuarios',
     'usuario_create': 'gestion_usuarios',
     'usuario_update': 'gestion_usuarios',

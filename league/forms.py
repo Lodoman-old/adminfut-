@@ -121,10 +121,11 @@ class JugadorForm(forms.ModelForm):
 
     class Meta:
         model = Jugador
-        fields = ["nombre", "apellido", "curp", "foto", "fecha_nacimiento", "posicion", "equipo", "dorsal", "activo"]
+        fields = ["nombre", "apellido", "tipo_documento", "curp", "foto", "fecha_nacimiento", "posicion", "equipo", "dorsal", "activo"]
         widgets = {
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "apellido": forms.TextInput(attrs={"class": "form-control"}),
+            "tipo_documento": forms.Select(attrs={"class": "form-select", "id": "id_tipo_documento"}),
             "curp": forms.TextInput(attrs={"class": "form-control", "maxlength": 18, "placeholder": "Ej: AXXX000101HDFXXX00"}),
             "foto": forms.FileInput(attrs={"class": "form-control"}),
             "fecha_nacimiento": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
@@ -348,34 +349,38 @@ class JugadorForm(forms.ModelForm):
         cleaned = super().clean()
         self._age_violations = []
 
-        # CURP: validar formato y coherencia con datos del jugador
+        # Documento: validar formato y coherencia con datos del jugador solo si es CURP
         curp = cleaned.get("curp")
+        tipo_doc = cleaned.get("tipo_documento", "CURP")
         if curp:
-            errs_estructura = self._errores_estructura_curp(curp)
-            if errs_estructura:
-                self.add_error("curp", "; ".join(errs_estructura))
-            else:
-                curp = curp.upper()
-                cleaned["curp"] = curp
-                nombre_ok = cleaned.get("nombre", "").strip()
-                apellido_ok = cleaned.get("apellido", "").strip()
-                fecha_ok = cleaned.get("fecha_nacimiento")
-                faltan = []
-                if not nombre_ok:
-                    faltan.append("Nombre")
-                if not apellido_ok:
-                    faltan.append("Apellido(s)")
-                if not fecha_ok:
-                    faltan.append("Fecha de nacimiento")
-                if faltan:
-                    self.add_error("curp",
-                        f"Para validar el CURP debe capturar primero: {', '.join(faltan)}.")
+            curp = curp.strip().upper()
+            if tipo_doc == "CURP":
+                errs_estructura = self._errores_estructura_curp(curp)
+                if errs_estructura:
+                    self.add_error("curp", "; ".join(errs_estructura))
                 else:
-                    errs = self._validar_curp_contra_datos(curp, nombre_ok, apellido_ok, fecha_ok)
-                    if errs:
-                        self.add_error("curp", "El CURP no coincide con los datos capturados: " + "; ".join(errs))
+                    cleaned["curp"] = curp
+                    nombre_ok = cleaned.get("nombre", "").strip()
+                    apellido_ok = cleaned.get("apellido", "").strip()
+                    fecha_ok = cleaned.get("fecha_nacimiento")
+                    faltan = []
+                    if not nombre_ok:
+                        faltan.append("Nombre")
+                    if not apellido_ok:
+                        faltan.append("Apellido(s)")
+                    if not fecha_ok:
+                        faltan.append("Fecha de nacimiento")
+                    if faltan:
+                        self.add_error("curp",
+                            f"Para validar el CURP debe capturar primero: {', '.join(faltan)}.")
+                    else:
+                        errs = self._validar_curp_contra_datos(curp, nombre_ok, apellido_ok, fecha_ok)
+                        if errs:
+                            self.add_error("curp", "El CURP no coincide con los datos capturados: " + "; ".join(errs))
+            else:
+                cleaned["curp"] = curp
 
-        # CURP obligatoria según las categorías (principal + secundarias)
+        # Documento de identidad obligatorio según las categorías (principal + secundarias)
         if not curp:
             cat_ids_req = set()
             equipo_prim = cleaned.get("equipo")
@@ -395,7 +400,7 @@ class JugadorForm(forms.ModelForm):
                 cats_oblig = list(Categoria.objects.filter(id__in=cat_ids_req, curp_obligatoria=True))
                 if cats_oblig:
                     self.add_error("curp",
-                        "El CURP es obligatorio para: " + ", ".join(c.nombre for c in cats_oblig) + ".")
+                        "El documento de identidad es obligatorio para: " + ", ".join(c.nombre for c in cats_oblig) + ".")
 
         # Detect if fecha_nacimiento changed and check age violations
         if self.instance and self.instance.pk:

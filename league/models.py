@@ -140,11 +140,20 @@ class Jugador(models.Model):
         ("MED", "Mediocampista"),
         ("DEL", "Delantero"),
     ]
+    TIPOS_DOCUMENTO = [
+        ("CURP", "CURP"),
+        ("PAS", "Pasaporte"),
+        ("INM", "Cédula INM / Residencia"),
+        ("OTR", "Otro"),
+    ]
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
+    tipo_documento = models.CharField(max_length=4, choices=TIPOS_DOCUMENTO, default="CURP",
+        verbose_name="Tipo de documento",
+        help_text="CURP para mexicanos. Para extranjeros: Pasaporte o Cédula INM.")
     curp = models.CharField(max_length=18, unique=True, blank=True, null=True,
-        verbose_name="CURP",
-        help_text="Clave Única de Registro de Población (18 caracteres)")
+        verbose_name="Número de documento",
+        help_text="CURP (18 caracteres) o número de pasaporte/INM según el tipo.")
     foto = models.ImageField(upload_to="jugadores/", blank=True, null=True)
     fecha_nacimiento = models.DateField(blank=True, null=True)
     posicion = models.CharField(max_length=3, choices=POSICIONES)

@@ -309,12 +309,16 @@ class JugadorListView(ListView):
             q_equipos = q_equipos.filter(categoria_id=cat_id)
         ctx["equipos"] = q_equipos
         ctx["categorias"] = Categoria.objects.filter(activo=True)
-        # Categorías con periodo de altas activo (para editar)
-        cats_con_altas = set()
-        for t in Temporada.objects.filter(activa=True, iniciada=True):
-            if t.periodo_altas_activo():
-                cats_con_altas.add(t.categoria_id)
-        ctx["categorias_periodo_abierto"] = cats_con_altas
+        # Categorías con edición de jugadores permitida:
+        # - sin temporada activa iniciada (sin torneo abierto) -> permitido
+        # - o con temporada activa iniciada y período de altas activo -> permitido
+        activas_iniciadas = list(Temporada.objects.filter(activa=True, iniciada=True))
+        categorias_editables = set(Categoria.objects.filter(activo=True).values_list("id", flat=True))
+        for cat_id in list(categorias_editables):
+            temps_cat = [t for t in activas_iniciadas if t.categoria_id == cat_id]
+            if temps_cat and not any(t.periodo_altas_activo() for t in temps_cat):
+                categorias_editables.discard(cat_id)
+        ctx["categorias_editables"] = categorias_editables
         # Categorías con temporada iniciada (NO se puede eliminar)
         cats_iniciadas = set()
         for t in Temporada.objects.filter(iniciada=True, finalizada=False):
@@ -917,6 +921,74 @@ def test_database_connection(request):
         return JsonResponse({"ok": True, "version": version})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)})
+
+
+@login_required
+def test_email_connection(request):
+    """Envía un correo de prueba con la configuración SMTP que está en pantalla (y guardada en la BD)."""
+    if not request.user.is_superuser:
+        return JsonResponse({"ok": False, "error": "Solo superusuarios"}, status=403)
+    provider = request.POST.get("email_provider", "google")
+    target = (request.POST.get("correo_prueba") or "").strip()
+    if not target:
+        return JsonResponse({"ok": False, "error": "Escribe un correo para recibir la prueba."})
+    if provider == "sendgrid":
+        smtp = {
+            "host": request.POST.get("email_sendgrid_host", "smtp.sendgrid.net") or "smtp.sendgrid.net",
+            "port": int(request.POST.get("email_sendgrid_port") or 587),
+            "user": request.POST.get("email_sendgrid_user", "apikey") or "apikey",
+            "password": request.POST.get("email_sendgrid_password", ""),
+            "use_tls": request.POST.get("email_sendgrid_use_tls") == "on",
+            "from_email": request.POST.get("email_from", ""),
+        }
+    else:
+        smtp = {
+            "host": request.POST.get("email_smtp_host", ""),
+            "port": int(request.POST.get("email_smtp_port") or 587),
+            "user": request.POST.get("email_smtp_user", ""),
+            "password": request.POST.get("email_smtp_password", ""),
+            "use_tls": request.POST.get("email_use_tls") == "on",
+            "from_email": request.POST.get("email_from", ""),
+        }
+    if not smtp["host"] or not smtp["password"]:
+        return JsonResponse({"ok": False, "error": "Faltan datos SMTP del proveedor activo (servidor y contraseña)."})
+    subject = "Prueba de correo - AdminFut"
+    html = f"""\
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #2d6b2e;border-radius:8px;overflow:hidden">
+  <div style="background:#2d6b2e;color:#fff;padding:14px 20px">
+    <h2 style="margin:0">LIGA DE FUTBOL JUVENINO ROSAS</h2>
+  </div>
+  <div style="padding:20px;color:#333">
+    <p>Hola, este es un <b>correo de prueba</b> enviado desde la configuración de AdminFut.</p>
+    <p>Proveedor: <b>{provider}</b> · Servidor: <b>{smtp['host']}:{smtp['port']}</b></p>
+    <p>Si ves este mensaje, la configuración de correo funciona correctamente.</p>
+  </div>
+</div>"""
+    text = "Correo de prueba de AdminFut. La configuracion de correo funciona correctamente."
+    try:
+        if provider == "sendgrid":
+            _enviar_sendgrid_api(smtp, subject, html, text, [target])
+        else:
+            _enviar_smtp(smtp, subject, html, text, [target])
+        return JsonResponse({"ok": True, "message": f"Correo enviado a {target}"})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)})
+
+
+@login_required
+def test_facebook_post(request):
+    """Publica un post de prueba REAL en Facebook con la config que está en pantalla."""
+    if not request.user.is_superuser:
+        return JsonResponse({"ok": False, "error": "Solo superusuarios"}, status=403)
+    page_id = (request.POST.get("facebook_page_id") or "").strip()
+    sys_token = (request.POST.get("facebook_access_token") or "").strip()
+    if not page_id or not sys_token:
+        return JsonResponse({"ok": False, "error": "Ingresa el ID de página y el Access Token."})
+    from .social import publicar_post_prueba
+    ok, msg = publicar_post_prueba(page_id, sys_token, request)
+    if ok:
+        return JsonResponse({"ok": True, "message": msg})
+    return JsonResponse({"ok": False, "error": msg})
 
 
 def suscripcion_email(request):

@@ -27,10 +27,15 @@
                     {% if form.apellido.errors %}<div class="text-danger small">{{ form.apellido.errors }}</div>{% endif %}
                 </div>
                 <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.tipo_documento.label }}</label>
+                    {{ form.tipo_documento }}
+                    {% if form.tipo_documento.errors %}<div class="text-danger small">{{ form.tipo_documento.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.curp.label }}</label>
                     {{ form.curp }}
                     {% if form.curp.errors %}<div class="text-danger small">{{ form.curp.errors }}</div>{% endif %}
-                    <div class="form-text text-muted">Clave Única de Registro de Población (18 caracteres). Evita duplicados.</div>
+                    <div class="form-text text-muted" id="doc-help">CURP (18 caracteres) para mexicanos. Para extranjeros: Pasaporte o Cédula INM. Evita duplicados.</div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.fecha_nacimiento.label }}</label>
@@ -122,6 +127,29 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    var tipoDocSelect = document.getElementById('id_tipo_documento');
+    var curpInput = document.getElementById('id_curp');
+    var docHelp = document.getElementById('doc-help');
+    if (tipoDocSelect && curpInput && docHelp) {
+        function actualizarDocumento() {
+            var t = tipoDocSelect.value;
+            if (t === 'CURP') {
+                curpInput.placeholder = 'Ej: AXXX000101HDFXXX00';
+                docHelp.textContent = 'CURP (18 caracteres). Evita duplicados.';
+            } else if (t === 'PAS') {
+                curpInput.placeholder = 'Número de pasaporte';
+                docHelp.textContent = 'Número de pasaporte del jugador extranjero. Evita duplicados.';
+            } else if (t === 'INM') {
+                curpInput.placeholder = 'Número de cédula INM';
+                docHelp.textContent = 'Número de cédula de residencia (INM). Evita duplicados.';
+            } else {
+                curpInput.placeholder = 'Número de documento';
+                docHelp.textContent = 'Otro documento de identidad. Evita duplicados.';
+            }
+        }
+        tipoDocSelect.addEventListener('change', actualizarDocumento);
+        actualizarDocumento();
+    }
     var equipoSelect = document.getElementById('id_equipo_principal');
     var hiddenField = document.getElementById('id_secondary_data');
     var modalBody = document.getElementById('secondary-categories');

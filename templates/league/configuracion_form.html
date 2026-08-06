@@ -128,6 +128,25 @@
               </div>
             </div>
           </div>
+          <hr>
+          <div class="alert alert-success small py-2">
+            <i class="bi bi-envelope-check"></i>
+            Prueba el envío con la configuración que está en esta pantalla (la misma guardada en la base de datos de producción).
+          </div>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-5">
+              <label class="form-label">Enviar correo de prueba a</label>
+              <input type="email" class="form-control" id="correoPrueba" value="{{ config.email_from|default:request.user.email }}">
+            </div>
+            <div class="col-md-4">
+              <button type="button" class="btn btn-outline-success" id="btnTestEmail" onclick="testEmailConnection()">
+                <i class="bi bi-send"></i> Enviar correo de prueba
+              </button>
+            </div>
+            <div class="col-md-3">
+              <span id="emailTestResult" class="small"></span>
+            </div>
+          </div>
         </div>
         <div class="tab-pane fade" id="ticket" role="tabpanel">
           <div class="row">
@@ -199,6 +218,23 @@
                   <li>Genera un Page Access Token con permisos <code>pages_manage_posts</code> y <code>pages_read_engagement</code></li>
                 </ol>
               </div>
+            </div>
+          </div>
+          <hr>
+          <div class="alert alert-success small py-2">
+            <i class="bi bi-facebook"></i>
+            Prueba la publicación con la configuración que está en esta pantalla (la misma guardada en la base de datos de producción).
+            Se publicará un <strong>post de prueba real</strong> en tu página de Facebook.
+          </div>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-5">
+              <button type="button" class="btn" id="btnTestFacebook" onclick="testFacebookPost()"
+                style="background-color:#1877F2;border-color:#1877F2;color:#fff">
+                <i class="bi bi-facebook"></i> Publicar post de prueba
+              </button>
+            </div>
+            <div class="col-md-7">
+              <span id="facebookTestResult" class="small"></span>
             </div>
           </div>
         </div>
@@ -329,6 +365,52 @@
 {% endblock %}
 {% block scripts %}
 <script>
+function testEmailConnection() {
+  const btn = document.getElementById('btnTestEmail');
+  const result = document.getElementById('emailTestResult');
+  const target = document.getElementById('correoPrueba').value.trim();
+  if (!target) {
+    result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> Escribe un correo para la prueba</span>';
+    return;
+  }
+  btn.disabled = true;
+  result.innerHTML = '<span class="text-muted">Enviando...</span>';
+  const formData = new FormData(document.querySelector('form'));
+  formData.set('correo_prueba', target);
+  formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  fetch('{% url "test_email_connection" %}', {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        result.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> ' + data.message + '</span>';
+      } else {
+        result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Error').substring(0, 140) + '</span>';
+      }
+    })
+    .catch(() => { result.innerHTML = '<span class="text-danger">Error de red</span>'; })
+    .finally(() => { btn.disabled = false; });
+}
+
+function testFacebookPost() {
+  const btn = document.getElementById('btnTestFacebook');
+  const result = document.getElementById('facebookTestResult');
+  btn.disabled = true;
+  result.innerHTML = '<span class="text-muted">Publicando...</span>';
+  const formData = new FormData(document.querySelector('form'));
+  formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  fetch('{% url "test_facebook_post" %}', {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        result.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> ' + (data.message || 'OK').substring(0, 140) + '</span>';
+      } else {
+        result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> ' + (data.error || 'Error').substring(0, 140) + '</span>';
+      }
+    })
+    .catch(() => { result.innerHTML = '<span class="text-danger">Error de red</span>'; })
+    .finally(() => { btn.disabled = false; });
+}
+
 function testDbConnection() {
   const btn = document.getElementById('btnTestDb');
   const result = document.getElementById('dbTestResult');
