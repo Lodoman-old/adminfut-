@@ -27,14 +27,16 @@
                 <label class="form-label" for="proxima_jornada">¿Cuál es la próxima jornada a jugarse?</label>
                 <input type="number" name="proxima_jornada" id="proxima_jornada" class="form-control" value="1" min="1" style="max-width:140px">
                 <div class="form-text">
-                    Las jornadas anteriores <strong>no se generan</strong> (ya se jugaron).
-                    Se generarán las jornadas desde la indicada en adelante, con las fechas según el inicio de la temporada.
+                    Se generan <strong>todas</strong> las jornadas del rol:
+                    las anteriores a la indicada quedan con <strong>fechas pasadas</strong> (para que captures
+                    su cédula, goles, puntos y castigos), y desde la indicada en adelante se programan
+                    con las <strong>próximas fechas de juego</strong>.
                 </div>
             </div>
             <div class="alert alert-warning small py-2">
                 <i class="bi bi-exclamation-triangle"></i>
-                Los partidos de las jornadas a generar quedarán con <strong>fechas ya transcurridas</strong>.
-                Si alguno no se jugó (retraso, clima u otra circunstancia), puedes reagendarlo después para capturar su cédula.
+                Los partidos de las jornadas anteriores quedarán con fechas ya transcurridas y en estado
+                pendiente. Ábrelos uno por uno, captura su cédula y finalízalos para registrar los resultados.
             </div>
             <div class="text-center mt-3">
                 <button type="submit" class="btn btn-success me-2"><i class="bi bi-play-fill"></i> Generar rol de juegos</button>

@@ -1553,7 +1553,14 @@ def iniciar_temporada(request, pk):
             return redirect("temporada_list")
         temporada.iniciada = True
         temporada.save()
-        messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol generado desde la jornada {jornada}.")
+        if jornada > 1:
+            messages.success(
+                request,
+                f"Temporada '{temporada.nombre}' iniciada. Jornadas 1 a {jornada - 1} generadas con "
+                f"fechas pasadas (captura sus cédulas y finalízalas); desde la jornada {jornada} programadas."
+            )
+        else:
+            messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol de juegos generado.")
         return redirect("temporada_list")
 
     # Si la fecha de inicio es pasada, preguntar si ya estaba iniciada y desde qué jornada
@@ -1671,7 +1678,14 @@ def confirmar_grupos(request, pk):
             return redirect("temporada_list")
         temporada.iniciada = True
         temporada.save()
-        messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol por grupos generado desde la jornada {jornada}.")
+        if jornada > 1:
+            messages.success(
+                request,
+                f"Temporada '{temporada.nombre}' iniciada con rol por grupos. Jornadas 1 a {jornada - 1} "
+                f"con fechas pasadas (captura sus cédulas); desde la jornada {jornada} programadas."
+            )
+        else:
+            messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol por grupos generado.")
         return redirect("temporada_list")
 
     # Si la fecha de inicio es pasada, preguntar si ya estaba iniciada y desde qué jornada

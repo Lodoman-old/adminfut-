@@ -62,22 +62,31 @@ class FixtureDescansoTest(TestCase):
             self.assertEqual([e.id for e in descansan], [e.id for e in self.equipos if e.id not in jugaron])
             self.assertEqual(len(descansan), 1)
 
-    def test_generar_rol_desde_jornada_inicial_respeta_fecha_inicio(self):
+    def test_generar_rol_desde_jornada_inicial_genera_todo(self):
+        from unittest import mock
+
         t = Temporada.objects.create(
             categoria=self.cat, nombre="Temp",
             fecha_inicio=date(2026, 5, 2),  # sábado, hace meses
             tipo_rol="TODOS", vueltas=1,
         )
-        t.generar_rol(jornada_inicial=4)
+        # Hoy = lunes 2026-05-18: el próximo día de juego (SAB) es 2026-05-23
+        with mock.patch("django.utils.timezone.now", return_value=datetime(2026, 5, 18, 12, 0)):
+            t.generar_rol(jornada_inicial=4)
 
         jornadas = list(t.jornadas.order_by("numero"))
-        self.assertEqual(len(jornadas), 5 - 4 + 1)  # solo jornadas 4 y 5
-        self.assertEqual([j.numero for j in jornadas], [4, 5])
+        self.assertEqual(len(jornadas), 5)  # TODAS las jornadas se generan
+        self.assertEqual([j.numero for j in jornadas], [1, 2, 3, 4, 5])
 
-        # Las fechas deben respetar la fecha de inicio (no saltar a hoy)
+        # 1-3 con fechas pasadas desde fecha_inicio; 4-5 desde el próximo día de juego real
         fechas = [Partido.objects.filter(jornada=j).first().fecha_hora.date() for j in jornadas]
-        self.assertEqual(fechas[0], date(2026, 5, 23))  # jornada 4: fecha_inicio + 3 semanas
-        self.assertEqual(fechas[1], date(2026, 5, 30))  # jornada 5: fecha_inicio + 4 semanas
+        self.assertEqual(fechas, [
+            date(2026, 5, 2),
+            date(2026, 5, 9),
+            date(2026, 5, 16),
+            date(2026, 5, 23),
+            date(2026, 5, 30),
+        ])
 
 
 class CedulaInvitadoTest(TestCase):

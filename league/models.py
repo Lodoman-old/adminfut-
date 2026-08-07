@@ -459,11 +459,13 @@ class Temporada(models.Model):
             equipos.insert(1, equipos.pop())
         return fixture
 
-    def _crear_partidos_desde_fixture(self, fixture, horarios_fijos, todas_campos, fecha_base, dias_juego, horarios, idx_start=1, jornada_inicial=1):
-        """Crea jornadas y partidos desde un fixture, retorna el último índice de jornada usado.
+    def _crear_partidos_desde_fixture(self, fixture, horarios_fijos, todas_campos, fecha_base, dias_juego, horarios, idx_start=1, jornada_inicial=1, fecha_base_futura=None):
+        """Crea TODAS las jornadas y partidos desde un fixture, retorna el último índice usado.
 
-        jornada_inicial: las rondas con número de jornada menor a este valor se omiten
-        (ya se jugaron). Solo se crean las jornadas restantes.
+        jornada_inicial: umbral para las fechas. Las jornadas con número menor se
+        generan con fecha_base (fecha de inicio, normalmente pasada) para que el
+        usuario capture cédulas/goles/castigos; desde jornada_inicial en adelante se
+        usan fecha_base_futura (próximo día de juego real).
         """
         from itertools import cycle
         import datetime
@@ -492,20 +494,22 @@ class Temporada(models.Model):
 
         idx = idx_start
         for partidos_ronda in fixture:
-            if idx < jornada_inicial:
-                idx += 1
-                continue
+            base_usada = fecha_base
+            base_idx = 1
+            if fecha_base_futura and idx >= jornada_inicial:
+                base_usada = fecha_base_futura
+                base_idx = jornada_inicial
             jornada = Jornada.objects.create(
                 temporada=self,
                 numero=idx,
                 nombre=f"Jornada {idx}"
             )
 
-            fecha_jornada = fecha_base
+            fecha_jornada = base_usada
             if dias_juego:
                 dias_validos = sorted([mapa_dias[d] for d in dias_juego if d in mapa_dias])
                 if dias_validos:
-                    cursor = fecha_base + datetime.timedelta(weeks=(idx - 1) // len(dias_validos))
+                    cursor = base_usada + datetime.timedelta(weeks=(idx - base_idx) // len(dias_validos))
                     dia_semana = cursor.weekday()
                     for d in dias_validos:
                         if d >= dia_semana:
@@ -593,12 +597,31 @@ class Temporada(models.Model):
             idx += 1
         return idx
 
-    def generar_rol(self, jornada_inicial=1):
-        """Genera jornadas y partidos según tipo_rol y vueltas.
+    def _proxima_fecha_juego(self, fecha=None):
+        """Próximo día de juego (>= max(fecha, hoy)) según los días de juego de la categoría"""
+        import datetime
+        from django.utils import timezone
+        mapa_dias = {"LUN": 0, "MAR": 1, "MIE": 2, "JUE": 3, "VIE": 4, "SAB": 5, "DOM": 6}
+        hoy = timezone.now().date()
+        base = max(fecha, hoy) if fecha else hoy
+        dias_juego = self.categoria.dias_juego or []
+        dias_validos = sorted([mapa_dias[d] for d in dias_juego if d in mapa_dias])
+        if not dias_validos:
+            return base
+        for i in range(8):
+            d = base + datetime.timedelta(days=i)
+            if d.weekday() in dias_validos:
+                return d
+        return base
 
-        jornada_inicial: número de jornada desde el cual generar (útil cuando la
-        temporada ya inició en una fecha pasada y las primeras jornadas ya se jugaron;
-        se generan solo las jornadas restantes respetando la fecha de inicio).
+    def generar_rol(self, jornada_inicial=1):
+        """Genera TODAS las jornadas y partidos según tipo_rol y vueltas.
+
+        jornada_inicial: umbral para las fechas cuando la temporada ya inició en una
+        fecha pasada. Las jornadas anteriores se generan con fechas pasadas (desde
+        fecha_inicio) para que el usuario capture cédulas/goles/castigos; desde
+        jornada_inicial en adelante se programan desde el próximo día de juego real.
+        Con jornada_inicial=1 todo se programa desde fecha_inicio (o desde hoy si ya pasó).
         """
         import datetime
         from .models import HorarioFijoEquipo
@@ -609,6 +632,7 @@ class Temporada(models.Model):
         dias_juego = self.categoria.dias_juego or []
         horarios = self.categoria.horarios or []
         fecha_base = self.fecha_inicio
+        fecha_base_futura = self._proxima_fecha_juego(fecha_base)
         horarios_fijos = {
             hf.equipo_id: hf.horario
             for hf in HorarioFijoEquipo.objects.filter(temporada=self)
@@ -644,6 +668,7 @@ class Temporada(models.Model):
                 combined_fixture, horarios_fijos, todas_campos,
                 fecha_base, dias_juego, horarios, idx_start=1,
                 jornada_inicial=jornada_inicial,
+                fecha_base_futura=fecha_base_futura,
             )
         else:
             equipos = self.equipos_habilitados()
@@ -656,6 +681,7 @@ class Temporada(models.Model):
                     fixture, horarios_fijos, todas_campos,
                     fecha_base, dias_juego, horarios, idx,
                     jornada_inicial=jornada_inicial,
+                    fecha_base_futura=fecha_base_futura,
                 )
 
         self.actualizar_fecha_fin()
