@@ -1515,6 +1515,15 @@ def enviar_estadisticas(request, temporada_id):
     return redirect("temporada_list")
 
 
+def _parse_proxima_jornada(raw):
+    """Convierte la jornada indicada a int >= 1 (default 1)."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = 1
+    return n if n >= 1 else 1
+
+
 def iniciar_temporada(request, pk):
     temporada = get_object_or_404(Temporada, pk=pk)
     if temporada.iniciada:
@@ -1534,6 +1543,26 @@ def iniciar_temporada(request, pk):
         cantidades = {k: len(v) for k, v in grupos.items()}
         messages.info(request, f"Grupos asignados: {cantidades}. Ajusta los equipos si es necesario antes de confirmar.")
         return redirect("asignar_grupos", pk=temporada.pk)
+
+    if request.method == "POST":
+        jornada = _parse_proxima_jornada(request.POST.get("proxima_jornada"))
+        try:
+            temporada.generar_rol(jornada_inicial=jornada)
+        except Exception as e:
+            messages.error(request, f"Error al generar el rol: {e}")
+            return redirect("temporada_list")
+        temporada.iniciada = True
+        temporada.save()
+        messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol generado desde la jornada {jornada}.")
+        return redirect("temporada_list")
+
+    # Si la fecha de inicio es pasada, preguntar si ya estaba iniciada y desde qué jornada
+    if temporada.fecha_inicio < date.today():
+        ctx = {
+            "temporada": temporada,
+            "url_generar": reverse("iniciar_temporada", args=[pk]),
+        }
+        return render(request, "league/iniciar_temporada.html", ctx)
 
     try:
         temporada.generar_rol()
@@ -1632,6 +1661,26 @@ def confirmar_grupos(request, pk):
     if not grupos or all(len(v) < 2 for v in grupos.values()):
         messages.error(request, "Cada grupo debe tener al menos 2 equipos.")
         return redirect("asignar_grupos", pk=temporada.pk)
+
+    if request.method == "POST":
+        jornada = _parse_proxima_jornada(request.POST.get("proxima_jornada"))
+        try:
+            temporada.generar_rol(jornada_inicial=jornada)
+        except Exception as e:
+            messages.error(request, f"Error al generar el rol: {e}")
+            return redirect("temporada_list")
+        temporada.iniciada = True
+        temporada.save()
+        messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol por grupos generado desde la jornada {jornada}.")
+        return redirect("temporada_list")
+
+    # Si la fecha de inicio es pasada, preguntar si ya estaba iniciada y desde qué jornada
+    if temporada.fecha_inicio < date.today():
+        ctx = {
+            "temporada": temporada,
+            "url_generar": reverse("confirmar_grupos", args=[pk]),
+        }
+        return render(request, "league/iniciar_temporada.html", ctx)
 
     try:
         temporada.generar_rol()

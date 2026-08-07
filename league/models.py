@@ -459,8 +459,12 @@ class Temporada(models.Model):
             equipos.insert(1, equipos.pop())
         return fixture
 
-    def _crear_partidos_desde_fixture(self, fixture, horarios_fijos, todas_campos, fecha_base, dias_juego, horarios, idx_start=1):
-        """Crea jornadas y partidos desde un fixture, retorna el último índice de jornada usado"""
+    def _crear_partidos_desde_fixture(self, fixture, horarios_fijos, todas_campos, fecha_base, dias_juego, horarios, idx_start=1, jornada_inicial=1):
+        """Crea jornadas y partidos desde un fixture, retorna el último índice de jornada usado.
+
+        jornada_inicial: las rondas con número de jornada menor a este valor se omiten
+        (ya se jugaron). Solo se crean las jornadas restantes.
+        """
         from itertools import cycle
         import datetime
         from django.utils import timezone
@@ -488,6 +492,9 @@ class Temporada(models.Model):
 
         idx = idx_start
         for partidos_ronda in fixture:
+            if idx < jornada_inicial:
+                idx += 1
+                continue
             jornada = Jornada.objects.create(
                 temporada=self,
                 numero=idx,
@@ -586,8 +593,13 @@ class Temporada(models.Model):
             idx += 1
         return idx
 
-    def generar_rol(self):
-        """Genera jornadas y partidos según tipo_rol y vueltas"""
+    def generar_rol(self, jornada_inicial=1):
+        """Genera jornadas y partidos según tipo_rol y vueltas.
+
+        jornada_inicial: número de jornada desde el cual generar (útil cuando la
+        temporada ya inició en una fecha pasada y las primeras jornadas ya se jugaron;
+        se generan solo las jornadas restantes respetando la fecha de inicio).
+        """
         import datetime
         from .models import HorarioFijoEquipo
         # Limpiar jornadas y partidos previos para evitar duplicados
@@ -596,8 +608,7 @@ class Temporada(models.Model):
         todas_campos = list(Campo.objects.filter(activo=True).order_by("es_rancheria"))
         dias_juego = self.categoria.dias_juego or []
         horarios = self.categoria.horarios or []
-        hoy = datetime.date.today()
-        fecha_base = max(self.fecha_inicio, hoy)
+        fecha_base = self.fecha_inicio
         horarios_fijos = {
             hf.equipo_id: hf.horario
             for hf in HorarioFijoEquipo.objects.filter(temporada=self)
@@ -631,7 +642,8 @@ class Temporada(models.Model):
                 combined_fixture.append(ronda_combinada)
             idx = self._crear_partidos_desde_fixture(
                 combined_fixture, horarios_fijos, todas_campos,
-                fecha_base, dias_juego, horarios, 1
+                fecha_base, dias_juego, horarios, idx_start=1,
+                jornada_inicial=jornada_inicial,
             )
         else:
             equipos = self.equipos_habilitados()
@@ -642,7 +654,8 @@ class Temporada(models.Model):
                     fixture = [[(v, l) for l, v in ronda] for ronda in fixture]
                 idx = self._crear_partidos_desde_fixture(
                     fixture, horarios_fijos, todas_campos,
-                    fecha_base, dias_juego, horarios, idx
+                    fecha_base, dias_juego, horarios, idx,
+                    jornada_inicial=jornada_inicial,
                 )
 
         self.actualizar_fecha_fin()
@@ -674,8 +687,7 @@ class Temporada(models.Model):
         if total_jornadas == 0:
             return self.fecha_inicio
         # Calcular cuántos días reales se necesitan
-        hoy = datetime.date.today()
-        fecha_base = max(self.fecha_inicio, hoy)
+        fecha_base = self.fecha_inicio
         semanas_necesarias = (total_jornadas - 1) // len(dias_validos)
         # La última jornada cae en el día válido correspondiente dentro de la última semana
         ultimo_dia_idx = (total_jornadas - 1) % len(dias_validos)

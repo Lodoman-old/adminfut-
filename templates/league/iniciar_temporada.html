@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Iniciar Temporada - {{ temporada.nombre }} - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-play-fill text-success"></i> Iniciar Temporada</h3>
+<div class="card mt-3" style="max-width:720px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">{{ temporada.nombre }}</h5></div>
+    <div class="card-body">
+        <div class="alert alert-info small py-2">
+            <i class="bi bi-calendar"></i>
+            La fecha de inicio de esta temporada es <strong>{{ temporada.fecha_inicio|date:"d/m/Y" }}</strong>,
+            anterior a hoy, así que puede que algunas jornadas ya se hayan jugado.
+        </div>
+        <form method="post" action="{{ url_generar }}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label fw-medium">¿La temporada ya estaba iniciada?</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="ya_iniciada" id="ya_si" value="si" checked>
+                    <label class="form-check-label" for="ya_si">Sí, ya se jugaron algunas jornadas</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="ya_iniciada" id="ya_no" value="no">
+                    <label class="form-check-label" for="ya_no">No, es la primera jornada</label>
+                </div>
+            </div>
+            <div class="mb-3" id="jornada-block">
+                <label class="form-label" for="proxima_jornada">¿Cuál es la próxima jornada a jugarse?</label>
+                <input type="number" name="proxima_jornada" id="proxima_jornada" class="form-control" value="1" min="1" style="max-width:140px">
+                <div class="form-text">
+                    Las jornadas anteriores <strong>no se generan</strong> (ya se jugaron).
+                    Se generarán las jornadas desde la indicada en adelante, con las fechas según el inicio de la temporada.
+                </div>
+            </div>
+            <div class="alert alert-warning small py-2">
+                <i class="bi bi-exclamation-triangle"></i>
+                Los partidos de las jornadas a generar quedarán con <strong>fechas ya transcurridas</strong>.
+                Si alguno no se jugó (retraso, clima u otra circunstancia), puedes reagendarlo después para capturar su cédula.
+            </div>
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-play-fill"></i> Generar rol de juegos</button>
+                <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var si = document.getElementById('ya_si');
+    var no = document.getElementById('ya_no');
+    var block = document.getElementById('jornada-block');
+    var input = document.getElementById('proxima_jornada');
+    function toggle() {
+        if (si.checked) {
+            block.style.display = '';
+            input.disabled = false;
+        } else {
+            block.style.display = 'none';
+            input.disabled = true;
+            input.value = '1';
+        }
+    }
+    si.addEventListener('change', toggle);
+    no.addEventListener('change', toggle);
+    toggle();
+});
+</script>
+{% endblock %}
