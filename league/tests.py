@@ -210,3 +210,34 @@ class PwaWebPushTest(TestCase):
         self.assertEqual(res["failure"], 1)
         dt.refresh_from_db()
         self.assertFalse(dt.activo)
+
+
+class CurpReglaMariaJoseTest(TestCase):
+    def _form(self):
+        from .forms import JugadorForm
+        return JugadorForm()
+
+    def test_inicial_nombre_curp_regla_maria_jose(self):
+        f = self._form()
+        self.assertEqual(f._inicial_nombre_curp("JOSE LUIS"), "L")
+        self.assertEqual(f._inicial_nombre_curp("MARIA GUADALUPE"), "G")
+        self.assertEqual(f._inicial_nombre_curp("MARIA DEL CARMEN"), "C")
+        self.assertEqual(f._inicial_nombre_curp("JOSE MARIA"), "M")
+        self.assertEqual(f._inicial_nombre_curp("JOSE"), "J")
+        self.assertEqual(f._inicial_nombre_curp("LUIS"), "L")
+
+    def test_validacion_acepta_regla_maria_jose(self):
+        f = self._form()
+        # José Luis García Hernández, 1990-01-01 → posición 4 = L (Luis)
+        errs = f._validar_curp_contra_datos(
+            "GAHL900101HDFRCR00", "José Luis", "García Hernández", date(1990, 1, 1)
+        )
+        self.assertEqual(errs, [])
+
+    def test_validacion_rechaza_inicial_del_primer_nombre(self):
+        f = self._form()
+        # Con la inicial del primer nombre (J de José) debe marcar error explicando la regla
+        errs = f._validar_curp_contra_datos(
+            "GAHJ900101HDFRCR00", "José Luis", "García Hernández", date(1990, 1, 1)
+        )
+        self.assertTrue(any("María/José" in e for e in errs))

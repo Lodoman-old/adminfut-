@@ -261,6 +261,26 @@ class JugadorForm(forms.ModelForm):
                 return ch
         return 'X'
 
+    _PARTICULAS_NOMBRE = {"DE", "LA", "LAS", "DEL", "LOS", "Y"}
+
+    @classmethod
+    def _inicial_nombre_curp(cls, nombre):
+        """Inicial del nombre para la posición 4 de la CURP (ya normalizado).
+
+        Si el primer nombre es 'María' o 'José', se usa la inicial del segundo
+        nombre (omitiendo partículas como de/del/la). Si no hay segundo nombre,
+        se usa la inicial del primero.
+        """
+        if not nombre:
+            return None
+        partes = nombre.split()
+        primera = partes[0]
+        if primera in ("MARIA", "JOSE"):
+            for p in partes[1:]:
+                if p not in cls._PARTICULAS_NOMBRE:
+                    return p[0]
+        return primera[0]
+
     # Claves de entidad federativa (posiciones 12-13 de la CURP) + NE extranjero
     ENTIDADES_CURP = frozenset({
         "AS", "BC", "BS", "CC", "CL", "CM", "CS", "CH", "DF", "DG", "GT", "GR",
@@ -326,8 +346,14 @@ class JugadorForm(forms.ModelForm):
             errores.append(f"La 1ª vocal del apellido paterno debería ser '{self._first_vowel(paterno)}' (CURP dice '{curp_vocal}')")
         if materno and curp_materno != materno[0]:
             errores.append(f"La 1ª letra del apellido materno debería ser '{materno[0]}' (CURP dice '{curp_materno}')")
-        if n_nombre and curp_nombre != n_nombre[0]:
-            errores.append(f"La 1ª letra del nombre debería ser '{n_nombre[0]}' (CURP dice '{curp_nombre}')")
+        inicial_nombre = self._inicial_nombre_curp(n_nombre)
+        if inicial_nombre and curp_nombre != inicial_nombre:
+            motivo = ""
+            if n_nombre.split() and n_nombre.split()[0] in ("MARIA", "JOSE"):
+                motivo = " (por la regla de María/José se usa la inicial del segundo nombre)"
+            errores.append(
+                f"La inicial del nombre debería ser '{inicial_nombre}'{motivo} (CURP dice '{curp_nombre}')"
+            )
 
         # Validar fecha de nacimiento
         if fecha_nac:
