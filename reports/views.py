@@ -1592,6 +1592,7 @@ def reporte_credenciales(request):
         "equipo_id": int(equipo_id) if equipo_id else None,
         "jugadores": jugadores,
         "mostrar_logo": "1" in request.GET.getlist("logo") or not request.GET.getlist("logo"),
+        "mostrar_numero": "1" in request.GET.getlist("numero") or not request.GET.getlist("numero"),
     })
 
 
@@ -1602,6 +1603,7 @@ def reporte_credenciales_pdf(request):
     jugadores_ids = request.GET.get("jugadores")
     equipo_id = request.GET.get("equipo")
     mostrar_logo = "1" in request.GET.getlist("logo") or not request.GET.getlist("logo")
+    mostrar_numero = "1" in request.GET.getlist("numero") or not request.GET.getlist("numero")
 
     if jugadores_ids:
         ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
@@ -1831,14 +1833,10 @@ def reporte_credenciales_pdf(request):
             # Category (9pt)
             outlined_text(text_x, content_y + content_h - 56, f"Categoría: {cat.nombre}", data_font, 9)
 
-            # Position (9pt)
-            pos_map = dict(Jugador.POSICIONES)
-            outlined_text(text_x, content_y + content_h - 72, f"Pos: {pos_map.get(j.posicion, j.posicion)}", data_font, 9)
-
             # Documento (9pt)
             tipo_label = {"CURP": "CURP", "PAS": "PASAPORTE", "INM": "INM", "OTR": "DOC"}.get(j.tipo_documento, "CURP")
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 88, f"{tipo_label}: {curp_text}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 72, f"{tipo_label}: {curp_text}", data_font, 9)
 
             # Team name at bottom-left corner
             team_name_x = x + 4
@@ -1880,28 +1878,29 @@ def reporte_credenciales_pdf(request):
                     p.setStrokeColor(colors.HexColor("#9a9a9a"))
                     p.drawPath(star, fill=1, stroke=1)
 
-            # Dorsal badge (rectangular)
-            jersey_w = 28
-            jersey_body_h = 20
-            jersey_x = x + card_w - 12 - jersey_w
-            jersey_y = y + 4
-            jersey_cx = jersey_x + jersey_w / 2
-            jersey_cy = jersey_y + jersey_body_h / 2
+            # Dorsal badge (rectangular, opcional según el checkbox "número")
+            if mostrar_numero:
+                jersey_w = 28
+                jersey_body_h = 20
+                jersey_x = x + card_w - 12 - jersey_w
+                jersey_y = y + 4
+                jersey_cx = jersey_x + jersey_w / 2
+                jersey_cy = jersey_y + jersey_body_h / 2
 
-            # Badge body (rounded rectangle)
-            p.setFillColor(colors.HexColor("#222222"))
-            p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=1, stroke=0)
+                # Badge body (rounded rectangle)
+                p.setFillColor(colors.HexColor("#222222"))
+                p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=1, stroke=0)
 
-            # Thin white outline around the body
-            p.setStrokeColor(colors.HexColor("#cccccc"))
-            p.setLineWidth(0.5)
-            p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=0, stroke=1)
+                # Thin white outline around the body
+                p.setStrokeColor(colors.HexColor("#cccccc"))
+                p.setLineWidth(0.5)
+                p.roundRect(jersey_x, jersey_y, jersey_w, jersey_body_h, 4, fill=0, stroke=1)
 
-            # Number centered in body
-            p.setFillColor(colors.white)
-            p.setFont(name_font, 9)
-            dorsal_str = str(j.dorsal) if j.dorsal is not None else "-"
-            p.drawCentredString(jersey_cx, jersey_cy - 3, dorsal_str)
+                # Number centered in body
+                p.setFillColor(colors.white)
+                p.setFont(name_font, 9)
+                dorsal_str = str(j.dorsal) if j.dorsal is not None else "-"
+                p.drawCentredString(jersey_cx, jersey_cy - 3, dorsal_str)
 
         p.showPage()
         p.save()
