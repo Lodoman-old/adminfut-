@@ -1591,8 +1591,8 @@ def reporte_credenciales(request):
         "cat_id": int(cat_id) if cat_id else None,
         "equipo_id": int(equipo_id) if equipo_id else None,
         "jugadores": jugadores,
-        "mostrar_logo": "1" in request.GET.getlist("logo") or not request.GET.getlist("logo"),
-        "mostrar_numero": "1" in request.GET.getlist("numero") or not request.GET.getlist("numero"),
+        "mostrar_logo": "1" in request.GET.getlist("logo"),
+        "mostrar_numero": "1" in request.GET.getlist("numero"),
     })
 
 
@@ -1602,8 +1602,8 @@ def reporte_credenciales_pdf(request):
 
     jugadores_ids = request.GET.get("jugadores")
     equipo_id = request.GET.get("equipo")
-    mostrar_logo = "1" in request.GET.getlist("logo") or not request.GET.getlist("logo")
-    mostrar_numero = "1" in request.GET.getlist("numero") or not request.GET.getlist("numero")
+    mostrar_logo = "1" in request.GET.getlist("logo")
+    mostrar_numero = "1" in request.GET.getlist("numero")
 
     if jugadores_ids:
         ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
