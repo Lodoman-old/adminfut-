@@ -687,6 +687,227 @@ class Temporada(models.Model):
         self.actualizar_fecha_fin()
         self._asignar_arbitros_temporada()
 
+    def _pairings_robin_una_vuelta(self, equipos_ids):
+        """Devuelve la lista de enfrentamientos (local_id, visit_id) de una vuelta
+        round-robin (sin repetir parejas). Retorna también una variante invertida
+        para alternar la localía en la segunda vuelta."""
+        equipos = list(equipos_ids)
+        n = len(equipos)
+        if n % 2 != 0:
+            equipos.append(None)
+            n = len(equipos)
+        parejas_ida = []
+        for ronda in range(n - 1):
+            for i in range(n // 2):
+                a, b = equipos[i], equipos[n - 1 - i]
+                if a and b:
+                    parejas_ida.append((a, b))
+            equipos.insert(1, equipos.pop())
+        return parejas_ida
+
+    def _equipos_para_rol(self):
+        """Equipos que participan en el rol (grupos si aplica, si no todos los habilitados)."""
+        if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
+            grupos = self.grupos_asignados()
+            return {gl: [eq.id for eq in eqs if eq] for gl, eqs in grupos.items()}
+        return {"": [eq.id for eq in self.equipos_habilitados()]}
+
+    def generar_rol_respaldando_pasadas(self, jornada_inicial=1):
+        """Genera el rol de las jornadas FUTURAS (>= jornada_inicial) teniendo en cuenta
+        los partidos ya registrados a mano en las jornadas pasadas (< jornada_inicial).
+
+        Los partidos pasados (creados manualmente con el wizard de temporada iniciada)
+        ya existen en BD con sus jornadas correspondientes. Esta función sólo crea las
+        jornadas que faltan y sus enfrentamientos, evitando repetir parejas ya jugadas
+        y evitando choques de campo/hora con otras categorías.
+        """
+        from itertools import cycle
+        import datetime as _dt
+        from django.utils import timezone
+        from .models import Campo, HorarioFijoEquipo
+
+        todas_campos = list(Campo.objects.filter(activo=True))
+        dias_juego = self.categoria.dias_juego or []
+        horarios = self.categoria.horarios or []
+        if not horarios:
+            horarios = ["12:00"]
+        horarios_fijos = {
+            hf.equipo_id: hf.horario
+            for hf in HorarioFijoEquipo.objects.filter(temporada=self)
+        }
+        mapa_dias = {"LUN": 0, "MAR": 1, "MIE": 2, "JUE": 3, "VIE": 4, "SAB": 5, "DOM": 6}
+
+        # --- Cuáles parejas ya se enfrentaron (local/visit usa par no ordenado) ---
+        partidos_existentes = Partido.objects.filter(temporada=self)
+        parejas_jugadas = set()
+        for p in partidos_existentes.values_list("equipo_local_id", "equipo_visitante_id"):
+            a, b = p
+            if a and b:
+                parejas_jugadas.add(frozenset((a, b)))
+        equipos_por_grupo = self._equipos_para_rol()
+
+        # --- Construir las rondas de jornadas futuras (cada ronda = apareamiento válido) ---
+        jornadas_futuras = []
+
+        def _generar_apareamientos_por_vueltas(eqs_ids, grupo_letra):
+            """Retorna todas las parejas (local_id, visit_id) de todas las vueltas,
+            FILTRADAS por las parejas ya jugadas. La localía alterna por vuelta."""
+            parejas_ida = self._pairings_robin_una_vuelta(eqs_ids)
+            total = []
+            for vuelta in range(self.vueltas):
+                vuelta_pares = list(parejas_ida)
+                if vuelta % 2 == 1:
+                    vuelta_pares = [(v, l) for l, v in vuelta_pares]
+                for l, v in vuelta_pares:
+                    if frozenset((l, v)) not in parejas_jugadas:
+                        total.append((l, v, grupo_letra))
+            return total
+
+        def _asignar_jornadas(parejas):
+            """Greedy: arma rondas respetando que cada equipo juegue una vez por ronda.
+            Devuelve lista de rondas; cada ronda = lista de (local_id, visit_id)."""
+            rondas = []
+            disponibles = list(parejas)
+            while disponibles:
+                ronda = []
+                usados = set()
+                sin_avance = False
+                i = 0
+                while i < len(disponibles):
+                    l, v, gl = disponibles[i]
+                    if l not in usados and v not in usados:
+                        ronda.append((l, v, gl))
+                        usados.add(l)
+                        usados.add(v)
+                        disponibles.pop(i)
+                        sin_avance_local = False
+                    else:
+                        i += 1
+                if not ronda:
+                    break
+                rondas.append(ronda)
+            return rondas
+
+        if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
+            # Cada grupo acomoda sus parejas en rondas y luego se intercalan entre grupos.
+            rondas_por_grupo = {}
+            for gl, eqs_ids in equipos_por_grupo.items():
+                parejas = _generar_apareamientos_por_vueltas(eqs_ids, gl)
+                rondas_por_grupo[gl] = _asignar_jornadas(parejas) or [[]]
+            num_rounds = max(len(r) for r in rondas_por_grupo.values())
+            for r in range(num_rounds):
+                ronda = []
+                for gl in sorted(rondas_por_grupo.keys()):
+                    if r < len(rondas_por_grupo[gl]):
+                        ronda.extend(rondas_por_grupo[gl][r])
+                if ronda:
+                    jornadas_futuras.append(ronda)
+        else:
+            eqs_ids = equipos_por_grupo[""]
+            parejas = _generar_apareamientos_por_vueltas(eqs_ids, "")
+            jornadas_futuras = _asignar_jornadas(parejas)
+
+        # --- Crear jornadas futuras y asignar campo/hora evitando choques ---
+        cursor_fecha = self._proxima_fecha_juego(self.fecha_inicio)
+        # ocupados cross-temporada (otras temporadas y categorías)
+        ocupados_externos = set(
+            Partido.objects.filter(estado__in=["PEND", "SUSP"])
+            .exclude(temporada=self)
+            .values_list("fecha_hora", "campo_id")
+        )
+        nuevos_ocupados = set()
+        team_uso_campo = {e.id: {c.id: 0 for c in todas_campos}
+                          for e in self.equipos_habilitados()}
+
+        idx = jornada_inicial
+        # Ya pueden existir jornadas pasadas creadas manualmente; evitamos la número prevista
+        existentes_numeros = set(self.jornadas.values_list("numero", flat=True))
+        for partidos_ronda in jornadas_futuras:
+            # avanzar a día válido
+            fecha_jornada = None
+            dias_validos = sorted([mapa_dias[d] for d in dias_juego if d in mapa_dias])
+            if dias_validos:
+                cursor = cursor_fecha
+                for i in range(20):
+                    d = cursor + _dt.timedelta(days=i)
+                    if d.weekday() in dias_validos:
+                        fecha_jornada = d
+                        break
+                if fecha_jornada:
+                    cursor_fecha = fecha_jornada + _dt.timedelta(days=1)
+            if not fecha_jornada:
+                fecha_jornada = cursor_fecha
+                cursor_fecha = cursor_fecha + _dt.timedelta(days=7)
+            # elegir numero de jornada libre (puede que las pasadas no sean 1..N-1 contiguas)
+            while idx in existentes_numeros:
+                idx += 1
+            jornada = Jornada.objects.create(
+                temporada=self, numero=idx, nombre=f"Jornada {idx}"
+            )
+            horarios_cycle = cycle(horarios)
+            for item in partidos_ronda:
+                if len(item) == 3:
+                    local_id, visit_id, grupo_letra = item
+                else:
+                    local_id, visit_id = item
+                    grupo_letra = ""
+                hora_local = horarios_fijos.get(local_id) or horarios_fijos.get(visit_id)
+                if not hora_local:
+                    hora_local = next(horarios_cycle)
+                fecha_hora = None
+                try:
+                    hh, mm = hora_local.split(":")
+                    fecha_hora = _dt.datetime.combine(fecha_jornada, _dt.time(int(hh), int(mm)))
+                    fecha_hora = timezone.make_aware(fecha_hora)
+                except (ValueError, AttributeError):
+                    fecha_hora = _dt.datetime.combine(fecha_jornada, _dt.time(12, 0))
+                    fecha_hora = timezone.make_aware(fecha_hora)
+                local = Equipo.objects.get(pk=local_id)
+                visit = Equipo.objects.get(pk=visit_id)
+                campo = self._elegir_campo_libre(
+                    local, visit, fecha_hora, todas_campos,
+                    ocupados_externos, nuevos_ocupados, team_uso_campo,
+                )
+                Partido.objects.create(
+                    temporada=self, jornada=jornada,
+                    equipo_local=local, equipo_visitante=visit,
+                    campo=campo, fecha_hora=fecha_hora, estado="PEND",
+                    grupo=grupo_letra,
+                )
+                if campo:
+                    nuevos_ocupados.add((fecha_hora, campo.id))
+                    team_uso_campo[local_id][campo.id] += 1
+                    team_uso_campo[visit_id][campo.id] += 1
+            idx += 1
+
+        self.actualizar_fecha_fin()
+        self._asignar_arbitros_temporada()
+
+    def _elegir_campo_libre(self, local, visit, fecha_hora, todas_campos,
+                            ocupados_externos, nuevos_ocupados, team_uso_campo):
+        from .models import Campo
+        campos_disponibles = todas_campos
+        if self.categoria.campos_permitidos.exists():
+            ids_permitidos = set(self.categoria.campos_permitidos.values_list("pk", flat=True))
+            campos_disponibles = [c for c in todas_campos if c.id in ids_permitidos]
+        if local.campo_rancheria_id:
+            rc = local.campo_rancheria
+            if rc in campos_disponibles and (fecha_hora, rc.id) not in ocupados_externos \
+                    and (fecha_hora, rc.id) not in nuevos_ocupados:
+                return rc
+        # Rancherías solo disponibles para el equipo dueño; las demás se excluyen
+        libres = [c for c in campos_disponibles
+                  if (fecha_hora, c.id) not in ocupados_externos
+                  and (fecha_hora, c.id) not in nuevos_ocupados
+                  and (not c.es_rancheria or local.campo_rancheria_id == c.id)]
+        if not libres:
+            return None
+        best = min(libres, key=lambda c: (
+            max(team_uso_campo[local.id][c.id], team_uso_campo[visit.id][c.id]),
+            c.id,
+        ))
+        return best
+
     def calcular_fecha_fin_estimada(self):
         """Estima la fecha de fin basada en equipos, vueltas y días de juego"""
         import datetime

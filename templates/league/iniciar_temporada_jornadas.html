@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Registrar jornadas ya jugadas - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-journal-text text-success"></i> Registrar jornadas ya jugadas</h3>
+<div class="card mt-3" style="max-width:1100px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">{{ temporada.nombre }}</h5></div>
+    <div class="card-body">
+        <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Captura los <strong>partidos reales</strong> de las jornadas ya jugadas. Puedes hacerlo en varias tandas:
+            cada vez que pulses <strong>Guardar</strong> se registran los partidos del formulario.
+            Cuando termines, pulsa <strong>Generar rol de las jornadas restantes</strong>.
+        </div>
+
+        {% if partidos_guardados %}
+        <h6 class="fw-bold mt-2"><i class="bi bi-check2-circle text-success"></i> Partidos ya registrados</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Jornada</th>
+                        <th>Local</th>
+                        <th>Visitante</th>
+                        <th>Campo</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Marcador</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in partidos_guardados %}
+                    <tr>
+                        <td>{{ p.jornada.numero|default:"—" }}</td>
+                        <td>{{ p.equipo_local }}</td>
+                        <td>{{ p.equipo_visitante }}</td>
+                        <td>{{ p.campo|default:"—" }}</td>
+                        <td>{{ p.fecha_hora|date:"d/m/Y" }}</td>
+                        <td>{{ p.fecha_hora|date:"H:i" }}</td>
+                        <td>{% if p.estado == "FIN" %}{{ p.goles_local }} - {{ p.goles_visitante }}{% else %}Pendiente{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <form method="post" id="form-partidos">
+            {% csrf_token %}
+            <h6 class="fw-bold"><i class="bi bi-plus-circle text-success"></i> Agregar partidos jugados</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="tabla-partidos">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:90px">Jornada</th>
+                            <th>Local</th>
+                            <th>Visitante</th>
+                            <th>Campo</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Goles Local</th>
+                            <th>Goles Visit</th>
+                            <th>Finalizar</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="partido-fila">
+                            <td>
+                                <input type="number" name="jornada_num" class="form-control form-control-sm" value="{{ proxima_jornada }}">
+                            </td>
+                            <td>
+                                <select name="local" class="form-select form-select-sm sel-local">
+                                    <option value="">—</option>
+                                    {% for e in equipos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <select name="visitante" class="form-select form-select-sm sel-visit">
+                                    <option value="">—</option>
+                                    {% for e in equipos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <select name="campo" class="form-select form-select-sm">
+                                    <option value="">—</option>
+                                    {% for c in campos %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="date" name="fecha" class="form-control form-control-sm"></td>
+                            <td><input type="time" name="hora" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="gl" class="form-control form-control-sm" min="0" placeholder="0"></td>
+                            <td><input type="number" name="gv" class="form-control form-control-sm" min="0" placeholder="0"></td>
+                            <td class="text-center"><input type="checkbox" name="finalizar" value="1" class="form-check-input chk-finalizar"></td>
+                            <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-fila"><i class="bi bi-x"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-2 mb-3">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-agregar-fila"><i class="bi bi-plus"></i> Agregar otra fila</button>
+            </div>
+
+            <div class="text-center mt-3">
+                <button type="submit" name="accion" value="guardar" class="btn btn-primary me-2">
+                    <i class="bi bi-save"></i> Guardar partidos
+                </button>
+                <button type="submit" name="accion" value="generar" class="btn btn-success me-2"
+                        onclick="return confirm('Esto generará el rol de las jornadas restantes con los partidos ya registrados. ¿Continuar?');">
+                    <i class="bi bi-play-fill"></i> Generar rol de las jornadas restantes
+                </button>
+                <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tabla = document.getElementById('tabla-partidos');
+    var btnAgregar = document.getElementById('btn-agregar-fila');
+
+    function clonarFila() {
+        var fila = tabla.querySelector('tr.partido-fila');
+        var clone = fila.cloneNode(true);
+        clone.querySelectorAll('input, select').forEach(function(el) {
+            el.value = '';
+        });
+        fila.parentNode.appendChild(clone);
+        return clone;
+    }
+
+    btnAgregar.addEventListener('click', function() {
+        clonarFila();
+    });
+
+    tabla.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-eliminar-fila')) {
+            var filas = tabla.querySelectorAll('tr.partido-fila');
+            if (filas.length > 1) {
+                e.target.closest('tr').remove();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

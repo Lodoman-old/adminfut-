@@ -1545,6 +1545,10 @@ def iniciar_temporada(request, pk):
         return redirect("asignar_grupos", pk=temporada.pk)
 
     if request.method == "POST":
+        ya_iniciada = request.POST.get("ya_iniciada")
+        if ya_iniciada == "si":
+            # El usuario capturará los partidos reales de las jornadas jugadas
+            return redirect("iniciar_temporada_pasadas", pk=temporada.pk)
         jornada = _parse_proxima_jornada(request.POST.get("proxima_jornada"))
         try:
             temporada.generar_rol(jornada_inicial=jornada)
@@ -1670,6 +1674,9 @@ def confirmar_grupos(request, pk):
         return redirect("asignar_grupos", pk=temporada.pk)
 
     if request.method == "POST":
+        ya_iniciada = request.POST.get("ya_iniciada")
+        if ya_iniciada == "si":
+            return redirect("iniciar_temporada_pasadas", pk=temporada.pk)
         jornada = _parse_proxima_jornada(request.POST.get("proxima_jornada"))
         try:
             temporada.generar_rol(jornada_inicial=jornada)
@@ -1706,6 +1713,163 @@ def confirmar_grupos(request, pk):
     temporada.save()
     messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol por grupos generado.")
     return redirect("temporada_list")
+
+
+def iniciar_temporada_jornadas_pasadas(request, pk):
+    """Wizard para temporadas ya iniciadas: captura los partidos reales de las
+    jornadas ya jugadas (local, visitante, campo, hora, fecha, marcador opcional con
+    finalización) y luego genera el rol de las jornadas restantes."""
+    temporada = get_object_or_404(Temporada, pk=pk)
+    if temporada.iniciada:
+        messages.warning(request, "La temporada ya fue iniciada.")
+        return redirect("temporada_list")
+
+    puede, msg = temporada.puede_iniciar()
+    if not puede:
+        messages.error(request, f"No se puede iniciar: {msg}")
+        return redirect("temporada_list")
+
+    # Número de jornadas ya jugadas capturadas en esta sesión de wizard
+    jornadas_guardadas = set(
+        Partido.objects.filter(temporada=temporada).values_list("jornada__numero", flat=True)
+    )
+    proxima_jornada = (max(jornadas_guardadas) + 1) if jornadas_guardadas else 1
+
+    equipos = temporada.equipos_habilitados()
+    campos = list(Campo.objects.filter(activo=True).order_by("nombre"))
+
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+
+        if accion == "guardar":
+            # index por jornada dentro de la colección de filas
+            jnums = request.POST.getlist("jornada_num")
+            env_local = request.POST.getlist("local")
+            env_visit = request.POST.getlist("visitante")
+            env_campo = request.POST.getlist("campo")
+            env_fecha = request.POST.getlist("fecha")
+            env_hora = request.POST.getlist("hora")
+            env_gl = request.POST.getlist("gl")
+            env_gv = request.POST.getlist("gv")
+            env_finalizar = request.POST.getlist("finalizar")
+
+            errores = []
+            creados = 0
+            for i in range(len(env_local)):
+                if not env_local[i] or not env_visit[i]:
+                    continue
+                jn = int(jnums[i]) if jnums[i] else proxima_jornada
+                local = Equipo.objects.filter(pk=int(env_local[i])).first() if env_local[i] else None
+                visit = Equipo.objects.filter(pk=int(env_visit[i])).first() if env_visit[i] else None
+                if local == visit:
+                    errores.append("Equipo local y visitante no pueden ser el mismo.")
+                    continue
+
+                # Validar que la pareja ya no esté registrada en esta temporada
+                ya_existe = Partido.objects.filter(
+                    temporada=temporada,
+                    equipo_local__in=[local, visit],
+                    equipo_visitante__in=[visit, local],
+                ).exists()
+                if ya_existe:
+                    errores.append(f"{local} vs {visit} ya jugaron entre sí (jornada {jn}).")
+                    continue
+
+                # Fecha/hora
+                try:
+                    fecha = datetime.datetime.strptime(env_fecha[i], "%Y-%m-%d").date()
+                    hora = datetime.datetime.strptime(env_hora[i], "%H:%M").time()
+                except (ValueError, IndexError):
+                    errores.append(f"Fecha/hora inválida en la fila {i + 1}.")
+                    continue
+                fecha_hora_dt = datetime.datetime.combine(fecha, hora)
+                fecha_hora = timezone.make_aware(fecha_hora_dt)
+
+                # Campo con validación de choque (todas las temporadas)
+                campo_id = int(env_campo[i]) if env_campo[i] else None
+                campo = get_object_or_404(Campo, pk=campo_id) if campo_id else None
+                if campo:
+                    choque = Partido.objects.filter(
+                        fecha_hora=fecha_hora, campo=campo,
+                        temporada__in=Temporada.objects.filter(finalizada=False),
+                    ).exclude(estado="FIN")
+                    if choque.exists():
+                        errores.append(f"El campo {campo} ya está ocupado el {fecha} a las {hora}.")
+                        continue
+
+                gl = int(env_gl[i]) if (env_gl[i] and env_gl[i].strip()) else None
+                gv = int(env_gv[i]) if (env_gv[i] and env_gv[i].strip()) else None
+                finalizar = (env_finalizar[i].strip() == "1") if env_finalizar[i] else False
+
+                # Crear/obtener la jornada
+                jornada, _ = Jornada.objects.get_or_create(
+                    temporada=temporada, numero=jn,
+                    defaults={"nombre": f"Jornada {jn}", "estado": "ACTIVA"},
+                )
+                estado = "FIN" if finalizar else "PEND"
+                gl_ = gl if (finalizar and gl is not None) else 0
+                gv_ = gv if (finalizar and gv is not None) else 0
+                Partido.objects.create(
+                    temporada=temporada, jornada=jornada,
+                    equipo_local=local, equipo_visitante=visit,
+                    campo=campo, fecha_hora=fecha_hora,
+                    goles_local=gl_, goles_visitante=gv_,
+                    estado=estado,
+                )
+                creados += 1
+
+            if errores:
+                for e in errores:
+                    messages.error(request, e)
+            if creados:
+                messages.success(request, f"{creados} partido(s) registrado(s).")
+
+            # Actualizar valores para el re-render
+            jornadas_guardadas = set(
+                Partido.objects.filter(temporada=temporada).values_list("jornada__numero", flat=True)
+            )
+            proxima_jornada = (max(jornadas_guardadas) + 1) if jornadas_guardadas else 1
+            ctx = {
+                "temporada": temporada,
+                "equipos": equipos,
+                "campos": campos,
+                "jornadas_pasadas": sorted(jornadas_guardadas),
+                "proxima_jornada": proxima_jornada,
+                "partidos_guardados": Partido.objects.filter(temporada=temporada)
+                .select_related("equipo_local", "equipo_visitante", "campo", "jornada")
+                .order_by("jornada__numero"),
+            }
+            return render(request, "league/iniciar_temporada_jornadas.html", ctx)
+
+        elif accion == "generar":
+            if not jornadas_guardadas:
+                messages.warning(request, "Registra al menos un partido de las jornadas jugadas antes de generar el rol.")
+                return redirect("iniciar_temporada", pk=pk)
+            try:
+                temporada.generar_rol_respaldando_pasadas(jornada_inicial=proxima_jornada)
+            except Exception as e:
+                messages.error(request, f"Error al generar el rol: {e}")
+                return redirect("temporada_list")
+            temporada.iniciada = True
+            temporada.save()
+            messages.success(
+                request,
+                f"Temporada '{temporada.nombre}' iniciada. Jornadas {proxima_jornada} en adelante "
+                f"generadas respetando los partidos ya registrados (sin huecos ni choques)."
+            )
+            return redirect("temporada_list")
+
+    ctx = {
+        "temporada": temporada,
+        "equipos": equipos,
+        "campos": campos,
+        "jornadas_pasadas": sorted(jornadas_guardadas),
+        "proxima_jornada": proxima_jornada,
+        "partidos_guardados": Partido.objects.filter(temporada=temporada)
+        .select_related("equipo_local", "equipo_visitante", "campo", "jornada")
+        .order_by("jornada__numero"),
+    }
+    return render(request, "league/iniciar_temporada_jornadas.html", ctx)
 
 
 class JornadaListView(ListView):

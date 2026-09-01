@@ -30,6 +30,7 @@ urlpatterns = [
     path("temporadas/<int:pk>/finalizar/", views.finalizar_temporada, name="finalizar_temporada"),
     path("temporadas/<int:pk>/reabrir/", views.reabrir_temporada, name="reabrir_temporada"),
     path("temporadas/<int:pk>/iniciar/", views.iniciar_temporada, name="iniciar_temporada"),
+    path("temporadas/<int:pk>/iniciar/pasadas/", views.iniciar_temporada_jornadas_pasadas, name="iniciar_temporada_pasadas"),
     path("temporadas/<int:pk>/reiniciar/", views.reiniciar_temporada, name="reiniciar_temporada"),
     path("temporadas/<int:pk>/asignar-grupos/", views.asignar_grupos, name="asignar_grupos"),
     path("temporadas/<int:pk>/confirmar-grupos/", views.confirmar_grupos, name="confirmar_grupos"),

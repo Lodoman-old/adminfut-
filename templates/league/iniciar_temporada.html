@@ -23,23 +23,24 @@
                     <label class="form-check-label" for="ya_no">No, es la primera jornada</label>
                 </div>
             </div>
-            <div class="mb-3" id="jornada-block">
+            <div class="mb-3" id="jornada-block" style="display:none">
                 <label class="form-label" for="proxima_jornada">¿Cuál es la próxima jornada a jugarse?</label>
                 <input type="number" name="proxima_jornada" id="proxima_jornada" class="form-control" value="1" min="1" style="max-width:140px">
                 <div class="form-text">
-                    Se generan <strong>todas</strong> las jornadas del rol:
-                    las anteriores a la indicada quedan con <strong>fechas pasadas</strong> (para que captures
-                    su cédula, goles, puntos y castigos), y desde la indicada en adelante se programan
+                    Se generan <strong>todas</strong> las jornadas del rol desde la indicada en adelante,
                     con las <strong>próximas fechas de juego</strong>.
                 </div>
             </div>
-            <div class="alert alert-warning small py-2">
-                <i class="bi bi-exclamation-triangle"></i>
-                Los partidos de las jornadas anteriores quedarán con fechas ya transcurridas y en estado
-                pendiente. Ábrelos uno por uno, captura su cédula y finalízalos para registrar los resultados.
+            <div class="alert alert-info small py-2" id="info-si">
+                <i class="bi bi-pencil"></i>
+                Al elegir <strong>Sí</strong> pasarás al asistente para registrar los <strong>partidos reales</strong>
+                de las jornadas ya jugadas (equipos, campo, hora y fecha; el marcador es opcional y también puedes
+                dejar la cédula para después). Después se genera el rol solo de las <strong>jornadas que faltan</strong>,
+                tomando en cuenta cuáles parejas ya se enfrentaron, para no dejar huecos ni choques de campo/horario
+                entre categorías.
             </div>
             <div class="text-center mt-3">
-                <button type="submit" class="btn btn-success me-2"><i class="bi bi-play-fill"></i> Generar rol de juegos</button>
+                <button type="submit" class="btn btn-success me-2"><i class="bi bi-play-fill"></i> Continuar</button>
                 <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
@@ -52,15 +53,17 @@ document.addEventListener('DOMContentLoaded', function() {
     var si = document.getElementById('ya_si');
     var no = document.getElementById('ya_no');
     var block = document.getElementById('jornada-block');
+    var infoSi = document.getElementById('info-si');
     var input = document.getElementById('proxima_jornada');
     function toggle() {
         if (si.checked) {
-            block.style.display = '';
-            input.disabled = false;
-        } else {
             block.style.display = 'none';
+            infoSi.style.display = '';
             input.disabled = true;
-            input.value = '1';
+        } else {
+            block.style.display = '';
+            infoSi.style.display = 'none';
+            input.disabled = false;
         }
     }
     si.addEventListener('change', toggle);
