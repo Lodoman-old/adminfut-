@@ -418,6 +418,9 @@ class Temporada(models.Model):
             return False, "Se necesitan al menos 2 equipos activos en la categoría"
         min_jug = self.categoria.min_jugadores or 7
         for eq in eqs:
+            # Un equipo marcado como abandono no bloquea el inicio por falta de jugadores
+            if self.equipo_abandono(eq):
+                continue
             cnt = Jugador.objects.filter(equipo=eq, activo=True).count()
             if cnt < min_jug:
                 return False, f"El equipo '{eq.nombre}' solo tiene {cnt} jugadores (mínimo {min_jug})"

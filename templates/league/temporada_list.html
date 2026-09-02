@@ -41,12 +41,12 @@
                 </a>
                 {% endif %}
                 {% endif %}
-                {% if t.iniciada %}
                 {% if user|tiene_permiso:"temporada_equipos" %}
-                <a href="{% url 'temporada_equipos' t.pk %}" class="btn btn-sm btn-secondary" title="Gestionar equipos">
+                <a href="{% url 'temporada_equipos' t.pk %}" class="btn btn-sm btn-secondary" title="Gestionar equipos (marcar altas/bajas/abandonos)">
                     <i class="bi bi-people-fill"></i>
                 </a>
                 {% endif %}
+                {% if t.iniciada %}
                 {% if user|tiene_permiso:"temporada_reiniciar" %}
                 <a href="{% url 'reiniciar_temporada' t.pk %}" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmarAccionModal" data-href="{% url 'reiniciar_temporada' t.pk %}" data-mensaje="¿Reiniciar la temporada? Se eliminarán jornadas y partidos.">
                     <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-sm-inline">Reiniciar</span>
