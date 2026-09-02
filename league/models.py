@@ -715,6 +715,25 @@ class Temporada(models.Model):
             return {gl: [eq.id for eq in eqs if eq] for gl, eqs in grupos.items()}
         return {"": [eq.id for eq in self.equipos_habilitados()]}
 
+    def partidos_por_jornada(self):
+        """Cantidad de partidos esperados por jornada según el tipo de rol.
+        Excluye equipos marcados como abandono (no juegan y no ocupan partido)."""
+        equipos = self._equipos_para_rol()
+        if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
+            total = 0
+            for ids in equipos.values():
+                grupo = [eid for eid in ids if not self.equipo_abandono_id(eid)]
+                total += len(grupo) // 2
+            return max(total, 1)
+        ids = [eid for eid in equipos.get("", []) if not self.equipo_abandono_id(eid)]
+        return max(len(ids) // 2, 1)
+
+    def equipo_abandono_id(self, equipo_id):
+        """True si el equipo (por id) abandonó la temporada."""
+        return AbandonoTemporada.objects.filter(
+            temporada=self, equipo_id=equipo_id
+        ).exists()
+
     def generar_rol_respaldando_pasadas(self, jornada_inicial=1):
         """Genera el rol de las jornadas FUTURAS (>= jornada_inicial) teniendo en cuenta
         los partidos ya registrados a mano en las jornadas pasadas (< jornada_inicial).

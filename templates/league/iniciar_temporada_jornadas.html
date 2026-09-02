@@ -12,6 +12,32 @@
             Cuando termines, pulsa <strong>Generar rol de las jornadas restantes</strong>.
         </div>
 
+        {% if not n_jornadas %}
+        <form method="post" class="alert alert-primary">
+            {% csrf_token %}
+            <label class="fw-bold"><i class="bi bi-question-circle"></i> ¿Cuántas jornadas de esta liga ya se jugaron?</label>
+            <div class="input-group mt-2" style="max-width:360px">
+                <input type="number" name="n_jornadas" min="1" class="form-control" placeholder="Ej. 3" required>
+                <button type="submit" name="accion" value="set_jornadas" class="btn btn-success">
+                    <i class="bi bi-check-lg"></i> Continuar
+                </button>
+            </div>
+            <div class="form-text">
+                Con esto sabremos que cada jornada pasada debe tener <strong>{{ partidos_x_jornada }}
+                partido(s)</strong> y así no se te escape ninguno.
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-success small py-2">
+            <i class="bi bi-check-circle"></i>
+            Jornadas ya jugadas: <strong>{{ n_jornadas }}</strong>.
+            Cada jornada pasada (1 a {{ n_jornadas }}) debe tener <strong>{{ partidos_x_jornada }} partido(s)</strong>.
+            El rol se generará a partir de la jornada <strong>{{ proxima_jornada }}</strong>.
+        </div>
+        {% endif %}
+
+        {% if n_jornadas %}
+
         {% if partidos_guardados %}
         <h6 class="fw-bold mt-2"><i class="bi bi-check2-circle text-success"></i> Partidos ya registrados</h6>
         <div class="table-responsive mb-4">
@@ -112,6 +138,7 @@
                 <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

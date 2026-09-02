@@ -1737,9 +1737,26 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
 
     equipos = temporada.equipos_habilitados()
     campos = list(Campo.objects.filter(activo=True).order_by("nombre"))
+    partidos_x_jornada = temporada.partidos_por_jornada()
 
+    # Total de jornadas ya jugadas capturadas por el usuario (persistido en sesión)
+    n_jornadas = request.session.get(
+        f"temp_pasadas_{temporada.pk}", 0
+    )
     if request.method == "POST":
         accion = request.POST.get("accion")
+
+        if accion == "set_jornadas":
+            try:
+                n_jornadas = int(request.POST.get("n_jornadas", "0"))
+            except ValueError:
+                n_jornadas = 0
+            if n_jornadas < 1:
+                messages.error(request, "Indica al menos 1 jornada ya jugada.")
+            else:
+                request.session[f"temp_pasadas_{temporada.pk}"] = n_jornadas
+                messages.success(request, f"Jornadas pasadas registradas: {n_jornadas}.")
+            return redirect("iniciar_temporada_pasadas", pk=pk)
 
         if accion == "guardar":
             # index por jornada dentro de la colección de filas
@@ -1759,6 +1776,15 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
                 if not env_local[i] or not env_visit[i]:
                     continue
                 jn = int(jnums[i]) if jnums[i] else proxima_jornada
+                # Validar que no exceda el máximo de partidos de la jornada
+                ya_en_jornada = Partido.objects.filter(
+                    temporada=temporada, jornada__numero=jn
+                ).count()
+                if ya_en_jornada >= partidos_x_jornada:
+                    errores.append(
+                        f"Jornada {jn} ya tiene sus {partidos_x_jornada} partido(s); no se pueden agregar más."
+                    )
+                    continue
                 local = Equipo.objects.filter(pk=int(env_local[i])).first() if env_local[i] else None
                 visit = Equipo.objects.filter(pk=int(env_visit[i])).first() if env_visit[i] else None
                 if local == visit:
@@ -1835,6 +1861,8 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
                 "campos": campos,
                 "jornadas_pasadas": sorted(jornadas_guardadas),
                 "proxima_jornada": proxima_jornada,
+                "n_jornadas": n_jornadas,
+                "partidos_x_jornada": partidos_x_jornada,
                 "partidos_guardados": Partido.objects.filter(temporada=temporada)
                 .select_related("equipo_local", "equipo_visitante", "campo", "jornada")
                 .order_by("jornada__numero"),
@@ -1845,6 +1873,23 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
             if not jornadas_guardadas:
                 messages.warning(request, "Registra al menos un partido de las jornadas jugadas antes de generar el rol.")
                 return redirect("iniciar_temporada", pk=pk)
+            if n_jornadas < 1:
+                messages.error(request, "Indica cuántas jornadas ya se jugaron antes de generar el rol.")
+                return redirect("iniciar_temporada", pk=pk)
+            # Validar que cada jornada pasada esté completa con exactamente los partidos esperados
+            incompletas = []
+            for jn in range(1, n_jornadas + 1):
+                cnt = Partido.objects.filter(temporada=temporada, jornada__numero=jn).count()
+                if cnt != partidos_x_jornada:
+                    incompletas.append(f"Jornada {jn}: {cnt}/{partidos_x_jornada}")
+            if incompletas:
+                messages.error(
+                    request,
+                    "Algunas jornadas pasadas están incompletas o con partidos de más "
+                    f"(esperado {partidos_x_jornada} por jornada). Corrige antes de generar: "
+                    + "; ".join(incompletas),
+                )
+                return redirect("iniciar_temporada_pasadas", pk=pk)
             try:
                 temporada.generar_rol_respaldando_pasadas(jornada_inicial=proxima_jornada)
             except Exception as e:
@@ -1865,6 +1910,8 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
         "campos": campos,
         "jornadas_pasadas": sorted(jornadas_guardadas),
         "proxima_jornada": proxima_jornada,
+        "n_jornadas": n_jornadas,
+        "partidos_x_jornada": partidos_x_jornada,
         "partidos_guardados": Partido.objects.filter(temporada=temporada)
         .select_related("equipo_local", "equipo_visitante", "campo", "jornada")
         .order_by("jornada__numero"),
