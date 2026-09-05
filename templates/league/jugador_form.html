@@ -32,20 +32,21 @@
                     {% if form.tipo_documento.errors %}<div class="text-danger small">{{ form.tipo_documento.errors }}</div>{% endif %}
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">{{ form.curp.label }}</label>
-                    {{ form.curp }}
-                    {% if form.curp.errors %}<div class="text-danger small">{{ form.curp.errors }}</div>{% endif %}
-                    <div class="form-text text-muted" id="doc-help">CURP (18 caracteres) para mexicanos. Para extranjeros: Pasaporte o Cédula INM. Evita duplicados.</div>
-                </div>
-                <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.fecha_nacimiento.label }}</label>
                     {{ form.fecha_nacimiento }}
                     {% if form.fecha_nacimiento.errors %}<div class="text-danger small">{{ form.fecha_nacimiento.errors }}</div>{% endif %}
+                    <div class="form-text text-muted">Al capturar fecha y apellidos se arma la CURP automáticamente.</div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.dorsal.label }}</label>
                     {{ form.dorsal }}
                     {% if form.dorsal.errors %}<div class="text-danger small">{{ form.dorsal.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.curp.label }}</label>
+                    {{ form.curp }}
+                    {% if form.curp.errors %}<div class="text-danger small">{{ form.curp.errors }}</div>{% endif %}
+                    <div class="form-text text-muted" id="doc-help">CURP (18 caracteres) para mexicanos. Para extranjeros: Pasaporte o Cédula INM. Evita duplicados.</div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.posicion.label }}</label>
@@ -431,6 +432,118 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reload modal data each time it opens
     var modalEl = document.getElementById('secondaryModal');
     modalEl.addEventListener('show.bs.modal', loadModal);
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var CURP_TABLA = '0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+    var PARTICULAS = ['DE','LA','LAS','DEL','LOS','Y'];
+    window._curpAutoPrefix = '';
+
+    function normalizarCurpTexto(s) {
+        s = (s || '').toUpperCase();
+        return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    function primeraVocalInterna(s) {
+        for (var i = 1; i < s.length; i++) {
+            if ('AEIOU'.indexOf(s[i]) >= 0) return s[i];
+        }
+        return 'X';
+    }
+    function primeraConsonanteInterna(s) {
+        for (var i = 1; i < s.length; i++) {
+            if ('AEIOU'.indexOf(s[i]) < 0) return s[i];
+        }
+        return 'X';
+    }
+    function inicialNombreCurp(nombre) {
+        var partes = (nombre || '').split(' ');
+        if (!partes.length || !partes[0]) return '';
+        var primera = partes[0];
+        if (primera === 'MARIA' || primera === 'JOSE') {
+            for (var i = 1; i < partes.length; i++) {
+                if (PARTICULAS.indexOf(partes[i]) < 0) return partes[i][0];
+            }
+        }
+        return primera[0];
+    }
+    function digitoVerificador(curp) {
+        var suma = 0;
+        for (var i = 0; i < 17; i++) {
+            var idx = CURP_TABLA.indexOf(curp[i]);
+            if (idx < 0) return '';
+            suma += idx * (18 - i);
+        }
+        return String((10 - (suma % 10)) % 10);
+    }
+    function construirPrefijo() {
+        var apellido = normalizarCurpTexto(document.getElementById('id_apellido').value);
+        var nombre = normalizarCurpTexto(document.getElementById('id_nombre').value);
+        var fecha = (document.getElementById('id_fecha_nacimiento').value || '');
+        if (!apellido || !nombre) return '';
+
+        var partes = apellido.split(' ');
+        var paterno = partes[0] || '';
+        var materno = partes[1] || '';
+
+        var iniNombre = inicialNombreCurp(nombre);
+        if (!iniNombre) return '';
+
+        var p = paterno[0] + primeraVocalInterna(paterno) + (materno[0] || 'X') + iniNombre;
+
+        var m = fecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) {
+            p += String(Number(m[1]) % 100).padStart(2, '0') + m[2] + m[3];
+        }
+        return p;
+    }
+
+    function actualizarDigito() {
+        var curp = document.getElementById('id_curp');
+        var tipo = (document.getElementById('id_tipo_documento') || {}).value;
+        if (tipo !== 'CURP' || !curp) return;
+        var limpia = curp.value.toUpperCase();
+        if (limpia.length === 17) {
+            var dv = digitoVerificador(limpia);
+            if (dv) curp.value = limpia + dv;
+        } else if (limpia.length === 18) {
+            var dv2 = digitoVerificador(limpia);
+            if (dv2 && limpia[17] !== dv2) curp.value = limpia.slice(0, 17) + dv2;
+        }
+    }
+
+    function armarCurpAuto() {
+        var tipo = (document.getElementById('id_tipo_documento') || {}).value;
+        var curp = document.getElementById('id_curp');
+        if (tipo !== 'CURP' || !curp) return;
+        var nuevoPrefijo = construirPrefijo();
+        if (nuevoPrefijo.length < 4) return;
+
+        var actual = curp.value || '';
+        if (!actual) { curp.value = nuevoPrefijo; }
+        else if (window._curpAutoPrefix) {
+            var limpia = actual.toUpperCase();
+            if (limpia.indexOf(window._curpAutoPrefix) === 0) {
+                var sufijo = actual.slice(window._curpAutoPrefix.length);
+                curp.value = nuevoPrefijo + sufijo;
+            }
+        }
+        window._curpAutoPrefix = nuevoPrefijo;
+        actualizarDigito();
+    }
+
+    var idsCurp = ['id_nombre', 'id_apellido', 'id_fecha_nacimiento'];
+    idsCurp.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', armarCurpAuto);
+    });
+    var curpEl = document.getElementById('id_curp');
+    if (curpEl) curpEl.addEventListener('input', actualizarDigito);
+    var tipoEl = document.getElementById('id_tipo_documento');
+    if (tipoEl) tipoEl.addEventListener('change', function () {
+        window._curpAutoPrefix = '';
+        armarCurpAuto();
+    });
 });
 </script>
 {% endblock %}

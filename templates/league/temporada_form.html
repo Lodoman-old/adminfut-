@@ -57,6 +57,12 @@
                     <div class="form-text">Goles que recibe el equipo que pierde por default (ej. 3-0).</div>
                 </div>
                 <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.puntos_default.label }}</label>
+                    {{ form.puntos_default }}
+                    {% if form.puntos_default.errors %}<div class="text-danger small">{{ form.puntos_default.errors }}</div>{% endif %}
+                    <div class="form-text">Puntos que pierde el equipo en la tabla por cada derrota por default (ej. 6 = -6).</div>
+                </div>
+                <div class="col-md-4 mb-3">
                     <label class="form-label">{{ form.min_jugadores.label }}</label>
                     {{ form.min_jugadores }}
                     {% if form.min_jugadores.errors %}<div class="text-danger small">{{ form.min_jugadores.errors }}</div>{% endif %}

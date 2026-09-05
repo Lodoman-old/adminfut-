@@ -293,6 +293,10 @@ class Temporada(models.Model):
         default=3, verbose_name="Goles por default",
         help_text="Goles que se le asignan al equipo que gana por default (ej. 3-0)."
     )
+    puntos_default = models.IntegerField(
+        default=6, verbose_name="Puntos que pierde por derrota default",
+        help_text="Puntos que se restan al equipo que pierde un partido por default (mora, abandono o alineación indebida). Ej. 6 = -6 puntos en la tabla por cada partido perdido por default."
+    )
     min_jugadores = models.IntegerField(
         default=7, verbose_name="Mínimo de jugadores por equipo",
         help_text="Número mínimo de jugadores que debe tener un equipo en cédula para poder jugar. Si no se cumple, solo se puede guardar como Default."
@@ -1019,6 +1023,9 @@ class Temporada(models.Model):
                     d["pe"] += 1; d["pts"] += 1
                 else:
                     d["pp"] += 1
+                # Penalización por derrota por default (mora/abandono/alineación indebida)
+                if self.puntos_default and p.pierde_por_default(eq):
+                    d["pts"] -= self.puntos_default
 
         def _sort_key(x):
             keys = [x["pts"], x["gf"] - x["gc"], x["gf"]]
@@ -1718,6 +1725,25 @@ class Partido(models.Model):
             equipo_local=self.equipo_visitante,
             equipo_visitante=self.equipo_local,
         ).first()
+
+    def pierde_por_default(self, equipo):
+        """True si `equipo` perdió (o empató) este partido por default:
+        mora, abandono o marcado explícitamente desde cédula (alineación indebida)."""
+        if self.estado != "FIN":
+            return False
+        if equipo == self.equipo_local:
+            if self.default_team == "local":
+                return True
+            if self.temporada_id and self.temporada.equipo_debe_partido(self.equipo_local):
+                return self.goles_local <= self.goles_visitante
+            return False
+        if equipo == self.equipo_visitante:
+            if self.default_visitante or self.default_team == "visitante":
+                return True
+            if self.temporada_id and self.temporada.equipo_debe_partido(self.equipo_visitante):
+                return self.goles_visitante <= self.goles_local
+            return False
+        return False
 
     def agregado_info(self):
         """Retorna dict con marcador global si es vuelta, o None.

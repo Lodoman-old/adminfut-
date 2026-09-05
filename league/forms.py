@@ -11,7 +11,7 @@ from datetime import date
 class TemporadaForm(forms.ModelForm):
     class Meta:
         model = Temporada
-        fields = ["nombre", "categoria", "fecha_inicio", "fecha_fin", "activa", "tipo_rol", "vueltas", "num_grupos", "tipo_competencia", "num_clasificados", "es_prueba", "jornadas_limite_pago", "goles_default", "min_jugadores", "cambios_permitidos", "max_titulares", "ida_vuelta", "final_ida_vuelta", "criterio_liguilla", "min_porcentaje_liguilla", "clasificacion_por_grupos"]
+        fields = ["nombre", "categoria", "fecha_inicio", "fecha_fin", "activa", "tipo_rol", "vueltas", "num_grupos", "tipo_competencia", "num_clasificados", "es_prueba", "jornadas_limite_pago", "goles_default", "puntos_default", "min_jugadores", "cambios_permitidos", "max_titulares", "ida_vuelta", "final_ida_vuelta", "criterio_liguilla", "min_porcentaje_liguilla", "clasificacion_por_grupos"]
         labels = {
             "es_prueba": "M. Prueba",
         }
@@ -29,6 +29,7 @@ class TemporadaForm(forms.ModelForm):
             "es_prueba": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "jornadas_limite_pago": forms.NumberInput(attrs={"class": "form-control", "min": 1, "placeholder": "Ej: 5"}),
             "goles_default": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+            "puntos_default": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "min_jugadores": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "cambios_permitidos": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "max_titulares": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
