@@ -1583,7 +1583,13 @@ def reporte_credenciales(request):
         equipos = Equipo.objects.filter(categoria_id=cat_id, activo=True).order_by("nombre")
     if equipo_id:
         equipo = get_object_or_404(Equipo, pk=equipo_id)
-        jugadores = Jugador.objects.filter(equipo=equipo, activo=True).order_by("dorsal")
+        jugadores = (
+            Jugador.objects.filter(
+                registros_equipo__equipo=equipo, registros_equipo__activo=True, activo=True
+            )
+            .distinct()
+            .order_by("dorsal")
+        )
     return render(request, "reports/reporte_credenciales.html", {
         "categorias": categorias,
         "equipos": equipos,
@@ -1607,18 +1613,27 @@ def reporte_credenciales_pdf(request):
 
     if jugadores_ids:
         ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
-        jugadores = list(Jugador.objects.filter(id__in=ids, activo=True).select_related("equipo__categoria").order_by("equipo__nombre", "dorsal"))
+        jugadores = list(Jugador.objects.filter(id__in=ids, activo=True).select_related("equipo__categoria").order_by("nombre", "apellido"))
         if not jugadores:
             messages.error(request, "No se encontraron jugadores seleccionados.")
             return redirect("reporte_credenciales")
-        teams = set(j.equipo.nombre for j in jugadores)
+        card_items = []
+        for j in jugadores:
+            registros = j.registros_equipo.filter(activo=True).select_related("equipo", "equipo__categoria").order_by("-es_principal", "id")
+            if registros:
+                card_items.extend((j, r.equipo) for r in registros)
+            else:
+                card_items.append((j, j.equipo))
+        teams = {eq.nombre for _, eq in card_items}
         filename = f"credenciales_{list(teams)[0]}.pdf" if len(teams) == 1 else "credenciales_seleccionadas.pdf"
     elif equipo_id:
-        jugadores = list(Jugador.objects.filter(equipo_id=equipo_id, activo=True).select_related("equipo__categoria").order_by("dorsal"))
+        equipo = get_object_or_404(Equipo, pk=equipo_id)
+        jugadores = list(Jugador.objects.filter(registros_equipo__equipo=equipo, registros_equipo__activo=True, activo=True).distinct().select_related("equipo__categoria").order_by("nombre", "apellido"))
         if not jugadores:
             messages.error(request, "El equipo no tiene jugadores activos.")
             return redirect("reporte_credenciales")
-        filename = f"credenciales_{jugadores[0].equipo.nombre}.pdf"
+        card_items = [(j, equipo) for j in jugadores]
+        filename = f"credenciales_{equipo.nombre}.pdf"
     else:
         messages.error(request, "Selecciona un equipo o jugadores.")
         return redirect("reporte_credenciales")
@@ -1659,7 +1674,7 @@ def reporte_credenciales_pdf(request):
         bar_h = 26
         content_pad = 4
 
-        for idx, j in enumerate(jugadores):
+        for idx, (j, eq_card) in enumerate(card_items):
             pos = idx % (cols * rows)
             if pos == 0:
                 if idx > 0:
@@ -1673,7 +1688,7 @@ def reporte_credenciales_pdf(request):
             content_h_top = y + card_h - bar_h - content_pad
             content_h = content_h_top - content_y
 
-            cat = j.equipo.categoria
+            cat = eq_card.categoria
 
             # Shadow
             p.setFillColor(colors.HexColor("#d0d0d0"))
@@ -1840,7 +1855,7 @@ def reporte_credenciales_pdf(request):
 
             # Team name at bottom-left corner
             team_name_x = x + 4
-            outlined_text(team_name_x, y + 9, j.equipo.nombre, name_font, 11)
+            outlined_text(team_name_x, y + 9, eq_card.nombre, name_font, 11)
 
             # Team logo at top-right corner, just below the green bar
             if mostrar_logo:
@@ -1848,7 +1863,7 @@ def reporte_credenciales_pdf(request):
                 tl_x = x + card_w - 4 - team_logo_size
                 tl_y = y + card_h - bar_h - team_logo_size - 4
                 logo_drawn = False
-                eq_logo_buf = _imagen_pdf(j.equipo.logo) if j.equipo.logo else None
+                eq_logo_buf = _imagen_pdf(eq_card.logo) if eq_card.logo else None
                 if eq_logo_buf:
                     try:
                         p.drawImage(eq_logo_buf, tl_x, tl_y, width=team_logo_size, height=team_logo_size, preserveAspectRatio=True, mask='auto')
