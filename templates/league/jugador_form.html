@@ -42,6 +42,14 @@
                     {{ form.dorsal }}
                     {% if form.dorsal.errors %}<div class="text-danger small">{{ form.dorsal.errors }}</div>{% endif %}
                 </div>
+                {% if form.equipo %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.equipo.label }} <span class="text-danger">*</span></label>
+                    {{ form.equipo }}
+                    {% if form.equipo.errors %}<div class="text-danger small">{{ form.equipo.errors }}</div>{% endif %}
+                    <div class="form-text text-muted">El sexo del CURP (H/M) se toma del género de la categoría del equipo.</div>
+                </div>
+                {% endif %}
                 <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.curp.label }}</label>
                     {{ form.curp }}
@@ -74,13 +82,6 @@
                         {% endif %}
                     </div>
                 </div>
-                {% if form.equipo %}
-                <div class="col-12 mb-3">
-                    <label class="form-label">{{ form.equipo.label }} <span class="text-danger">*</span></label>
-                    {{ form.equipo }}
-                    {% if form.equipo.errors %}<div class="text-danger small">{{ form.equipo.errors }}</div>{% endif %}
-                </div>
-                {% endif %}
 
                 <div class="col-12 mb-2 mt-2">
                     <hr>
