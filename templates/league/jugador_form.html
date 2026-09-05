@@ -438,6 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     var CURP_TABLA = '0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
     var PARTICULAS = ['DE','LA','LAS','DEL','LOS','Y'];
+    var EQUIPOS_GENERO = {{ equipos_genero_json|safe }};
     window._curpAutoPrefix = '';
 
     function normalizarCurpTexto(s) {
@@ -476,6 +477,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return String((10 - (suma % 10)) % 10);
     }
+    function generoASexo(genero) {
+        var g = (genero || '').toLowerCase();
+        if (g.indexOf('masculin') >= 0 || g.indexOf('varonil') >= 0 || g.indexOf('hombres') >= 0) return 'H';
+        if (g.indexOf('femenin') >= 0 || g.indexOf('femenil') >= 0 || g.indexOf('mujeres') >= 0) return 'M';
+        return '';
+    }
+    function sexoDesdeEquipo() {
+        var sel = document.getElementById('id_equipo_principal');
+        var eqId = sel ? sel.value : '';
+        if (!eqId || !(eqId in EQUIPOS_GENERO)) return '';
+        return generoASexo(EQUIPOS_GENERO[eqId]);
+    }
     function construirPrefijo() {
         var apellido = normalizarCurpTexto(document.getElementById('id_apellido').value);
         var nombre = normalizarCurpTexto(document.getElementById('id_nombre').value);
@@ -495,6 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (m) {
             p += String(Number(m[1]) % 100).padStart(2, '0') + m[2] + m[3];
         }
+        p += sexoDesdeEquipo();
         return p;
     }
 
@@ -524,7 +538,10 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (window._curpAutoPrefix) {
             var limpia = actual.toUpperCase();
             if (limpia.indexOf(window._curpAutoPrefix) === 0) {
-                var sufijo = actual.slice(window._curpAutoPrefix.length);
+                var largoViejo = window._curpAutoPrefix.length;
+                var sufijo = actual.slice(largoViejo);
+                var correr = nuevoPrefijo.length - largoViejo;
+                if (correr > 0 && sufijo) sufijo = sufijo.slice(correr);
                 curp.value = nuevoPrefijo + sufijo;
             }
         }
@@ -532,10 +549,11 @@ document.addEventListener('DOMContentLoaded', function() {
         actualizarDigito();
     }
 
-    var idsCurp = ['id_nombre', 'id_apellido', 'id_fecha_nacimiento'];
+    var idsCurp = ['id_nombre', 'id_apellido', 'id_fecha_nacimiento', 'id_equipo_principal'];
     idsCurp.forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', armarCurpAuto);
+        if (el && id === 'id_equipo_principal') el.addEventListener('change', armarCurpAuto);
     });
     var curpEl = document.getElementById('id_curp');
     if (curpEl) curpEl.addEventListener('input', actualizarDigito);

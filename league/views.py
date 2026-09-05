@@ -1,5 +1,6 @@
 import datetime
 from datetime import date
+import json
 import logging
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 
@@ -423,7 +424,19 @@ def validar_jugador(request, equipo, form):
     return True
 
 
-class JugadorCreateView(CreateView):
+class JugadorGeneroContextMixin:
+    """Expone al template el género (para sexo H/M en autocalculo CURP) de cada equipo activo."""
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["equipos_genero_json"] = json.dumps({
+            e.id: (e.categoria.genero or "")
+            for e in Equipo.objects.filter(activo=True).select_related("categoria")
+        })
+        return ctx
+
+
+class JugadorCreateView(JugadorGeneroContextMixin, CreateView):
     model = Jugador
     form_class = JugadorForm
     template_name = "league/jugador_form.html"
@@ -436,7 +449,7 @@ class JugadorCreateView(CreateView):
         return super().form_valid(form)
 
 
-class JugadorUpdateView(UpdateView):
+class JugadorUpdateView(JugadorGeneroContextMixin, UpdateView):
     model = Jugador
     form_class = JugadorForm
     template_name = "league/jugador_form.html"
