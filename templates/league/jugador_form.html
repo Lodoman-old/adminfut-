@@ -460,13 +460,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function inicialNombreCurp(nombre) {
         var partes = (nombre || '').split(' ');
         if (!partes.length || !partes[0]) return '';
-        var primera = partes[0];
-        if (primera === 'MARIA' || primera === 'JOSE') {
+        var primera = partes[0].toUpperCase().replace(/\./g, '');
+        if (['MARIA', 'JOSE', 'MA', 'M', 'J'].indexOf(primera) >= 0) {
             for (var i = 1; i < partes.length; i++) {
                 if (PARTICULAS.indexOf(partes[i]) < 0) return partes[i][0];
             }
         }
-        return primera[0];
+        return partes[0][0];
     }
     function digitoVerificador(curp) {
         var suma = 0;

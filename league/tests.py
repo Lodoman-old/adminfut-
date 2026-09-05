@@ -226,6 +226,14 @@ class CurpReglaMariaJoseTest(TestCase):
         self.assertEqual(f._inicial_nombre_curp("JOSE"), "J")
         self.assertEqual(f._inicial_nombre_curp("LUIS"), "L")
 
+    def test_inicial_nombre_curp_regla_abreviaturas(self):
+        f = self._form()
+        self.assertEqual(f._inicial_nombre_curp("J. CARMEN"), "C")
+        self.assertEqual(f._inicial_nombre_curp("J. LUIS"), "L")
+        self.assertEqual(f._inicial_nombre_curp("MA. GUADALUPE"), "G")
+        self.assertEqual(f._inicial_nombre_curp("M. JOSE"), "J")
+        self.assertEqual(f._inicial_nombre_curp("Jose Carmen"), "C")
+
     def test_validacion_acepta_regla_maria_jose(self):
         f = self._form()
         # José Luis García Hernández, 1990-01-01 → posición 4 = L (Luis)

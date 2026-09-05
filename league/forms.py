@@ -268,15 +268,18 @@ class JugadorForm(forms.ModelForm):
     def _inicial_nombre_curp(cls, nombre):
         """Inicial del nombre para la posición 4 de la CURP (ya normalizado).
 
-        Si el primer nombre es 'María' o 'José', se usa la inicial del segundo
-        nombre (omitiendo partículas como de/del/la). Si no hay segundo nombre,
-        se usa la inicial del primero.
+        Si el primer nombre es 'María' o 'José' (incluye abreviaturas como
+        'J.', 'M.' o 'Ma.'), se usa la inicial del segundo nombre (omitiendo
+        partículas como de/del/la). Si no hay segundo nombre, se usa la inicial
+        del primero.
         """
         if not nombre:
             return None
         partes = nombre.split()
         primera = partes[0]
-        if primera in ("MARIA", "JOSE"):
+        # Normalizar abreviatura: minúsculas/quitar puntos para detectar José/María
+        primera_norm = primera.upper().replace(".", "")
+        if primera_norm in ("MARIA", "JOSE", "MA", "M", "J"):
             for p in partes[1:]:
                 if p not in cls._PARTICULAS_NOMBRE:
                     return p[0]
