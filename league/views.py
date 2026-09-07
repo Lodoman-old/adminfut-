@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
 from finance.models import ConceptoIngreso, Ingreso
 
@@ -1253,6 +1253,28 @@ def _goleadores_hasta_jornada(temporada, jornada_numero):
     )
 
 
+class _SuspensionManualEnvelope:
+    """Envuelve una SuspensionJugador para integrarla con lo que esperan las
+    vistas/templates que consume la lista de castigados (misma interfaz que una
+    Tarjeta para los atributos que se usan)."""
+
+    es_manual = True
+
+    def __init__(self, record, restantes, pendientes):
+        self.jugador = record.jugador
+        self.equipo = record.equipo
+        self.categoria = record.categoria
+        self.suspension_jornadas = record.jornadas
+        self.motivo = record.motivo
+        self.fecha_creacion = record.creado
+        self.partido = None
+        self.expulsion_partido = None
+        self.jornada_expulsion = None
+        self.restantes = restantes
+        self.pendientes = pendientes
+        self._manual = record
+
+
 def _suspensiones_temporada(temporada, jug_ids=None):
     """Retorna dict {jugador_id: info} con suspensiones activas.
 
@@ -1261,6 +1283,9 @@ def _suspensiones_temporada(temporada, jug_ids=None):
     Una suspensión está activa si al menos uno de esos partidos aún no ha
     finalizado (estado != 'FIN'), o si no hubo suficientes partidos para
     cumplirla (se arrastra a la siguiente temporada).
+
+    Incluye también las suspensiones manuales (SuspensionJugador) activas
+    de la categoría, que arrastran automáticamente entre temporadas.
     """
     qs = Tarjeta.objects.filter(
         tipo="ROJA", suspension_jornadas__gt=0,
@@ -1297,6 +1322,38 @@ def _suspensiones_temporada(temporada, jug_ids=None):
                 "restantes": curr_rest,
                 "_tarjeta": r,
             }
+
+    # Suspensiones manuales de la categoría (arrastran entre temporadas)
+    manual_qs = SuspensionJugador.objects.filter(
+        categoria_id=temporada.categoria_id, activo=True,
+    )
+    if jug_ids is not None:
+        manual_qs = manual_qs.filter(jugador_id__in=jug_ids)
+    manual_qs = manual_qs.select_related("jugador", "equipo")
+    for m in manual_qs:
+        if m.jugador_id in result:
+            continue
+        restantes = m.restantes()
+        if restantes <= 0:
+            continue
+        prox = Partido.objects.filter(
+            temporada=temporada,
+            estado__in=("PRO", "PROG"),
+        ).filter(
+            Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
+        ).order_by("jornada__numero", "fecha_hora", "id")[:restantes]
+        pendientes = list(prox)
+        env = _SuspensionManualEnvelope(m, restantes, pendientes)
+        result[m.jugador_id] = {
+            "pendientes": pendientes,
+            "todos": pendientes,
+            "expulsion_partido": None,
+            "expulsion_equipo": m.equipo,
+            "suspension_jornadas": m.jornadas,
+            "restantes": restantes,
+            "_tarjeta": env,
+            "es_manual": True,
+        }
     return result
 
 
@@ -1315,6 +1372,11 @@ def _castigados_hasta_jornada(temporada, jornada_numero):
     susp = _suspensiones_temporada(temporada)
     # Filtrar solo las que corresponden a tarjetas hasta jornada_numero
     ids_ok = set(qs.values_list("jugador_id", flat=True))
+    ids_ok.update(
+        SuspensionJugador.objects.filter(
+            categoria_id=temporada.categoria_id, activo=True
+        ).values_list("jugador_id", flat=True)
+    )
     susp = {k: v for k, v in susp.items() if k in ids_ok}
 
     # Arrastrar suspensiones activas de la temporada anterior
@@ -1356,7 +1418,10 @@ def _castigados_hasta_jornada(temporada, jornada_numero):
             r.pendientes = info["pendientes"]
             r.restantes = info["restantes"]
             r.expulsion_partido = info["expulsion_partido"]
-            r.jornada_expulsion = info["expulsion_partido"].jornada.numero
+            r.jornada_expulsion = (
+                info["expulsion_partido"].jornada.numero
+                if info["expulsion_partido"] else None
+            )
             castigados.append(r)
     return castigados
 
@@ -2712,9 +2777,11 @@ def tabla_castigados(request):
 
         if jornada_id:
             # Filtrar solo las que expulsaron en la jornada específica
+            # (las manuales aplican desde el inicio de la temporada)
             susp = {
                 k: v for k, v in susp.items()
-                if v["_tarjeta"].partido.jornada_id == int(jornada_id)
+                if v.get("es_manual")
+                or (v["_tarjeta"].partido and v["_tarjeta"].partido.jornada_id == int(jornada_id))
             }
 
         for jug_id, info in susp.items():
@@ -2760,6 +2827,134 @@ def tabla_castigados(request):
         "jornadas": jornadas,
         "jornada_id": int(jornada_id) if jornada_id else None,
     })
+
+
+def temporada_suspensiones(request, temporada_pk):
+    """Suspensiones manuales del administrador: buscar/crear jugador, suspender, listar, levantar."""
+    temporada = get_object_or_404(Temporada, pk=temporada_pk)
+    categoria = temporada.categoria
+    equipos_categoria = Equipo.objects.filter(categoria=categoria, activo=True).order_by("nombre")
+    resultados = []
+    q = request.GET.get("q", "").strip()
+    error = None
+
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        try:
+            if accion == "suspender":
+                jugador_id = request.POST.get("jugador_id")
+                equipo_id = request.POST.get("equipo_id")
+                jornadas = int(request.POST.get("jornadas") or 0)
+                motivo = request.POST.get("motivo", "").strip()
+                jugador = Jugador.objects.filter(id=jugador_id).first()
+                if not jugador:
+                    error = "Jugador no encontrado."
+                elif not equipo_id or not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
+                    error = "Selecciona un equipo válido de la categoría."
+                elif jornadas <= 0:
+                    error = "El número de jornadas debe ser mayor a cero."
+                else:
+                    SuspensionJugador.objects.create(
+                        jugador=jugador,
+                        categoria=categoria,
+                        equipo_id=equipo_id,
+                        temporada=temporada,
+                        jornadas=jornadas,
+                        motivo=motivo,
+                        fecha_inicio=datetime.date.today(),
+                    )
+                    messages.success(request, f"Suspensión registrada para {jugador}.")
+            elif accion == "crear_suspender":
+                nombre = request.POST.get("nombre", "").strip()
+                apellido = request.POST.get("apellido", "").strip()
+                equipo_id = request.POST.get("equipo_id")
+                posicion = request.POST.get("posicion", "DEL")
+                dorsal_raw = request.POST.get("dorsal", "").strip()
+                jornadas = int(request.POST.get("jornadas") or 0)
+                motivo = request.POST.get("motivo", "").strip()
+                if not nombre or not apellido:
+                    error = "Nombre y apellido son obligatorios."
+                elif not equipo_id or not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
+                    error = "Selecciona un equipo válido de la categoría."
+                elif jornadas <= 0:
+                    error = "El número de jornadas debe ser mayor a cero."
+                else:
+                    j = Jugador.objects.create(
+                        nombre=nombre,
+                        apellido=apellido,
+                        equipo_id=equipo_id,
+                        posicion=posicion,
+                        dorsal=int(dorsal_raw) if dorsal_raw.isdigit() else None,
+                    )
+                    SuspensionJugador.objects.create(
+                        jugador=j,
+                        categoria=categoria,
+                        equipo_id=equipo_id,
+                        temporada=temporada,
+                        jornadas=jornadas,
+                        motivo=motivo,
+                        fecha_inicio=datetime.date.today(),
+                    )
+                    messages.success(request, f"Jugador {j} creado y suspendido.")
+        except Exception as e:
+            error = str(e)
+        if not error:
+            return redirect("temporada_suspensiones", temporada_pk=temporada.id)
+
+    if q:
+        tokens = [t for t in q.split() if t]
+        resultados = Jugador.objects.filter(activo=True).select_related("equipo__categoria", "equipo")
+        if len(tokens) >= 2:
+            resultados = resultados.filter(
+                Q(nombre__icontains=tokens[0]) & Q(apellido__icontains=" ".join(tokens[1:]))
+            )
+        else:
+            resultados = resultados.filter(
+                Q(nombre__icontains=tokens[0]) | Q(apellido__icontains=tokens[0])
+            )
+        resultados = resultados.order_by("apellido", "nombre")[:30]
+
+    suspensiones = (
+        SuspensionJugador.objects.filter(categoria=categoria)
+        .select_related("jugador", "equipo", "temporada")
+        .order_by("-activo", "-creado")[:100]
+    )
+    lista_suspensiones = []
+    for s in suspensiones:
+        rest = s.restantes()
+        lista_suspensiones.append({
+            "id": s.id,
+            "jugador": s.jugador,
+            "equipo": s.equipo,
+            "temporada": s.temporada,
+            "jornadas": s.jornadas,
+            "restantes": rest,
+            "motivo": s.motivo,
+            "activo": s.activo,
+            "vetado": s.vigente() and s.activo,
+            "fecha_inicio": s.fecha_inicio,
+        })
+
+    return render(request, "league/temporada_suspensiones.html", {
+        "temporada": temporada,
+        "categoria": categoria,
+        "equipos": equipos_categoria,
+        "q": q,
+        "resultados": resultados,
+        "suspensiones": lista_suspensiones,
+        "error": error,
+    })
+
+
+def levantar_suspension(request, pk):
+    s = get_object_or_404(SuspensionJugador, pk=pk)
+    temporada_pk = s.temporada_id
+    s.activo = False
+    s.save(update_fields=["activo"])
+    messages.success(request, f"Suspensión de {s.jugador} levantada.")
+    if temporada_pk:
+        return redirect("temporada_suspensiones", temporada_pk=temporada_pk)
+    return redirect("tabla_castigados")
 
 
 from django.http import JsonResponse

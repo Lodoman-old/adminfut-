@@ -204,6 +204,9 @@ PERMISO_POR_URL = {
     'reporte_tarjetas_xlsx': 'reporte_tarjetas_pdf',
     'reporte_castigados_pdf': 'reporte_castigados_pdf',
     'reporte_castigados_xlsx': 'reporte_castigados_pdf',
+    # Suspensiones manuales
+    'temporada_suspensiones': 'gestion_suspensiones',
+    'levantar_suspension': 'gestion_suspensiones',
     'reporte_cedula_arbitral_pdf': 'partido_cedula',
     'reporte_cedula_arbitral_xlsx': 'partido_cedula',
     'horarios_fijos_report': 'reporte_horarios',

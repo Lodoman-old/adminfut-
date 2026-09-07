@@ -1861,6 +1861,62 @@ class Tarjeta(models.Model):
         return f"{self.get_tipo_display()} - {self.jugador} ({self.minuto}')"
 
 
+class SuspensionJugador(models.Model):
+    """Suspensión registrada manualmente por el administrador de la liga.
+
+    Cuenta los próximos N partidos del equipo suspendido en la categoría;
+    si la temporada termina sin cumplirse, el saldo se arrastra a la
+    siguiente temporada de la misma categoría.
+    """
+    jugador = models.ForeignKey(
+        "Jugador", on_delete=models.CASCADE, related_name="suspensiones_manuales"
+    )
+    categoria = models.ForeignKey(
+        "Categoria", on_delete=models.PROTECT, related_name="suspensiones_manuales"
+    )
+    equipo = models.ForeignKey(
+        "Equipo", on_delete=models.CASCADE, related_name="suspensiones_manuales"
+    )
+    temporada = models.ForeignKey(
+        "Temporada", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="suspensiones_manuales",
+        verbose_name="Temporada donde inicia",
+    )
+    jornadas = models.PositiveIntegerField(default=1, verbose_name="Jornadas de suspensión")
+    motivo = models.TextField(blank=True, verbose_name="Motivo")
+    activo = models.BooleanField(default=True, verbose_name="Activa")
+    fecha_inicio = models.DateField(verbose_name="Inicio del conteo")
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Suspensión manual"
+        verbose_name_plural = "Suspensiones manuales"
+        ordering = ["-creado"]
+
+    def __str__(self):
+        return f"{self.jugador} ({self.categoria}) - {self.jornadas} J"
+
+    def consumidos(self):
+        """Partidos finalizados (FIN) del equipo en la categoría desde fecha_inicio."""
+        from django.db.models import Q
+        return Partido.objects.filter(
+            temporada__categoria_id=self.categoria_id,
+            temporada__fecha_inicio__gte=self.fecha_inicio,
+            estado="FIN",
+        ).filter(
+            Q(equipo_local=self.equipo) | Q(equipo_visitante=self.equipo)
+        ).count()
+
+    def restantes(self):
+        """Jornadas que faltan por cumplir (0 si ya cumplió o está pausada)."""
+        if not self.activo:
+            return 0
+        return max(0, self.jornadas - self.consumidos())
+
+    def vigente(self):
+        return self.restantes() > 0
+
+
 @deconstructible
 class RawCloudinaryStorage(Storage):
     def __init__(self, folder=""):

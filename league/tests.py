@@ -1,9 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from django.test import TestCase, Client
 from django.utils import timezone
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, SuspensionJugador
 
 
 class FixtureDescansoTest(TestCase):
@@ -249,3 +249,79 @@ class CurpReglaMariaJoseTest(TestCase):
             "GAHJ900101HDFRCR00", "José Luis", "García Hernández", date(1990, 1, 1)
         )
         self.assertTrue(any("María/José" in e for e in errs))
+
+
+class SuspensionJugadorTest(TestCase):
+    def setUp(self):
+        self.cat = Categoria.objects.create(
+            nombre="Libre", dias_juego=["SAB"], curp_obligatoria=False
+        )
+        self.campo = Campo.objects.create(nombre="Campo 1", activo=True)
+        self.eq1 = Equipo.objects.create(nombre="Aguilas", categoria=self.cat, activo=True)
+        self.eq2 = Equipo.objects.create(nombre="Toros", categoria=self.cat, activo=True)
+        self.jugador = Jugador.objects.create(
+            nombre="Juan", apellido="Perez", equipo=self.eq1, posicion="DEL"
+        )
+        self.temporada = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp 1", fecha_inicio=date.today(),
+            tipo_rol="TODOS", vueltas=1, iniciada=True,
+        )
+
+    def _jornada(self, numero):
+        return Jornada.objects.create(temporada=self.temporada, numero=numero, nombre=f"J{numero}")
+
+    def _partido(self, jornada, local, visit, fecha, n=1):
+        return Partido.objects.create(
+            temporada=self.temporada, jornada=jornada, equipo_local=local,
+            equipo_visitante=visit, fecha_hora=fecha, campo=self.campo, estado="FIN",
+        )
+
+    def test_restantes_cuenta_partidos_finalizados(self):
+        susp = SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=self.eq1,
+            temporada=self.temporada, jornadas=2, fecha_inicio=date.today(),
+        )
+        self.assertEqual(susp.restantes(), 2)
+        j = self._jornada(1)
+        self._partido(j, self.eq1, self.eq2, timezone.now(), n=1)
+        self.assertEqual(susp.restantes(), 1)
+        j2 = self._jornada(2)
+        self._partido(j2, self.eq2, self.eq1, timezone.now() + timedelta(days=7), n=2)
+        self.assertEqual(susp.restantes(), 0)
+        self.assertFalse(susp.vigente())
+
+    def test_tabla_castigados_incluye_suspension_manual(self):
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=self.eq1,
+            temporada=self.temporada, jornadas=2, fecha_inicio=date.today(),
+        )
+        client = Client()
+        r = client.get(f"/tabla-castigados/?temporada={self.temporada.id}")
+        self.assertEqual(r.status_code, 200)
+        # La página usa el patrón sin permiso (ruta pública de tabla)
+        self.assertContains(r, "Juan Perez")
+
+    def test_clean_equipo_bloquea_cambio_de_equipo_suspendido(self):
+        from .forms import JugadorForm
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=self.eq1,
+            temporada=self.temporada, jornadas=1, fecha_inicio=date.today(),
+        )
+        form = JugadorForm(
+            data={
+                "nombre": "Juan", "apellido": "Perez", "posicion": "DEL",
+                "equipo": self.eq2.id, "tipo_documento": "CURP",
+            },
+            instance=self.jugador,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("suspensión activa", str(form.errors.get("equipo", "")))
+
+    def test_levantar_suspension_desactiva(self):
+        susp = SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=self.eq1,
+            temporada=self.temporada, jornadas=3, fecha_inicio=date.today(),
+        )
+        susp.activo = False
+        susp.save(update_fields=["activo"])
+        self.assertEqual(susp.restantes(), 0)

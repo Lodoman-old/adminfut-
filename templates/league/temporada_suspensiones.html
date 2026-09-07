@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Suspensiones - {{ temporada.nombre }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-person-slash"></i> Suspensiones manuales</h3>
+    <a href="{% url 'temporada_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Temporadas</a>
+</div>
+<p class="text-muted">
+    Categoría: <strong>{{ categoria.nombre }}</strong> · Temporada: <strong>{{ temporada.nombre }}</strong>
+    <span class="badge bg-secondary">{{ temporada.iniciada|yesno:"Iniciada,No iniciada" }}</span>
+</p>
+
+{% if messages %}
+{% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show">{{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+{% endif %}
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-search"></i> Buscar jugador registrado</div>
+            <div class="card-body">
+                <form method="get" class="d-flex gap-2 mb-3">
+                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Nombre o apellido" autocomplete="off">
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                </form>
+                {% if resultados %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead><tr><th>Jugador</th><th>Equipo principal</th><th>Opción</th></tr></thead>
+                        <tbody>
+                        {% for j in resultados %}
+                        <tr>
+                            <td>{{ j.nombre }} {{ j.apellido }}</td>
+                            <td>{{ j.equipo.nombre }} <span class="text-muted small">({{ j.equipo.categoria.nombre }})</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#susp{{ j.id }}">Suspender</button>
+                            </td>
+                        </tr>
+                        <tr class="collapse" id="susp{{ j.id }}">
+                            <td colspan="3">
+                                <form method="post" class="row g-2 bg-light p-2 rounded">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="accion" value="suspender">
+                                    <input type="hidden" name="jugador_id" value="{{ j.id }}">
+                                    <div class="col-12">
+                                        <label class="form-label small mb-0">Equipo (rol donde cumple)</label>
+                                        <select name="equipo_id" class="form-select form-select-sm">
+                                            <option value="">Selecciona...</option>
+                                            {% for e in equipos %}
+                                            <option value="{{ e.id }}" {% if e.id == j.equipo_id %}selected{% endif %}>{{ e.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-5">
+                                        <label class="form-label small mb-0">Jornadas</label>
+                                        <input type="number" name="jornadas" value="1" min="1" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-7">
+                                        <label class="form-label small mb-0">Motivo</label>
+                                        <input type="text" name="motivo" class="form-control form-control-sm" placeholder="Opcional">
+                                    </div>
+                                    <div class="col-12"><button class="btn btn-sm btn-danger"><i class="bi bi-person-slash"></i> Registrar suspensión</button></div>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-muted text-center py-3">Sin resultados. Usa el formulario para crear al jugador.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% elif q %}
+                <p class="text-muted">Sin resultados para "<strong>{{ q }}</strong>".</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person-plus"></i> Crear jugador y suspenderlo</div>
+            <div class="card-body">
+                <form method="post" class="row g-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="crear_suspender">
+                    <div class="col-md-6"><label class="form-label small mb-0">Nombre *</label><input name="nombre" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label small mb-0">Apellido *</label><input name="apellido" class="form-control" required></div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0">Posición</label>
+                        <select name="posicion" class="form-select">
+                            <option value="POR">Portero</option>
+                            <option value="DEF">Defensa</option>
+                            <option value="MED">Mediocampista</option>
+                            <option value="DEL" selected>Delantero</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label small mb-0">Dorsal</label><input type="number" name="dorsal" class="form-control" min="1"></div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0">Equipo *</label>
+                        <select name="equipo_id" class="form-select" required>
+                            <option value="">Selecciona...</option>
+                            {% for e in equipos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label small mb-0">Jornadas *</label><input type="number" name="jornadas" value="1" min="1" class="form-control" required></div>
+                    <div class="col-md-8"><label class="form-label small mb-0">Motivo</label><input type="text" name="motivo" class="form-control" placeholder="Opcional"></div>
+                    <div class="col-12"><button class="btn btn-success"><i class="bi bi-person-plus"></i> Crear y suspender</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-list-check"></i> Suspensiones de la categoría</div>
+            <div class="card-body table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th>Jugador</th><th>Equipo</th><th>Temporada</th><th>Jornadas</th><th>Restantes</th><th>Estado</th><th></th></tr></thead>
+                    <tbody>
+                    {% for s in suspensiones %}
+                    <tr>
+                        <td>{{ s.jugador.nombre }} {{ s.jugador.apellido }}</td>
+                        <td>{{ s.equipo.nombre }}</td>
+                        <td>{{ s.temporada.nombre|default:"-" }}</td>
+                        <td>{{ s.jornadas }}</td>
+                        <td>{{ s.restantes }}</td>
+                        <td>
+                            {% if s.activo and s.restantes > 0 %}<span class="badge bg-danger" title="Según el conteo de partidos">Vigente</span>
+                            {% elif s.activo %}<span class="badge bg-success" title="Ya cumplió el número de partidos">Cumplida</span>
+                            {% else %}<span class="badge bg-secondary">Levantada</span>{% endif %}
+                            {% if s.motivo %}<br><small class="text-muted">{{ s.motivo }}</small>{% endif %}
+                            <br><small class="text-muted">Inicia: {{ s.fecha_inicio|date:"d/m/Y" }}</small>
+                        </td>
+                        <td>
+                            {% if s.activo %}
+                            <form method="post" action="{% url 'levantar_suspension' s.id %}" onsubmit="return confirm('¿Levantar la suspensión de {{ s.jugador }}?');">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-success" title="Levantar"><i class="bi bi-check-lg"></i></button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-3">No hay suspensiones registradas en esta categoría.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -513,7 +513,7 @@ def generar_imagen_castigados(temporada_nombre, jornada_numero, castigados, ahor
         fnt_c = _font(14)
         for idx, c in enumerate(castigados):
             bg = COLOR_ROW_ALT if idx % 2 == 1 else COLOR_WHITE
-            txt = f"\u2022  {c['jugador']} ({c['equipo']})  \u2014  Exp. Jor.{c['jornada_expulsion']}  |  Restan {c['restantes']} jor."
+            txt = f"\u2022  {c['jugador']} ({c['equipo']})  \u2014  {('Exp. Jor.' + str(c['jornada_expulsion'])) if c['jornada_expulsion'] else 'Susp. manual'}  |  Restan {c['restantes']} jor."
             rh = 28
             R(MARGIN, y, WIDTH - MARGIN, y + rh, bg)
             T(MARGIN + 8, y + 5, txt, COLOR_TEXT, fnt_c)

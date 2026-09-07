@@ -4,7 +4,7 @@ from django import forms
 from django.utils.timezone import localtime, is_aware, make_aware
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from .models import Categoria, Temporada, Grupo, Equipo, Jugador, JugadorEquipo, Campo, Arbitro, PeriodoAltas, Partido, HorarioFijoEquipo
+from .models import Categoria, Temporada, Grupo, Equipo, Jugador, JugadorEquipo, Campo, Arbitro, PeriodoAltas, Partido, HorarioFijoEquipo, SuspensionJugador
 from datetime import date
 
 
@@ -176,6 +176,14 @@ class JugadorForm(forms.ModelForm):
 
     def clean_equipo(self):
         equipo = self.cleaned_data.get("equipo")
+        if self.instance and self.instance.pk:
+            activa = SuspensionJugador.objects.filter(jugador=self.instance, activo=True).first()
+            if activa and self.instance.equipo_id != equipo.id:
+                raise ValidationError(
+                    f"El jugador tiene una suspensión activa ({activa.equipo.nombre}, "
+                    f"restan {activa.restantes()} jornada(s)). No puede cambiar de equipo ni "
+                    f"darse de alta en otra categoría hasta cumplir la suspensión."
+                )
         if self.instance and self.instance.suspendido_pago:
             raise ValidationError(
                 "El jugador está suspendido por adeudo de multa. "
@@ -485,8 +493,22 @@ class JugadorForm(forms.ModelForm):
                         msg = f"{cats[a].nombre} y {cats[b].nombre} no son compatibles entre sí."
                         self.add_error("secondary_data", msg)
 
+            # Alta bloqueada en cualquier categoría mientras haya suspensión manual activa
+            susp_activa = None
+            regs_actuales = set()
+            if self.instance and self.instance.pk:
+                susp_activa = SuspensionJugador.objects.filter(jugador=self.instance, activo=True).first()
+                regs_actuales = set(self.instance.registros_equipo.values_list("equipo_id", flat=True))
+
             # Validar cada equipo secundario
             for cid, eid in secondary.items():
+                if susp_activa and eid not in regs_actuales:
+                    cat_name = cats.get(cid, None).nombre if cats.get(cid) else Categoria(id=cid)
+                    self.add_error("secondary_data",
+                        f"No se puede dar de alta en {cat_name} porque el jugador tiene una "
+                        f"suspensión activa ({susp_activa.equipo.nombre}, restan "
+                        f"{susp_activa.restantes()} jornada(s)).")
+                    continue
                 try:
                     eq_obj = Equipo.objects.get(id=eid)
                 except Equipo.DoesNotExist:

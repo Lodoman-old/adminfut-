@@ -433,10 +433,12 @@ def reporte_castigados_pdf(request):
             partido__temporada_id=temp_id,
         ).select_related("jugador", "equipo", "partido__jornada").order_by("-partido__fecha_hora")
         data = [["#", "Jugador", "Equipo", "Susp.", "Expulsión", "Pendientes"]]
+        procesados = set()
         for i, c in enumerate(castigados, 1):
             info = susp_dict.get(c.jugador_id)
             restantes = info["restantes"] if info else 0
             if restantes > 0:
+                procesados.add(c.jugador_id)
                 pend_list = info["pendientes"]
                 if pend_list:
                     pend_text = "; ".join(
@@ -453,6 +455,29 @@ def reporte_castigados_pdf(request):
                 Paragraph(c.equipo.nombre, ps),
                 c.suspension_jornadas,
                 Paragraph(f"{c.partido.equipo_local} - {c.partido.equipo_visitante} ({c.partido.jornada.nombre})", ps),
+                Paragraph(pend_text, ps),
+            ])
+        for jug_id in list(susp_dict):
+            if jug_id in procesados or not susp_dict[jug_id].get("es_manual"):
+                continue
+            info = susp_dict[jug_id]
+            if info["restantes"] <= 0:
+                continue
+            env = info["_tarjeta"]
+            pend_list = info["pendientes"]
+            if pend_list:
+                pend_text = "; ".join(
+                    f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
+                    for p in pend_list
+                )
+            else:
+                pend_text = f"Pendiente ({info['restantes']}) - próxima temporada"
+            data.append([
+                len(data),
+                Paragraph(f"{env.jugador.nombre} {env.jugador.apellido}", ps),
+                Paragraph(env.equipo.nombre, ps),
+                env.suspension_jornadas,
+                Paragraph("Suspensión manual", ps),
                 Paragraph(pend_text, ps),
             ])
         col_widths = [25, 150, 100, 40, 200, 200]
@@ -828,6 +853,37 @@ def reporte_castigados_xlsx(request):
                 c.equipo.nombre,
                 c.suspension_jornadas,
                 f"{c.partido.equipo_local} vs {c.partido.equipo_visitante} ({c.partido.jornada.nombre})",
+                pend_str,
+            ])
+        from league.models import SuspensionJugador
+        manuales = SuspensionJugador.objects.filter(
+            categoria=temp.categoria, activo=True
+        ).select_related("jugador", "equipo")
+        num_fila = 1
+        for m in manuales:
+            rst = m.restantes()
+            if rst <= 0:
+                continue
+            prox = Partido.objects.filter(
+                temporada=temp, estado__in=("PRO", "PROG"),
+            ).filter(
+                Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
+            ).order_by("jornada__numero", "fecha_hora", "id")[:rst]
+            pend_list = list(prox)
+            if pend_list:
+                pend_str = "; ".join(
+                    f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
+                    for p in pend_list
+                )
+            else:
+                pend_str = f"Pendiente ({rst}) - próxima temporada"
+            num_fila = ws.max_row or 2
+            ws.append([
+                num_fila - 1,
+                f"{m.jugador.nombre} {m.jugador.apellido}",
+                m.equipo.nombre,
+                m.jornadas,
+                "Suspensión manual",
                 pend_str,
             ])
     else:

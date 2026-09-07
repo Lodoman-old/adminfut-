@@ -47,6 +47,11 @@
                 </a>
                 {% endif %}
                 {% if t.iniciada %}
+                {% if user|tiene_permiso:"gestion_suspensiones" %}
+                <a href="{% url 'temporada_suspensiones' t.pk %}" class="btn btn-sm btn-dark" title="Suspensiones manuales (jugadores castigados fuera del partido)">
+                    <i class="bi bi-person-slash"></i>
+                </a>
+                {% endif %}
                 {% if user|tiene_permiso:"temporada_reiniciar" %}
                 <a href="{% url 'reiniciar_temporada' t.pk %}" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmarAccionModal" data-href="{% url 'reiniciar_temporada' t.pk %}" data-mensaje="¿Reiniciar la temporada? Se eliminarán jornadas y partidos.">
                     <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-sm-inline">Reiniciar</span>

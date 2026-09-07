@@ -3,8 +3,24 @@ from django.db.models import Sum, Count
 from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone
-from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta
+from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta, SuspensionJugador
+from django.db.models import Q
 from finance.models import Ingreso
+
+
+class _EnvelopeManual:
+    """Adapta una SuspensionJugador a la forma que espera home.html."""
+    es_manual = True
+
+    def __init__(self, record, restantes):
+        self.jugador = record.jugador
+        self.equipo = record.equipo
+        self.suspension_jornadas = record.jornadas
+        self.motivo = record.motivo
+        self.fecha_creacion = record.creado
+        self.partido = None
+        self.pendientes = []
+        self.restantes = restantes
 
 
 def health(request):
@@ -157,6 +173,26 @@ def home(request):
         cast_filter
         .select_related("jugador", "equipo", "partido__jornada")
         .order_by("-partido__fecha_hora")
+    )
+    castigados = list(castigados)
+
+    # Suspensiones manuales activas de la categoría
+    manual_qs = SuspensionJugador.objects.filter(activo=True).select_related("jugador", "equipo")
+    if categoria_sel:
+        manual_qs = manual_qs.filter(categoria=categoria_sel)
+    for m in manual_qs:
+        if m.jugador_id in {getattr(c, "jugador_id", None) for c in castigados}:
+            continue
+        if m.restantes() <= 0:
+            continue
+        rst = m.restantes()
+        castigados.append(_EnvelopeManual(m, rst))
+
+    _sort_base = timezone.now()
+    castigados.sort(
+        key=lambda c: (getattr(getattr(c, "partido", None), "fecha_hora", None)
+                       or getattr(c, "fecha_creacion", None) or _sort_base),
+        reverse=True,
     )
 
     finanzas_visible = (
