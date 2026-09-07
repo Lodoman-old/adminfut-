@@ -3,7 +3,8 @@ from datetime import date, datetime, timedelta
 from django.test import TestCase, Client
 from django.utils import timezone
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, SuspensionJugador
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador
+from .reglas_movimientos import errores_movimiento_jugador
 
 
 class FixtureDescansoTest(TestCase):
@@ -325,3 +326,111 @@ class SuspensionJugadorTest(TestCase):
         susp.activo = False
         susp.save(update_fields=["activo"])
         self.assertEqual(susp.restantes(), 0)
+
+
+class MovimientosEquipoTest(TestCase):
+    def setUp(self):
+        self.c1 = Categoria.objects.create(nombre="Primera", nivel=1)
+        self.c2 = Categoria.objects.create(nombre="Intermedia", nivel=2)
+        self.c3 = Categoria.objects.create(nombre="Segunda", nivel=3)
+        self.eq1 = Equipo.objects.create(nombre="T1", categoria=self.c1, activo=True)
+        self.eq2 = Equipo.objects.create(nombre="T2", categoria=self.c2, activo=True)
+        self.j = Jugador.objects.create(nombre="Juan", apellido="Perez", equipo=self.eq1, fecha_nacimiento=date(1990, 1, 1))
+
+    def _temporada(self, **kw):
+        kw.setdefault("fecha_inicio", date(2026, 6, 1))
+        kw.setdefault("tipo_rol", "TODOS")
+        kw.setdefault("aplicar_movimientos", True)
+        return Temporada.objects.create(categoria=self.c1, nombre="Temp 2026", **kw)
+
+    def test_descenso_restringe_categoria_superior(self):
+        mov = MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="DESCENSO", origen_categoria=self.c1, destino_categoria=self.c2,
+        )
+        errs_sup = errores_movimiento_jugador(self.j, self.eq2, self.c1)
+        self.assertTrue(any("descendió" in e for e in errs_sup))
+        self.assertEqual(errores_movimiento_jugador(self.j, self.eq2, self.c2), [])
+        self.assertEqual(errores_movimiento_jugador(self.j, self.eq2, self.c3), [])
+        self.assertTrue(mov.cupo_50() == 0)
+
+    def test_desaparicion_restringe_por_encima_y_dos_niveles_abajo(self):
+        MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="DESAPARECE", origen_categoria=self.c1,
+        )
+        self.assertTrue(any("desapareció" in e for e in errores_movimiento_jugador(self.j, None, self.c3)))
+        self.assertEqual(errores_movimiento_jugador(self.j, None, self.c1), [])
+        self.assertEqual(errores_movimiento_jugador(self.j, None, self.c2), [])
+
+    def test_ascenso_50_por_ciento_fifo(self):
+        c_sup = Categoria.objects.create(nombre="Maxima", nivel=0)
+        eq_sup = Equipo.objects.create(nombre="T1S", categoria=c_sup, activo=True)
+        otros = [
+            Jugador.objects.create(nombre=f"P{i}", apellido="X", equipo=self.eq1, fecha_nacimiento=date(1990, 1, 1))
+            for i in range(3)
+        ]
+        mov = MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="ASCENSO", origen_categoria=self.c1, destino_categoria=c_sup,
+            jugadores_plantilla=4,
+        )
+        # Cambiarse a OTRO equipo en categoria superior ok (cupo libre, categoría válida)
+        j2 = otros[0]
+        eq_destino = eq_sup
+        self.assertEqual(errores_movimiento_jugador(j2, eq_destino, c_sup), [])
+        # FIFO: registramos 2 (50% de 4) en el equipo de la categoría superior
+        for o in otros[:2]:
+            JugadorEquipo.objects.create(jugador=o, equipo=eq_sup, activo=True, es_principal=True)
+        self.assertEqual(mov.transferidos(), 2)
+        self.assertEqual(mov.cupo_50(), 2)
+        errs = errores_movimiento_jugador(otros[2], eq_sup, c_sup)
+        self.assertTrue(any("cupo del 50%" in e for e in errs))
+        # Categoría incorrecta bloqueada aunque haya cupo
+        errs_cat = errores_movimiento_jugador(self.j, self.eq2, self.c2)
+        self.assertTrue(any("solo puede" in e for e in errs_cat))
+
+    def test_se_queda_no_restringe(self):
+        MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="SE_QUEDA", origen_categoria=self.c1,
+        )
+        self.assertEqual(errores_movimiento_jugador(self.j, self.eq2, self.c3), [])
+        self.assertEqual(errores_movimiento_jugador(self.j, self.eq2, self.c1), [])
+
+    def test_guardar_movimientos_mueve_categoria_y_desactiva(self):
+        from django.contrib.auth import get_user_model
+        catA = Categoria.objects.create(nombre="Maxima", nivel=19)
+        catB = Categoria.objects.create(nombre="Intermedia", nivel=20)
+        catC = Categoria.objects.create(nombre="Segunda", nivel=21)
+        t = Temporada.objects.create(
+            categoria=catB, nombre="Temp", fecha_inicio=date(2026, 6, 1),
+            tipo_rol="TODOS", num_ascensos=1, num_descensos=1, aplicar_movimientos=True,
+            finalizada=True,
+        )
+        eqA = Equipo.objects.create(nombre="Alpha", categoria=catB, activo=True)
+        eqB = Equipo.objects.create(nombre="Beta", categoria=catB, activo=True)
+        Partido.objects.create(
+            temporada=t, equipo_local=eqA, equipo_visitante=eqB,
+            fecha_hora=timezone.make_aware(datetime(2026, 6, 5, 12, 0)),
+            estado="FIN", goles_local=2, goles_visitante=1,
+        )
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admin", password="p")
+        self.client.force_login(admin)
+        r = self.client.get(f"/temporadas/{t.pk}/movimientos/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Sube a Maxima")
+        r_post = self.client.post(f"/temporadas/{t.pk}/movimientos/", {
+            f"tipo_{eqA.pk}": "ASCENSO", f"tipo_{eqB.pk}": "DESAPARECE",
+        })
+        self.assertEqual(r_post.status_code, 302)
+        eqA.refresh_from_db(); eqB.refresh_from_db()
+        self.assertEqual(eqA.categoria_id, catA.id)  # sube a Maxima
+        self.assertFalse(eqB.activo)  # desaparece
+        movA = MovimientoEquipo.objects.get(equipo=eqA)
+        self.assertEqual(movA.tipo, "ASCENSO")
+        self.assertEqual(movA.destino_categoria_id, catA.id)
+        movB = MovimientoEquipo.objects.get(equipo=eqB)
+        self.assertEqual(movB.tipo, "DESAPARECE")
+        self.assertEqual(movB.origen_categoria_id, catB.id)

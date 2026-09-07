@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
 from finance.models import ConceptoIngreso, Ingreso
 
@@ -2224,6 +2224,13 @@ def gestionar_altas_bajas(request, pk):
                 if c.edad_maxima is not None and jug.edad() > c.edad_maxima:
                     messages.error(request, f"{jug} tiene {jug.edad()} años. {c.nombre} permite máximo {c.edad_maxima}.")
                     return redirect("gestionar_altas_bajas", pk=pk)
+            # Reglas de ascenso/descenso/desaparición
+            from .reglas_movimientos import errores_movimiento_jugador
+            mov_errs = errores_movimiento_jugador(jug, eq, eq.categoria)
+            if mov_errs:
+                for msg in mov_errs:
+                    messages.error(request, msg)
+                return redirect("gestionar_altas_bajas", pk=pk)
             # Verificar cupo
             total_actual = (
                 Jugador.objects.filter(equipo=eq).count()
@@ -2955,6 +2962,133 @@ def levantar_suspension(request, pk):
     if temporada_pk:
         return redirect("temporada_suspensiones", temporada_pk=temporada_pk)
     return redirect("tabla_castigados")
+
+
+def temporada_movimientos(request, temporada_pk):
+    """Cierre de temporada: registrar ascensos/descensos/desapariciones de equipos.
+
+    Al guardar, el sistema mueve la categoría del Equipo (FK) y deja las
+    restricciones de los jugadores activas para la siguiente temporada.
+    """
+    temporada = get_object_or_404(Temporada, pk=temporada_pk)
+    cat = temporada.categoria
+    cat_sup = cat.categoria_superior()
+    cat_inf = cat.categoria_inferior()
+    opciones = {"ASCENSO": cat_sup, "DESCENSO": cat_inf}
+
+    if request.method == "POST":
+        errores = []
+        n_guardados = 0
+        filas_post = [
+            (int(k[len("tipo_"):]), v)
+            for k, v in request.POST.items()
+            if k.startswith("tipo_") and k[len("tipo_"):].isdigit()
+            and v in ("ASCENSO", "DESCENSO", "DESAPARECE", "SE_QUEDA")
+        ]
+        for equipo_id, tipo in filas_post:
+            equipo = Equipo.objects.filter(id=equipo_id, categoria=cat).first()
+            if not equipo:
+                continue
+            destino = opciones.get(tipo)
+            if tipo in ("ASCENSO", "DESCENSO") and destino is None:
+                errores.append(f"{equipo.nombre}: no existe la categoría {'superior' if tipo == 'ASCENSO' else 'inferior'} para registrarlo.")
+                continue
+            MovimientoEquipo.objects.update_or_create(
+                temporada=temporada,
+                equipo=equipo,
+                defaults={
+                    "tipo": tipo,
+                    "origen_categoria": cat,
+                    "destino_categoria": destino,
+                    "jugadores_plantilla": JugadorEquipo.objects.filter(
+                        equipo=equipo, activo=True
+                    ).count(),
+                },
+            )
+            if tipo in ("ASCENSO", "DESCENSO"):
+                if equipo.categoria_id != destino.id:
+                    equipo.categoria = destino
+                    equipo.save(update_fields=["categoria"])
+                if not equipo.activo:
+                    equipo.activo = True
+                    equipo.save(update_fields=["activo"])
+            elif tipo == "DESAPARECE":
+                if equipo.activo:
+                    equipo.activo = False
+                    equipo.save(update_fields=["activo"])
+            else:  # SE_QUEDA
+                if not equipo.activo:
+                    equipo.activo = True
+                    equipo.save(update_fields=["activo"])
+            n_guardados += 1
+        if errores:
+            for e in errores:
+                messages.error(request, e)
+        else:
+            messages.success(
+                request,
+                f"Movimientos guardados ({n_guardados} equipo{'s' if n_guardados != 1 else ''}). "
+                "Las restricciones de ascenso/descenso ya aplican a los jugadores.",
+            )
+        return redirect("temporada_movimientos", temporada_pk=temporada.id)
+
+    # Sugerencias automáticas según la tabla final
+    sugerir = temporada.tipo_rol == "TODOS" and not temporada.clasificacion_por_grupos
+    asc_candidates = []
+    desc_candidates = []
+    if sugerir and (cat_sup or cat_inf):
+        orden = [r["equipo"] for r in temporada.calcular_tabla()]
+        num_asc = temporada.num_ascensos or 0
+        num_desc = temporada.num_descensos or 0
+        if num_desc and cat_inf and len(orden) >= 1:
+            desc_candidates = [e.id for e in orden[-num_desc:]]
+        if num_asc and cat_sup and orden:
+            campeon = temporada.obtener_campeon()
+            if campeon:
+                candidatos = [campeon.id]
+                if orden[0].id != campeon.id:
+                    candidatos.append(orden[0].id)
+                elif len(orden) > 1:
+                    candidatos.append(orden[1].id)
+                asc_candidates = candidatos[:num_asc]
+            else:
+                asc_candidates = [e.id for e in orden[:num_asc]]
+
+    movimientos = {
+        m.equipo_id: m for m in temporada.movimientos_equipos.all()
+    }
+
+    tabla = temporada.calcular_tabla() if temporada.tipo_rol == "TODOS" else []
+    datos_tabla = {r["equipo"].id: r for r in tabla}
+    filas = []
+    equipos_cat = Equipo.objects.filter(categoria=cat).order_by("nombre")
+    for eq in equipos_cat:
+        t = datos_tabla.get(eq.id)
+        mov = movimientos.get(eq.id)
+        if mov:
+            tipo_actual = mov.tipo
+        elif eq.id in asc_candidates:
+            tipo_actual = "ASCENSO"
+        elif eq.id in desc_candidates:
+            tipo_actual = "DESCENSO"
+        else:
+            tipo_actual = "SE_QUEDA"
+        filas.append({
+            "equipo": eq,
+            "pos": t.get("pos") if t else None,
+            "pj": t.get("pj") if t else None,
+            "pts": t.get("pts") if t else None,
+            "tipo_actual": tipo_actual,
+        })
+
+    return render(request, "league/temporada_movimientos.html", {
+        "temporada": temporada,
+        "categoria": cat,
+        "cat_superior": cat_sup,
+        "cat_inferior": cat_inf,
+        "filas": filas,
+        "sugerir": sugerir,
+    })
 
 
 from django.http import JsonResponse

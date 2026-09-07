@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog
 
 
 @admin.register(ConfiguracionLiga)
@@ -144,6 +144,13 @@ class SuspensionJugadorAdmin(admin.ModelAdmin):
 class CampoIndisponibilidadAdmin(admin.ModelAdmin):
     list_display = ["campo", "fecha_desde", "fecha_hasta", "motivo"]
     list_filter = ["campo"]
+
+
+@admin.register(MovimientoEquipo)
+class MovimientoEquipoAdmin(admin.ModelAdmin):
+    list_display = ["equipo", "temporada", "tipo", "origen_categoria", "destino_categoria", "jugadores_plantilla"]
+    list_filter = ["temporada", "tipo", "origen_categoria"]
+    search_fields = ["equipo__nombre"]
 
 
 @admin.register(DeviceToken)

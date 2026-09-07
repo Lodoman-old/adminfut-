@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Movimientos - {{ temporada.nombre }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-arrow-left-right"></i> Ascensos / Descensos</h3>
+    <a href="{% url 'temporada_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Temporadas</a>
+</div>
+<p class="text-muted">
+    Temporada: <strong>{{ temporada.nombre }}</strong> · Categoría: <strong>{{ categoria.nombre }}</strong>
+    {% if temporada.finalizada %}<span class="badge bg-success">Finalizada</span>{% endif %}
+    {% if cat_superior %}<span class="badge bg-primary">Sube a: {{ cat_superior.nombre }}</span>{% endif %}
+    {% if cat_inferior %}<span class="badge bg-warning text-dark">Baja a: {{ cat_inferior.nombre }}</span>{% endif %}
+</p>
+
+<div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i> Qué pasa al guardar:
+    <ul class="mb-0">
+        <li><strong>Sube / Baja:</strong> el equipo cambia a la categoría indicada y sus jugadores quedan restringidos para la siguiente temporada (quien asciende: solo 50% de la plantilla puede cambiarse de equipo, y a categoría igual o una inferior; quien desciende: sus jugadores solo en esa categoría o una más abajo).</li>
+        <li><strong>Desaparece:</strong> el equipo se desactiva (no aparecerá en próximas temporadas) y sus jugadores solo pueden jugar en {{ categoria.nombre }} o la inmediata inferior.</li>
+        <li><strong>Se queda:</strong> el equipo permanece en {{ categoria.nombre }}.</li>
+    </ul>
+</div>
+
+{% if messages %}
+{% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show">{{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+{% endif %}
+
+<form method="post" id="formMovimientos">
+    {% csrf_token %}
+    <div class="card">
+        <div class="card-header"><i class="bi bi-table"></i> Equipos de la temporada</div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead><tr><th>Pos</th><th>Equipo</th><th>PJ</th><th>Pts</th><th>Movimiento</th><th>Efecto</th></tr></thead>
+                <tbody>
+                {% for f in filas %}
+                <tr>
+                    <td>{% if f.pos %}{{ f.pos }}{% else %}-{% endif %}</td>
+                    <td><strong>{{ f.equipo.nombre }}</strong></td>
+                    <td>{% if f.pj %}{{ f.pj }}{% else %}-{% endif %}</td>
+                    <td>{% if f.pts is not None %}{{ f.pts }}{% else %}-{% endif %}</td>
+                    <td style="min-width:230px">
+                        <select name="tipo_{{ f.equipo.id }}" class="form-select form-select-sm mov-select" data-equipo="{{ f.equipo.id }}" data-nombre="{{ f.equipo.nombre }}">
+                            <option value="SE_QUEDA" {% if f.tipo_actual == 'SE_QUEDA' %}selected{% endif %}>Se queda</option>
+                            {% if cat_superior %}
+                            <option value="ASCENSO" {% if f.tipo_actual == 'ASCENSO' %}selected{% endif %}>Sube a {{ cat_superior.nombre }}</option>
+                            {% endif %}
+                            {% if cat_inferior %}
+                            <option value="DESCENSO" {% if f.tipo_actual == 'DESCENSO' %}selected{% endif %}>Baja a {{ cat_inferior.nombre }}</option>
+                            {% endif %}
+                            <option value="DESAPARECE" {% if f.tipo_actual == 'DESAPARECE' %}selected{% endif %}>Desaparece</option>
+                        </select>
+                    </td>
+                    <td class="small text-muted efecto-{{ f.equipo.id }}">{% if f.tipo_actual == 'ASCENSO' and cat_superior %}Pasa a {{ cat_superior.nombre }}{% elif f.tipo_actual == 'DESCENSO' and cat_inferior %}Pasa a {{ cat_inferior.nombre }}{% elif f.tipo_actual == 'DESAPARECE' %}Equipo desactivado{% else %}-{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Esta temporada no tiene partidos registrados.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+            {% if not sugerir %}<span class="text-muted small me-auto">Sin sugerencias automáticas (rol por grupos): arma los movimientos manualmente.</span>{% endif %}
+            <button type="button" class="btn btn-secondary" onclick="if(confirm('¿Restablecer todos los movimientos a \'Se queda\' (sin guardar)?')){document.querySelectorAll('.mov-select').forEach(s=>s.value='SE_QUEDA');document.querySelectorAll('td[class*=\"efecto-\"]').forEach(td=>td.textContent='-');}">Restablecer</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar movimientos</button>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.mov-select').forEach(function(sel) {
+        var cab = { 'SE_QUEDA': '', 'ASCENSO': 'Pasa a {{ cat_superior.nombre|default:"-" }}', 'DESCENSO': 'Pasa a {{ cat_inferior.nombre|default:"-" }}', 'DESAPARECE': 'Equipo desactivado' };
+        var actual = { 'SE_QUEDA': '', 'ASCENSO': 'Pasa a {{ cat_superior.nombre|default:"-" }}', 'DESCENSO': 'Pasa a {{ cat_inferior.nombre|default:"-" }}', 'DESAPARECE': 'Equipo desactivado' };
+        sel.addEventListener('change', function() {
+            var td = document.querySelector('.efecto-' + sel.dataset.equipo);
+            if (td) td.textContent = actual[sel.value] || '';
+        });
+    });
+});
+</script>
+{% endblock %}

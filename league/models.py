@@ -43,6 +43,9 @@ class Categoria(models.Model):
     edad_maxima = models.IntegerField(null=True, blank=True, verbose_name="Edad máxima",
         help_text="Edad máxima permitida (dejar vacío si no aplica)")
     genero = models.CharField(max_length=20, blank=True)
+    nivel = models.PositiveIntegerField(null=True, blank=True,
+        verbose_name="Nivel (ascenso/descenso)",
+        help_text="Orden de la escalera: 1 es la categoría más alta (ej. Primera), 2 la siguiente (Intermedia), 3 la más baja (Segunda). Se usa para ascensos/descensos.")
     activo = models.BooleanField(default=True)
     es_principal = models.BooleanField(default=False)
     curp_obligatoria = models.BooleanField(default=False, verbose_name="CURP obligatoria",
@@ -73,6 +76,21 @@ class Categoria(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def _escalera_qs(self):
+        return Categoria.objects.filter(activo=True, genero=self.genero)
+
+    def categoria_superior(self):
+        """Categoría inmediatamente superior (nivel - 1), o None si es la más alta."""
+        if self.nivel is None:
+            return None
+        return self._escalera_qs().filter(nivel=self.nivel - 1).first()
+
+    def categoria_inferior(self):
+        """Categoría inmediatamente inferior (nivel + 1), o None si es la más baja."""
+        if self.nivel is None:
+            return None
+        return self._escalera_qs().filter(nivel=self.nivel + 1).first()
 
     def save(self, *args, **kwargs):
         if self.es_principal:
@@ -332,6 +350,18 @@ class Temporada(models.Model):
         help_text="Si está activo, clasifican los mejores de cada grupo en lugar de la tabla general. Solo aplica cuando el rol es 'Por Grupos'.")
     fecha_finalizacion = models.DateField(blank=True, null=True, verbose_name="Fecha de finalización")
     motivo_finalizacion = models.TextField(blank=True, verbose_name="Motivo de finalización")
+    num_ascensos = models.PositiveIntegerField(
+        default=2, verbose_name="Equipos que ascienden",
+        help_text="Cuántos equipos suben de categoría al finalizar esta temporada (campeón + los mejores del lugar)."
+    )
+    num_descensos = models.PositiveIntegerField(
+        default=2, verbose_name="Equipos que descienden",
+        help_text="Cuántos equipos bajan de categoría al finalizar esta temporada (los últimos lugares de la tabla)."
+    )
+    aplicar_movimientos = models.BooleanField(
+        default=True, verbose_name="Aplicar reglas de ascenso/descenso",
+        help_text="Si está activo, al finalizar la temporada se piden los movimientos (sube/baja/desaparece) y se aplican las restricciones a los jugadores. Desactívalo cuando no se quiera mover equipos."
+    )
 
     class Meta:
         verbose_name = "Temporada"
@@ -1859,6 +1889,75 @@ class Tarjeta(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} - {self.jugador} ({self.minuto}')"
+
+
+class MovimientoEquipo(models.Model):
+    """Movimiento de un equipo al cerrar una temporada (ascenso/descenso/desaparición).
+
+    Se registra al finalizar la temporada y sirve para:
+    - Mover el equipo físicamente de categoría (Equipo.categoria = destino).
+    - Restringir el registro de sus jugadores en la siguiente temporada:
+      * DESCENSO:  solo pueden jugar en la categoría a la que bajó o una más abajo.
+      * DESAPARECE: solo en la categoría donde estaba o la inmediata inferior.
+      * ASCENSO:    puede cambiarse a otro equipo solo si es de la categoría a la que
+                    ascendió o la inmediata inferior; y solo el 50% de la plantilla
+                    (los primeros que se registren en el nuevo equipo).
+    """
+    TIPOS = [
+        ("ASCENSO", "Asciende"),
+        ("DESCENSO", "Desciende"),
+        ("DESAPARECE", "Desaparece"),
+        ("SE_QUEDA", "Se queda"),
+    ]
+    temporada = models.ForeignKey(
+        "Temporada", on_delete=models.CASCADE, related_name="movimientos_equipos"
+    )
+    equipo = models.ForeignKey(
+        "Equipo", on_delete=models.CASCADE, related_name="movimientos"
+    )
+    tipo = models.CharField(max_length=12, choices=TIPOS)
+    origen_categoria = models.ForeignKey(
+        "Categoria", on_delete=models.PROTECT, related_name="movimientos_origen"
+    )
+    destino_categoria = models.ForeignKey(
+        "Categoria", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="movimientos_destino",
+    )
+    jugadores_plantilla = models.PositiveIntegerField(
+        default=0, verbose_name="Jugadores en plantilla al cierre",
+        help_text="Tamaño de la plantilla del equipo cuando se registró el movimiento (referencia para el 50% en ascensos)."
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Movimiento de equipo"
+        verbose_name_plural = "Movimientos de equipos"
+        ordering = ["-temporada__fecha_inicio", "equipo__nombre"]
+        unique_together = ["temporada", "equipo"]
+
+    def __str__(self):
+        return f"{self.equipo} -> {self.get_tipo_display()}"
+
+    def cupo_50(self):
+        """Tope de jugadores que pueden cambiarse a otro equipo en un ascenso."""
+        return self.jugadores_plantilla // 2
+
+    def transferidos(self):
+        """Jugadores de la plantilla que ya se registraron como principal en otro equipo."""
+        if self.jugadores_plantilla <= 0:
+            return 0
+        ids_plantilla = list(
+            JugadorEquipo.objects.filter(
+                equipo_id=self.equipo_id, activo=True
+            ).values_list("jugador_id", flat=True)
+        )
+        if not ids_plantilla:
+            return 0
+        return JugadorEquipo.objects.filter(
+            jugador_id__in=ids_plantilla, activo=True,
+        ).exclude(equipo=self.equipo).filter(es_principal=True).values_list(
+            "jugador_id", flat=True
+        ).distinct().count()
 
 
 class SuspensionJugador(models.Model):

@@ -99,6 +99,11 @@
                 </a>
                 {% endif %}
                 {% endif %}
+                {% if user|tiene_permiso:"temporada_movimientos" %}
+                <a href="{% url 'temporada_movimientos' t.pk %}" class="btn btn-sm btn-outline-primary" title="Registrar ascensos/descensos de equipos">
+                    <i class="bi bi-arrow-left-right"></i> <span class="d-none d-sm-inline">Movimientos</span>
+                </a>
+                {% endif %}
                 {% if user.is_superuser %}
                 <a href="{% url 'reabrir_temporada' t.pk %}" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#confirmarAccionModal" data-href="{% url 'reabrir_temporada' t.pk %}" data-mensaje="¿Reabrir la temporada? Se habilitará nuevamente para edición.">
                     <i class="bi bi-unlock"></i> <span class="d-none d-sm-inline">Reabrir</span>

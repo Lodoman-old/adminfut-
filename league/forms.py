@@ -5,13 +5,14 @@ from django.utils.timezone import localtime, is_aware, make_aware
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from .models import Categoria, Temporada, Grupo, Equipo, Jugador, JugadorEquipo, Campo, Arbitro, PeriodoAltas, Partido, HorarioFijoEquipo, SuspensionJugador
+from .reglas_movimientos import errores_movimiento_jugador
 from datetime import date
 
 
 class TemporadaForm(forms.ModelForm):
     class Meta:
         model = Temporada
-        fields = ["nombre", "categoria", "fecha_inicio", "fecha_fin", "activa", "tipo_rol", "vueltas", "num_grupos", "tipo_competencia", "num_clasificados", "es_prueba", "jornadas_limite_pago", "goles_default", "puntos_default", "min_jugadores", "cambios_permitidos", "max_titulares", "ida_vuelta", "final_ida_vuelta", "criterio_liguilla", "min_porcentaje_liguilla", "clasificacion_por_grupos"]
+        fields = ["nombre", "categoria", "fecha_inicio", "fecha_fin", "activa", "tipo_rol", "vueltas", "num_grupos", "tipo_competencia", "num_clasificados", "es_prueba", "jornadas_limite_pago", "goles_default", "puntos_default", "min_jugadores", "cambios_permitidos", "max_titulares", "ida_vuelta", "final_ida_vuelta", "criterio_liguilla", "min_porcentaje_liguilla", "clasificacion_por_grupos", "num_ascensos", "num_descensos", "aplicar_movimientos"]
         labels = {
             "es_prueba": "M. Prueba",
         }
@@ -38,6 +39,9 @@ class TemporadaForm(forms.ModelForm):
             "criterio_liguilla": forms.Select(attrs={"class": "form-select"}),
             "min_porcentaje_liguilla": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 100, "placeholder": "Ej: 20"}),
             "clasificacion_por_grupos": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "num_ascensos": forms.NumberInput(attrs={"class": "form-control", "min": 0, "max": 30}),
+            "num_descensos": forms.NumberInput(attrs={"class": "form-control", "min": 0, "max": 30}),
+            "aplicar_movimientos": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
         }
 
     def clean(self):
@@ -184,6 +188,10 @@ class JugadorForm(forms.ModelForm):
                     f"restan {activa.restantes()} jornada(s)). No puede cambiar de equipo ni "
                     f"darse de alta en otra categoría hasta cumplir la suspensión."
                 )
+        if self.instance and self.instance.pk:
+            mov_errs = errores_movimiento_jugador(self.instance, equipo, equipo.categoria)
+            if mov_errs:
+                raise ValidationError(mov_errs)
         if self.instance and self.instance.suspendido_pago:
             raise ValidationError(
                 "El jugador está suspendido por adeudo de multa. "
@@ -514,6 +522,10 @@ class JugadorForm(forms.ModelForm):
                 except Equipo.DoesNotExist:
                     self.add_error("secondary_data", f"Equipo {eid} no encontrado.")
                     continue
+                # Reglas de ascenso/descenso/desaparición
+                if self.instance and self.instance.pk:
+                    for msg in errores_movimiento_jugador(self.instance, eq_obj, eq_obj.categoria):
+                        self.add_error("secondary_data", msg)
                 if eq_obj.categoria_id != cid:
                     self.add_error("secondary_data", f"El equipo {eq_obj.nombre} no pertenece a la categoría {cats.get(cid, Categoria(id=cid)).nombre}.")
                     continue
@@ -846,7 +858,7 @@ class PartidoForm(forms.ModelForm):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "activo", "es_principal", "curp_obligatoria", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos", "fondo_credencial"]
+        fields = ["nombre", "descripcion", "rango_edad", "edad_minima", "edad_maxima", "genero", "nivel", "activo", "es_principal", "curp_obligatoria", "min_jugadores", "max_jugadores", "categorias_compatibles", "campos_permitidos", "fondo_credencial"]
         widgets = {
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -854,6 +866,7 @@ class CategoriaForm(forms.ModelForm):
             "edad_minima": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "edad_maxima": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "genero": forms.TextInput(attrs={"class": "form-control"}),
+            "nivel": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "activo": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "es_principal": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "curp_obligatoria": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),

@@ -142,6 +142,27 @@
                     <div class="form-text">{{ form.clasificacion_por_grupos.help_text }}</div>
                 </div>
             </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.num_ascensos.label }}</label>
+                    {{ form.num_ascensos }}
+                    {% if form.num_ascensos.errors %}<div class="text-danger small">{{ form.num_ascensos.errors }}</div>{% endif %}
+                    <div class="form-text">Cuántos equipos suben de categoría al cerrar la temporada.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{{ form.num_descensos.label }}</label>
+                    {{ form.num_descensos }}
+                    {% if form.num_descensos.errors %}<div class="text-danger small">{{ form.num_descensos.errors }}</div>{% endif %}
+                    <div class="form-text">Cuántos equipos bajan de categoría al cerrar la temporada.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0">{{ form.aplicar_movimientos.label }}</label>
+                        {{ form.aplicar_movimientos }}
+                    </div>
+                    <div class="form-text">Si está activo, las reglas de ascenso/descenso restringen a los jugadores en la siguiente temporada.</div>
+                </div>
+            </div>
             <div class="text-center mt-3">
                 <button type="submit" class="btn btn-success me-2"><i class="bi bi-check-lg"></i> Guardar</button>
                 <a href="{% url 'temporada_list' %}" class="btn btn-secondary">Cancelar</a>

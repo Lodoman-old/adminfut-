@@ -40,6 +40,7 @@ PERMISOS_MENU = {
             ("temporada_liguilla", "Generar Liguilla"),
             ("temporada_equipos", "Gestionar Equipos por Temp."),
             ("temporada_enviar", "Enviar Correos (Roles/Stats)"),
+            ("temporada_movimientos", "Registrar Ascensos/Descensos"),
         ],
         "Jornadas": [
             ("gestion_jornadas", "Acceso a Jornadas"),

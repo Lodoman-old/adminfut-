@@ -65,6 +65,7 @@ urlpatterns = [
     path("tabla-tarjetas/", views.tabla_tarjetas, name="tabla_tarjetas"),
     path("tabla-castigados/", views.tabla_castigados, name="tabla_castigados"),
     path("temporadas/<int:temporada_pk>/suspensiones/", views.temporada_suspensiones, name="temporada_suspensiones"),
+    path("temporadas/<int:temporada_pk>/movimientos/", views.temporada_movimientos, name="temporada_movimientos"),
     path("suspensiones/<int:pk>/levantar/", views.levantar_suspension, name="levantar_suspension"),
     path("api/equipos-categoria/", views.api_equipos_categoria, name="api_equipos_categoria"),
 

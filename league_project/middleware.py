@@ -207,6 +207,8 @@ PERMISO_POR_URL = {
     # Suspensiones manuales
     'temporada_suspensiones': 'gestion_suspensiones',
     'levantar_suspension': 'gestion_suspensiones',
+    # Ascensos/descensos al cerrar temporada
+    'temporada_movimientos': 'temporada_movimientos',
     'reporte_cedula_arbitral_pdf': 'partido_cedula',
     'reporte_cedula_arbitral_xlsx': 'partido_cedula',
     'horarios_fijos_report': 'reporte_horarios',
