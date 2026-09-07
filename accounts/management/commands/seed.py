@@ -17,7 +17,12 @@ class Command(BaseCommand):
         admin_permisos = {key: True for key, _, _, _, _ in flat}
         admin_rol, _ = Rol.objects.get_or_create(nombre="Administrador", defaults={"permisos": admin_permisos})
         op_permisos = dict(admin_permisos)
-        op_permisos.update({"gestion_roles": False, "gestion_usuarios": False})
+        op_permisos.update({
+            "gestion_roles": False,
+            "gestion_usuarios": False,
+            "gestion_suspensiones": False,
+            "temporada_movimientos": False,
+        })
         Rol.objects.get_or_create(nombre="Operador", defaults={"permisos": op_permisos})
         inv_permisos = {key: False for key, _, _, _, _ in flat}
         inv_permisos.update({"ver_finanzas": False})
