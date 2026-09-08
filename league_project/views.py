@@ -194,6 +194,7 @@ def home(request):
                        or getattr(c, "fecha_creacion", None) or _sort_base),
         reverse=True,
     )
+    castigados = castigados[:5]  # top 5 en el dashboard; el resto en "Ver todos"
 
     finanzas_visible = (
         request.user.is_authenticated
