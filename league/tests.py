@@ -710,14 +710,17 @@ class JugadorHeredadoTest(TestCase):
             "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "3", "motivo": "ajustado",
         })
         self.assertEqual(r.status_code, 302)
+        # Reemplazo: queda una sola herencia activa y un solo registro en total
         self.assertEqual(SuspensionJugador.objects.filter(jugador=j, activo=True).count(), 1)
         susp = SuspensionJugador.objects.get(jugador=j, activo=True)
         self.assertEqual(susp.categoria_id, self.c1.id)
         self.assertEqual(susp.jornadas, 3)
-        self.assertEqual(JugadorHerencia.objects.filter(jugador=j, activo=True).count(), 1)
-        self.assertEqual(JugadorHerencia.objects.get(jugador=j, activo=True).categoria_id, self.c1.id)
+        self.assertEqual(JugadorHerencia.objects.filter(jugador=j).count(), 1)
+        he_new = JugadorHerencia.objects.get(jugador=j)
+        self.assertTrue(he_new.activo)
+        self.assertEqual(he_new.categoria_id, self.c1.id)
 
-    def test_desactivar_castigado_levanta_la_suspension(self):
+    def test_eliminar_castigado_levanta_la_suspension(self):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         admin = User.objects.create_superuser(username="admindes", password="p")
@@ -730,9 +733,8 @@ class JugadorHeredadoTest(TestCase):
         self.assertTrue(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
         he = JugadorHerencia.objects.get(jugador=j)
         r = self.client.post("/jugadores-heredados/", {
-            "accion": "desactivar", "herencia_id": he.id,
+            "accion": "eliminar", "herencia_id": he.id,
         })
         self.assertEqual(r.status_code, 302)
-        he.refresh_from_db()
-        self.assertFalse(he.activo)
+        self.assertFalse(JugadorHerencia.objects.filter(jugador=j).exists())
         self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())

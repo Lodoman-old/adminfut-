@@ -198,11 +198,11 @@
                         <td>{% if he.activo %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Desactivada</span>{% endif %}{% if he.motivo %}<br><small class="text-muted">{{ he.motivo }}</small>{% endif %}</td>
                         <td>
                             {% if he.activo %}
-                            <form method="post" onsubmit="return confirm('¿Desactivar la herencia de {{ he.jugador }}? El jugador recupera sus condiciones normales.');">
+                            <form method="post" onsubmit="return confirm('¿Eliminar la herencia de {{ he.jugador }}?{% if he.tipo == 'CASTIGADO' %} Si era castigado, se levantará su suspensión.{% endif %}');">
                                 {% csrf_token %}
-                                <input type="hidden" name="accion" value="desactivar">
+                                <input type="hidden" name="accion" value="eliminar">
                                 <input type="hidden" name="herencia_id" value="{{ he.id }}">
-                                <button class="btn btn-sm btn-outline-secondary" title="Desactivar"><i class="bi bi-x-circle"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-x-circle"></i></button>
                             </form>
                             {% endif %}
                         </td>

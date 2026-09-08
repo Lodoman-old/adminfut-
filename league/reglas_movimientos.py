@@ -114,6 +114,14 @@ def errores_movimiento_jugador(jugador, equipo_destino, categoria_destino):
     return errs
 
 
+def reemplazar_herederos(jugador):
+    """Borra el historial heredado previo de un jugador (y las suspensiones
+    sin equipo creadas por esa herencia) para corregir re-registrando de cero.
+    Deja un solo registro heredado por jugador."""
+    SuspensionJugador.objects.filter(jugador=jugador, equipo__isnull=True).delete()
+    JugadorHerencia.objects.filter(jugador=jugador).delete()
+
+
 def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""):
     """Registra en el historial heredado un ascenso/descenso/baja o un castigo
     de un jugador previo al sistema. Para CASTIGADO con jornadas>0 crea además

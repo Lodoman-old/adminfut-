@@ -3106,24 +3106,26 @@ def alta_jugadores_heredados(request):
                     else:
                         messages.success(request, f"{jugador} registrado como herencia ({categoria.nombre}).")
                     return redirect("alta_jugadores_heredados")
-            elif accion == "desactivar":
+            elif accion == "eliminar":
                 he_id = request.POST.get("herencia_id")
                 he = JugadorHerencia.objects.filter(id=he_id).first()
                 if not he:
                     error = "Registro de herencia no encontrado."
                 else:
-                    he.activo = False
-                    he.save(update_fields=["activo"])
+                    nombre = str(he.jugador)
+                    tipo_nombre = he.get_tipo_display()
                     if he.tipo == "CASTIGADO":
-                        # Al desactivar un castigo heredado se levanta su suspensión
-                        n = SuspensionJugador.objects.filter(jugador=he.jugador, activo=True).update(activo=False)
+                        # Al eliminar un castigo heredado se levanta su suspensión
+                        SuspensionJugador.objects.filter(jugador=he.jugador, activo=True).update(activo=False)
+                        he.delete()
                         messages.success(
                             request,
-                            f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada y su suspensión "
-                            f"levantada ({n} suspensión(es)). Puedes volver a heredarlo para ajustarlo.",
+                            f"Herencia de {nombre} ('{tipo_nombre}') eliminada y su suspensión levantada. "
+                            f"Puedes volver a heredarlo para ajustarlo.",
                         )
                     else:
-                        messages.success(request, f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada.")
+                        he.delete()
+                        messages.success(request, f"Herencia de {nombre} ('{tipo_nombre}') eliminada.")
                     return redirect("alta_jugadores_heredados")
             elif accion == "heredar":
                 jugador_id = request.POST.get("jugador_id")
@@ -3139,18 +3141,19 @@ def alta_jugadores_heredados(request):
                 else:
                     categoria = Categoria.objects.get(id=categoria_id)
                     jornadas = int(jornadas_raw) if jornadas_raw.isdigit() else 0
-                    if tipo == "CASTIGADO" and jornadas > 0:
-                        activa = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
-                        if activa:
-                            # Ajustar/corregir: reemplaza la herencia y suspensión anteriores
-                            SuspensionJugador.objects.filter(jugador=jugador, activo=True).update(activo=False)
-                            JugadorHerencia.objects.filter(jugador=jugador, activo=True).update(activo=False)
-                            messages.warning(
-                                request,
-                                f"{jugador} tenía una herencia/suspensión anterior (categoría "
-                                f"{activa.categoria.nombre}) que se reemplazó. Registrando la nueva.",
-                            )
                     if not error:
+                        previo = JugadorHerencia.objects.filter(jugador=jugador).exists()
+                        if previo:
+                            # Corregir/ajustar: se borra el historial previo y se re-registra de cero
+                            if tipo == "CASTIGADO" and jornadas > 0:
+                                activa = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
+                                cat_prev = f" (categoría anterior: {activa.categoria.nombre})" if activa else ""
+                                mensaje_evento = f"Se reemplazó la herencia/suspensión anterior de {jugador}{cat_prev} por la nueva."
+                            else:
+                                mensaje_evento = f"Se reemplazó la herencia anterior de {jugador} por la nueva."
+                            from .reglas_movimientos import reemplazar_herederos
+                            reemplazar_herederos(jugador)
+                            messages.warning(request, mensaje_evento)
                         aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas, motivo)
                         messages.success(request, f"{jugador} registrado como herencia en {categoria.nombre}.")
                         return redirect("alta_jugadores_heredados")
