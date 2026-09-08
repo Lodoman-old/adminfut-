@@ -691,3 +691,48 @@ class JugadorHeredadoTest(TestCase):
         })
         self.assertEqual(r.status_code, 302)
         self.assertEqual(Jugador.objects.filter(nombre="Ana").count(), 2)
+
+    def test_heredar_corrige_reemplazando_suspension_anterior(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admincor", password="p")
+        self.client.force_login(admin)
+        j = Jugador.objects.create(nombre="Alexis", apellido="Montoya", posicion="DEL")
+        # Primera herencia: castigado en c2
+        self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": j.id,
+            "tipo": "CASTIGADO", "categoria_id": self.c2.id, "jornadas": "2", "motivo": "",
+        })
+        self.assertTrue(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
+        # Corregir: heredar de nuevo con otra categoría no debe bloquear
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": j.id,
+            "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "3", "motivo": "ajustado",
+        })
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(SuspensionJugador.objects.filter(jugador=j, activo=True).count(), 1)
+        susp = SuspensionJugador.objects.get(jugador=j, activo=True)
+        self.assertEqual(susp.categoria_id, self.c1.id)
+        self.assertEqual(susp.jornadas, 3)
+        self.assertEqual(JugadorHerencia.objects.filter(jugador=j, activo=True).count(), 1)
+        self.assertEqual(JugadorHerencia.objects.get(jugador=j, activo=True).categoria_id, self.c1.id)
+
+    def test_desactivar_castigado_levanta_la_suspension(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admindes", password="p")
+        self.client.force_login(admin)
+        j = Jugador.objects.create(nombre="Beto", apellido="Des", posicion="MED")
+        self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": j.id,
+            "tipo": "CASTIGADO", "categoria_id": self.c2.id, "jornadas": "2", "motivo": "",
+        })
+        self.assertTrue(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
+        he = JugadorHerencia.objects.get(jugador=j)
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "desactivar", "herencia_id": he.id,
+        })
+        self.assertEqual(r.status_code, 302)
+        he.refresh_from_db()
+        self.assertFalse(he.activo)
+        self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())

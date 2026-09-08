@@ -3114,7 +3114,16 @@ def alta_jugadores_heredados(request):
                 else:
                     he.activo = False
                     he.save(update_fields=["activo"])
-                    messages.success(request, f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada.")
+                    if he.tipo == "CASTIGADO":
+                        # Al desactivar un castigo heredado se levanta su suspensión
+                        n = SuspensionJugador.objects.filter(jugador=he.jugador, activo=True).update(activo=False)
+                        messages.success(
+                            request,
+                            f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada y su suspensión "
+                            f"levantada ({n} suspensión(es)). Puedes volver a heredarlo para ajustarlo.",
+                        )
+                    else:
+                        messages.success(request, f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada.")
                     return redirect("alta_jugadores_heredados")
             elif accion == "heredar":
                 jugador_id = request.POST.get("jugador_id")
@@ -3133,7 +3142,14 @@ def alta_jugadores_heredados(request):
                     if tipo == "CASTIGADO" and jornadas > 0:
                         activa = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
                         if activa:
-                            error = f"{jugador} ya tiene una suspensión activa ({activa.categoria.nombre}). Lévala o pausa antes de crear otra."
+                            # Ajustar/corregir: reemplaza la herencia y suspensión anteriores
+                            SuspensionJugador.objects.filter(jugador=jugador, activo=True).update(activo=False)
+                            JugadorHerencia.objects.filter(jugador=jugador, activo=True).update(activo=False)
+                            messages.warning(
+                                request,
+                                f"{jugador} tenía una herencia/suspensión anterior (categoría "
+                                f"{activa.categoria.nombre}) que se reemplazó. Registrando la nueva.",
+                            )
                     if not error:
                         aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas, motivo)
                         messages.success(request, f"{jugador} registrado como herencia en {categoria.nombre}.")
