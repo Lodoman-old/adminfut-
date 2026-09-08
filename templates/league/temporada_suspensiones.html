@@ -15,6 +15,9 @@
 {% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show">{{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
 {% endif %}
 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+<div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i> Si el jugador aún no tiene equipo, déjalo en <strong>Sin equipo</strong>: la suspensión contará una jornada completa de la categoría por cada partido del castigo, y podrás darlo de alta en un equipo después (mientras esté suspendido, el sistema lo impedirá si no cumple las reglas).
+</div>
 
 <div class="row g-3">
     <div class="col-lg-5">
@@ -33,7 +36,7 @@
                         {% for j in resultados %}
                         <tr>
                             <td>{{ j.nombre }} {{ j.apellido }}</td>
-                            <td>{{ j.equipo.nombre }} <span class="text-muted small">({{ j.equipo.categoria.nombre }})</span></td>
+                            <td>{% if j.equipo %}{{ j.equipo.nombre }} <span class="text-muted small">({{ j.equipo.categoria.nombre }})</span>{% else %}<span class="text-muted">Sin equipo</span>{% endif %}</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#susp{{ j.id }}">Suspender</button>
                             </td>
@@ -45,9 +48,9 @@
                                     <input type="hidden" name="accion" value="suspender">
                                     <input type="hidden" name="jugador_id" value="{{ j.id }}">
                                     <div class="col-12">
-                                        <label class="form-label small mb-0">Equipo (rol donde cumple)</label>
+                                        <label class="form-label small mb-0">Equipo (rol donde cumple) — vacío: toda la categoría</label>
                                         <select name="equipo_id" class="form-select form-select-sm">
-                                            <option value="">Selecciona...</option>
+                                            <option value="">Sin equipo (toda la categoría)</option>
                                             {% for e in equipos %}
                                             <option value="{{ e.id }}" {% if e.id == j.equipo_id %}selected{% endif %}>{{ e.nombre }}</option>
                                             {% endfor %}
@@ -96,9 +99,9 @@
                     </div>
                     <div class="col-md-4"><label class="form-label small mb-0">Dorsal</label><input type="number" name="dorsal" class="form-control" min="1"></div>
                     <div class="col-md-4">
-                        <label class="form-label small mb-0">Equipo *</label>
-                        <select name="equipo_id" class="form-select" required>
-                            <option value="">Selecciona...</option>
+                        <label class="form-label small mb-0">Equipo (vacío = categoría)</label>
+                        <select name="equipo_id" class="form-select">
+                            <option value="">Sin equipo (toda la categoría)</option>
                             {% for e in equipos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}
                         </select>
                     </div>
@@ -120,7 +123,7 @@
                     {% for s in suspensiones %}
                     <tr>
                         <td>{{ s.jugador.nombre }} {{ s.jugador.apellido }}</td>
-                        <td>{{ s.equipo.nombre }}</td>
+                        <td>{{ s.equipo_display }}</td>
                         <td>{{ s.temporada.nombre|default:"-" }}</td>
                         <td>{{ s.jornadas }}</td>
                         <td>{{ s.restantes }}</td>

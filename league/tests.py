@@ -434,3 +434,111 @@ class MovimientosEquipoTest(TestCase):
         movB = MovimientoEquipo.objects.get(equipo=eqB)
         self.assertEqual(movB.tipo, "DESAPARECE")
         self.assertEqual(movB.origen_categoria_id, catB.id)
+
+    def test_regla_inactiva_suspende_restriccion(self):
+        MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="DESCENSO", origen_categoria=self.c1, destino_categoria=self.c2,
+            regla_activa=False,
+        )
+        self.assertEqual(errores_movimiento_jugador(self.j, self.eq2, self.c1), [])
+        mov = MovimientoEquipo.objects.get(equipo=self.eq1)
+        mov.regla_activa = True
+        mov.save(update_fields=["regla_activa"])
+        self.assertTrue(any("descendió" in e for e in errores_movimiento_jugador(self.j, self.eq2, self.c1)))
+
+    def test_cupo_porcentaje_configurable(self):
+        mov = MovimientoEquipo.objects.create(
+            temporada=self._temporada(), equipo=self.eq1,
+            tipo="ASCENSO", origen_categoria=self.c1, destino_categoria=self.c2,
+            jugadores_plantilla=4, cupo_porcentaje=25,
+        )
+        self.assertEqual(mov.cupo_50(), 1)
+        mov.cupo_porcentaje = 100
+        mov.save(update_fields=["cupo_porcentaje"])
+        self.assertEqual(mov.cupo_50(), 4)
+
+    def test_movimientos_guardan_vigencia_y_cupo(self):
+        from django.contrib.auth import get_user_model
+        catA = Categoria.objects.create(nombre="MaximaV", nivel=31)
+        catB = Categoria.objects.create(nombre="IntermediaV", nivel=32)
+        Categoria.objects.create(nombre="SegundaV", nivel=33)
+        t = Temporada.objects.create(
+            categoria=catB, nombre="Temp V", fecha_inicio=date(2026, 6, 1),
+            tipo_rol="TODOS", aplicar_movimientos=True,
+        )
+        eqA = Equipo.objects.create(nombre="AlphaV", categoria=catB, activo=True)
+        eqB = Equipo.objects.create(nombre="BetaV", categoria=catB, activo=True)
+        Partido.objects.create(
+            temporada=t, equipo_local=eqA, equipo_visitante=eqB,
+            fecha_hora=timezone.make_aware(datetime(2026, 6, 5, 12, 0)),
+            estado="FIN", goles_local=1, goles_visitante=0,
+        )
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminv", password="p")
+        self.client.force_login(admin)
+        r = self.client.post(f"/temporadas/{t.pk}/movimientos/", {
+            f"tipo_{eqA.pk}": "ASCENSO",
+            f"regla_activa_{eqA.pk}": "1",
+            f"cupo_pct_{eqA.pk}": "25",
+        })
+        self.assertEqual(r.status_code, 302)
+        mov = MovimientoEquipo.objects.get(temporada=t, equipo=eqA)
+        self.assertTrue(mov.regla_activa)
+        self.assertEqual(mov.cupo_porcentaje, 25)
+        # Segunda pasada sin marcar la regla: se apaga la vigencia
+        r2 = self.client.post(f"/temporadas/{t.pk}/movimientos/", {
+            f"tipo_{eqA.pk}": "ASCENSO",
+            f"cupo_pct_{eqA.pk}": "25",
+        })
+        self.assertEqual(r2.status_code, 302)
+        mov.refresh_from_db()
+        self.assertFalse(mov.regla_activa)
+
+
+class JugadorSinEquipoTest(TestCase):
+    def setUp(self):
+        self.cat = Categoria.objects.create(
+            nombre="Libre", dias_juego=["SAB"], curp_obligatoria=False
+        )
+        self.campo = Campo.objects.create(nombre="Campo 1", activo=True)
+        self.eq1 = Equipo.objects.create(nombre="Aguilas", categoria=self.cat, activo=True)
+        self.eq2 = Equipo.objects.create(nombre="Toros", categoria=self.cat, activo=True)
+        self.temporada = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp 1", fecha_inicio=date.today(),
+            tipo_rol="TODOS", vueltas=1, iniciada=True,
+        )
+
+    def _jornada(self, numero):
+        return Jornada.objects.create(temporada=self.temporada, numero=numero, nombre=f"J{numero}")
+
+    def _partido(self, jornada, local, visit, fecha, n=1):
+        return Partido.objects.create(
+            temporada=self.temporada, jornada=jornada, equipo_local=local,
+            equipo_visitante=visit, fecha_hora=fecha, campo=self.campo, estado="FIN",
+        )
+
+    def test_jugador_sin_equipo_y_asignacion_posterior(self):
+        j = Jugador.objects.create(nombre="Ana", apellido="Lopez", posicion="DEL")
+        self.assertIsNone(j.equipo)
+        self.assertFalse(j.registros_equipo.exists())
+        j.equipo = self.eq1
+        j.save(update_fields=["equipo"])
+        self.assertTrue(j.registros_equipo.filter(equipo=self.eq1, es_principal=True).exists())
+
+    def test_suspension_sin_equipo_cuenta_jornadas_de_la_categoria(self):
+        j = Jugador.objects.create(nombre="Beto", apellido="Sanz", posicion="DEL")
+        susp = SuspensionJugador.objects.create(
+            jugador=j, categoria=self.cat, equipo=None,
+            temporada=self.temporada, jornadas=2, fecha_inicio=date.today(),
+        )
+        self.assertEqual(susp.restantes(), 2)
+        j1 = self._jornada(1)
+        # Dos partidos FIN en la misma jornada descontan una sola jornada
+        self._partido(j1, self.eq1, self.eq2, timezone.now(), n=1)
+        self._partido(j1, self.eq2, self.eq1, timezone.now() + timedelta(hours=1), n=2)
+        self.assertEqual(susp.consumidos(), 1)
+        self.assertEqual(susp.restantes(), 1)
+        j2 = self._jornada(2)
+        self._partido(j2, self.eq1, self.eq2, timezone.now() + timedelta(days=7), n=3)
+        self.assertEqual(susp.restantes(), 0)

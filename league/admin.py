@@ -148,9 +148,10 @@ class CampoIndisponibilidadAdmin(admin.ModelAdmin):
 
 @admin.register(MovimientoEquipo)
 class MovimientoEquipoAdmin(admin.ModelAdmin):
-    list_display = ["equipo", "temporada", "tipo", "origen_categoria", "destino_categoria", "jugadores_plantilla"]
-    list_filter = ["temporada", "tipo", "origen_categoria"]
+    list_display = ["equipo", "temporada", "tipo", "origen_categoria", "destino_categoria", "jugadores_plantilla", "regla_activa", "cupo_porcentaje"]
+    list_filter = ["temporada", "tipo", "origen_categoria", "regla_activa"]
     search_fields = ["equipo__nombre"]
+    list_editable = ["regla_activa", "cupo_porcentaje"]
 
 
 @admin.register(DeviceToken)

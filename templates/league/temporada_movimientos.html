@@ -16,9 +16,10 @@
 <div class="alert alert-info small">
     <i class="bi bi-info-circle"></i> Qué pasa al guardar:
     <ul class="mb-0">
-        <li><strong>Sube / Baja:</strong> el equipo cambia a la categoría indicada y sus jugadores quedan restringidos para la siguiente temporada (quien asciende: solo 50% de la plantilla puede cambiarse de equipo, y a categoría igual o una inferior; quien desciende: sus jugadores solo en esa categoría o una más abajo).</li>
+        <li><strong>Sube / Baja:</strong> el equipo cambia a la categoría indicada y sus jugadores quedan restringidos para la siguiente temporada (quien asciende: solo el cupo configurado de la plantilla puede cambiarse de equipo, y a categoría igual o una inferior; quien desciende: sus jugadores solo en esa categoría o una más abajo).</li>
         <li><strong>Desaparece:</strong> el equipo se desactiva (no aparecerá en próximas temporadas) y sus jugadores solo pueden jugar en {{ categoria.nombre }} o la inmediata inferior.</li>
         <li><strong>Se queda:</strong> el equipo permanece en {{ categoria.nombre }}.</li>
+        <li><strong>Vigencia:</strong> si los torneos para los que aplicaba un movimiento ya pasaron (Copa y/o Liga), desactiva la regla de ese equipo abajo y sus jugadores quedarán libres para registrarse.</li>
     </ul>
 </div>
 
@@ -66,6 +67,54 @@
             <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar movimientos</button>
         </div>
     </div>
+
+    {% if detalle_movimiento %}
+    <div class="card mt-3">
+        <div class="card-header"><i class="bi bi-sliders"></i> Vigencia, cupo y jugadores de cada movimiento</div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Se guardan junto con los movimientos del equipo. La vigencia controla si la restricción sigue aplicando a los jugadores; el cupo limita cuántos de la plantilla pueden cambiarse a otro equipo en un ascenso.</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Equipo</th><th>Movimiento</th><th>Vigencia</th><th>Cupo % (ascenso)</th><th>Transferidos</th><th>Jugadores de la plantilla</th></tr></thead>
+                    <tbody>
+                    {% for d in detalle_movimiento.values %}
+                    <tr>
+                        <td><strong>{{ d.mov.equipo.nombre }}</strong></td>
+                        <td>{{ d.mov.get_tipo_display }}</td>
+                        <td>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input regla-toggle" type="checkbox" name="regla_activa_{{ d.mov.equipo_id }}" value="1" {% if d.regla_activa %}checked{% endif %} id="regla_{{ d.mov.equipo_id }}">
+                                <label class="form-check-label small" for="regla_{{ d.mov.equipo_id }}">Regla activa</label>
+                            </div>
+                            {% if not d.regla_activa %}<span class="badge bg-danger">Restricción suspendida</span>{% endif %}
+                        </td>
+                        <td style="min-width:150px">
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="cupo_pct_{{ d.mov.equipo_id }}" value="{{ d.cupo_porcentaje }}" min="0" max="100" class="form-control">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <small class="text-muted">tope: {{ d.cupo }} de {{ d.mov.jugadores_plantilla }} plantilla</small>
+                        </td>
+                        <td>{{ d.transferidos }}/{{ d.cupo }} <small class="text-muted">ya en otro equipo</small></td>
+                        <td>
+                            {% if d.plantilla %}
+                            <div style="max-height:110px;overflow:auto">
+                                {% for r in d.plantilla %}
+                                <span class="badge bg-light text-dark border me-1 mb-1">{{ r.jugador.nombre }} {{ r.jugador.apellido }}</span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted">Sin jugadores activos</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </form>
 
 <script>

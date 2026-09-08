@@ -176,7 +176,9 @@ class Jugador(models.Model):
     fecha_nacimiento = models.DateField(blank=True, null=True)
     posicion = models.CharField(max_length=3, choices=POSICIONES)
     equipo = models.ForeignKey(
-        Equipo, on_delete=models.CASCADE, related_name="jugadores"
+        Equipo, on_delete=models.CASCADE, related_name="jugadores",
+        blank=True, null=True,
+        help_text="Equipo principal. Puede dejarse vacío si el jugador aún no tiene equipo asignado.",
     )
     equipos = models.ManyToManyField(
         Equipo, through=JugadorEquipo, blank=True,
@@ -204,7 +206,7 @@ class Jugador(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         # Sincronizar equipo principal con JugadorEquipo
-        if not self.registros_equipo.filter(equipo=self.equipo, es_principal=True).exists():
+        if self.equipo and not self.registros_equipo.filter(equipo=self.equipo, es_principal=True).exists():
             JugadorEquipo.objects.get_or_create(
                 jugador=self,
                 equipo=self.equipo,
@@ -1925,7 +1927,17 @@ class MovimientoEquipo(models.Model):
     )
     jugadores_plantilla = models.PositiveIntegerField(
         default=0, verbose_name="Jugadores en plantilla al cierre",
-        help_text="Tamaño de la plantilla del equipo cuando se registró el movimiento (referencia para el 50% en ascensos)."
+        help_text="Tamaño de la plantilla del equipo cuando se registró el movimiento (referencia para el cupo de transferencia en ascensos)."
+    )
+    regla_activa = models.BooleanField(
+        default=True, verbose_name="Vigencia de la regla",
+        help_text="Mientras esté activa, los jugadores de este equipo quedan restringidos por este movimiento. "
+                  "Desactívala cuando los torneos (Copa/Liga) para los que aplicaba ya hayan pasado."
+    )
+    cupo_porcentaje = models.PositiveIntegerField(
+        default=50, verbose_name="Cupo de transferencia (%)",
+        help_text="Porcentaje de la plantilla que puede cambiarse a otro equipo en un ascenso (50% por defecto). "
+                  "Ajusta si uno de los torneos ya pasó y sólo resta un cupo menor o la regla ya se cumplió."
     )
     creado = models.DateTimeField(auto_now_add=True)
 
@@ -1939,8 +1951,10 @@ class MovimientoEquipo(models.Model):
         return f"{self.equipo} -> {self.get_tipo_display()}"
 
     def cupo_50(self):
-        """Tope de jugadores que pueden cambiarse a otro equipo en un ascenso."""
-        return self.jugadores_plantilla // 2
+        """Tope de jugadores que pueden cambiarse a otro equipo en un ascenso
+        según el porcentaje configurado (cupo_porcentaje) y la plantilla al cierre."""
+        pct = self.cupo_porcentaje or 50
+        return (self.jugadores_plantilla * pct) // 100
 
     def transferidos(self):
         """Jugadores de la plantilla que ya se registraron como principal en otro equipo."""
@@ -1964,7 +1978,9 @@ class SuspensionJugador(models.Model):
     """Suspensión registrada manualmente por el administrador de la liga.
 
     Cuenta los próximos N partidos del equipo suspendido en la categoría;
-    si la temporada termina sin cumplirse, el saldo se arrastra a la
+    si se deja el equipo vacío, los N partidos se cuentan como jornadas
+    completas de la categoría (cualquier equipo que juegue esa fecha).
+    Si la temporada termina sin cumplirse, el saldo se arrastra a la
     siguiente temporada de la misma categoría.
     """
     jugador = models.ForeignKey(
@@ -1974,7 +1990,10 @@ class SuspensionJugador(models.Model):
         "Categoria", on_delete=models.PROTECT, related_name="suspensiones_manuales"
     )
     equipo = models.ForeignKey(
-        "Equipo", on_delete=models.CASCADE, related_name="suspensiones_manuales"
+        "Equipo", on_delete=models.CASCADE, related_name="suspensiones_manuales",
+        blank=True, null=True,
+        verbose_name="Equipo (rol donde cumple)",
+        help_text="Opcional. Si se deja vacío, la suspensión cuenta las jornadas de toda la categoría.",
     )
     temporada = models.ForeignKey(
         "Temporada", on_delete=models.SET_NULL, null=True, blank=True,
@@ -1996,15 +2015,22 @@ class SuspensionJugador(models.Model):
         return f"{self.jugador} ({self.categoria}) - {self.jornadas} J"
 
     def consumidos(self):
-        """Partidos finalizados (FIN) del equipo en la categoría desde fecha_inicio."""
+        """Partidos finalizados (FIN) que descontaron la suspensión desde fecha_inicio.
+
+        Con equipo: cuenta los partidos FIN de ese equipo en la categoría.
+        Sin equipo: cuenta las jornadas distintas de la categoría con al
+        menos un partido FIN (una jornada = un partido de la suspensión).
+        """
         from django.db.models import Q
-        return Partido.objects.filter(
+        qs = Partido.objects.filter(
             temporada__categoria_id=self.categoria_id,
             temporada__fecha_inicio__gte=self.fecha_inicio,
             estado="FIN",
-        ).filter(
-            Q(equipo_local=self.equipo) | Q(equipo_visitante=self.equipo)
-        ).count()
+        )
+        if self.equipo_id:
+            qs = qs.filter(Q(equipo_local=self.equipo) | Q(equipo_visitante=self.equipo))
+            return qs.count()
+        return qs.order_by().values("jornada_id").distinct().count()
 
     def restantes(self):
         """Jornadas que faltan por cumplir (0 si ya cumplió o está pausada)."""

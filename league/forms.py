@@ -159,6 +159,8 @@ class JugadorForm(forms.ModelForm):
             cat_ids = [cat.id] + list(cat.categorias_compatibles.values_list("id", flat=True))
             self.fields["equipo"].queryset = Equipo.objects.filter(categoria_id__in=cat_ids, activo=True)
 
+        self.fields["equipo"].empty_label = "— Sin equipo —"
+
         # Poblar secondary_data con registros existentes (para edición)
         if inst and inst.pk:
             existing = []
@@ -180,11 +182,14 @@ class JugadorForm(forms.ModelForm):
 
     def clean_equipo(self):
         equipo = self.cleaned_data.get("equipo")
+        if not equipo:
+            return None
         if self.instance and self.instance.pk:
             activa = SuspensionJugador.objects.filter(jugador=self.instance, activo=True).first()
             if activa and self.instance.equipo_id != equipo.id:
+                nomin = activa.equipo.nombre if activa.equipo else activa.categoria.nombre
                 raise ValidationError(
-                    f"El jugador tiene una suspensión activa ({activa.equipo.nombre}, "
+                    f"El jugador tiene una suspensión activa ({nomin}, "
                     f"restan {activa.restantes()} jornada(s)). No puede cambiar de equipo ni "
                     f"darse de alta en otra categoría hasta cumplir la suspensión."
                 )
@@ -197,7 +202,7 @@ class JugadorForm(forms.ModelForm):
                 "El jugador está suspendido por adeudo de multa. "
                 "Debe liquidar la multa en el módulo de Ingresos (POS) para poder ser registrado."
             )
-        if self.instance and self.instance.pk and self.instance.equipo_id != equipo.id:
+        if self.instance and self.instance.pk and self.instance.equipo_id and self.instance.equipo_id != equipo.id:
             cat_old = self.instance.equipo.categoria
             temp_activa = Temporada.objects.filter(categoria=cat_old, iniciada=True, finalizada=False).first()
             if temp_activa:

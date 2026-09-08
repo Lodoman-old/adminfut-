@@ -1339,9 +1339,12 @@ def _suspensiones_temporada(temporada, jug_ids=None):
         prox = Partido.objects.filter(
             temporada=temporada,
             estado__in=("PRO", "PROG"),
-        ).filter(
-            Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
-        ).order_by("jornada__numero", "fecha_hora", "id")[:restantes]
+        )
+        if m.equipo_id:
+            prox = prox.filter(
+                Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
+            )
+        prox = prox.order_by("jornada__numero", "fecha_hora", "id")[:restantes]
         pendientes = list(prox)
         env = _SuspensionManualEnvelope(m, restantes, pendientes)
         result[m.jugador_id] = {
@@ -2231,6 +2234,18 @@ def gestionar_altas_bajas(request, pk):
                 for msg in mov_errs:
                     messages.error(request, msg)
                 return redirect("gestionar_altas_bajas", pk=pk)
+            # Suspensión activa: no cambiar de equipo principal hasta cumplirla
+            if es_principal and jug.equipo_id and jug.equipo_id != eq.id:
+                susp_activa = SuspensionJugador.objects.filter(jugador=jug, activo=True).first()
+                if susp_activa:
+                    nomin = susp_activa.equipo.nombre if susp_activa.equipo else susp_activa.categoria.nombre
+                    messages.error(
+                        request,
+                        f"{jug} tiene una suspensión activa ({nomin}, restan "
+                        f"{susp_activa.restantes()} jornada(s)). No puede darse de alta en otro equipo "
+                        f"hasta cumplir la suspensión."
+                    )
+                    return redirect("gestionar_altas_bajas", pk=pk)
             # Verificar cupo
             total_actual = (
                 Jugador.objects.filter(equipo=eq).count()
@@ -2850,13 +2865,13 @@ def temporada_suspensiones(request, temporada_pk):
         try:
             if accion == "suspender":
                 jugador_id = request.POST.get("jugador_id")
-                equipo_id = request.POST.get("equipo_id")
+                equipo_id = request.POST.get("equipo_id") or None
                 jornadas = int(request.POST.get("jornadas") or 0)
                 motivo = request.POST.get("motivo", "").strip()
                 jugador = Jugador.objects.filter(id=jugador_id).first()
                 if not jugador:
                     error = "Jugador no encontrado."
-                elif not equipo_id or not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
+                elif equipo_id and not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
                     error = "Selecciona un equipo válido de la categoría."
                 elif jornadas <= 0:
                     error = "El número de jornadas debe ser mayor a cero."
@@ -2874,14 +2889,14 @@ def temporada_suspensiones(request, temporada_pk):
             elif accion == "crear_suspender":
                 nombre = request.POST.get("nombre", "").strip()
                 apellido = request.POST.get("apellido", "").strip()
-                equipo_id = request.POST.get("equipo_id")
+                equipo_id = request.POST.get("equipo_id") or None
                 posicion = request.POST.get("posicion", "DEL")
                 dorsal_raw = request.POST.get("dorsal", "").strip()
                 jornadas = int(request.POST.get("jornadas") or 0)
                 motivo = request.POST.get("motivo", "").strip()
                 if not nombre or not apellido:
                     error = "Nombre y apellido son obligatorios."
-                elif not equipo_id or not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
+                elif equipo_id and not Equipo.objects.filter(id=equipo_id, categoria=categoria).exists():
                     error = "Selecciona un equipo válido de la categoría."
                 elif jornadas <= 0:
                     error = "El número de jornadas debe ser mayor a cero."
@@ -2933,6 +2948,7 @@ def temporada_suspensiones(request, temporada_pk):
             "id": s.id,
             "jugador": s.jugador,
             "equipo": s.equipo,
+            "equipo_display": (s.equipo.nombre if s.equipo else f"Toda la categoría"),
             "temporada": s.temporada,
             "jornadas": s.jornadas,
             "restantes": rest,
@@ -2986,13 +3002,18 @@ def temporada_movimientos(request, temporada_pk):
             and v in ("ASCENSO", "DESCENSO", "DESAPARECE", "SE_QUEDA")
         ]
         for equipo_id, tipo in filas_post:
-            equipo = Equipo.objects.filter(id=equipo_id, categoria=cat).first()
+            equipo = Equipo.objects.filter(id=equipo_id).first()
             if not equipo:
                 continue
             destino = opciones.get(tipo)
             if tipo in ("ASCENSO", "DESCENSO") and destino is None:
                 errores.append(f"{equipo.nombre}: no existe la categoría {'superior' if tipo == 'ASCENSO' else 'inferior'} para registrarlo.")
                 continue
+            regla_activa = request.POST.get(f"regla_activa_{equipo_id}") == "1"
+            cupo_raw = request.POST.get(f"cupo_pct_{equipo_id}", "").strip()
+            cupo_pct = 50
+            if cupo_raw.isdigit():
+                cupo_pct = min(int(cupo_raw), 100)
             MovimientoEquipo.objects.update_or_create(
                 temporada=temporada,
                 equipo=equipo,
@@ -3003,6 +3024,8 @@ def temporada_movimientos(request, temporada_pk):
                     "jugadores_plantilla": JugadorEquipo.objects.filter(
                         equipo=equipo, activo=True
                     ).count(),
+                    "regla_activa": regla_activa,
+                    "cupo_porcentaje": cupo_pct,
                 },
             )
             if tipo in ("ASCENSO", "DESCENSO"):
@@ -3021,6 +3044,19 @@ def temporada_movimientos(request, temporada_pk):
                     equipo.activo = True
                     equipo.save(update_fields=["activo"])
             n_guardados += 1
+        # Actualizar vigencia/cupo de movimientos ya registrados (aunque el equipo ya haya cambiado de categoría)
+        for mov in temporada.movimientos_equipos.all():
+            if f"tipo_{mov.equipo_id}" in request.POST:
+                continue
+            regla = request.POST.get(f"regla_activa_{mov.equipo_id}") == "1"
+            cupo_raw = request.POST.get(f"cupo_pct_{mov.equipo_id}", "").strip()
+            cupo_pct = mov.cupo_porcentaje
+            if cupo_raw.isdigit():
+                cupo_pct = min(int(cupo_raw), 100)
+            if regla != mov.regla_activa or cupo_pct != mov.cupo_porcentaje:
+                mov.regla_activa = regla
+                mov.cupo_porcentaje = cupo_pct
+                mov.save(update_fields=["regla_activa", "cupo_porcentaje"])
         if errores:
             for e in errores:
                 messages.error(request, e)
@@ -3028,7 +3064,8 @@ def temporada_movimientos(request, temporada_pk):
             messages.success(
                 request,
                 f"Movimientos guardados ({n_guardados} equipo{'s' if n_guardados != 1 else ''}). "
-                "Las restricciones de ascenso/descenso ya aplican a los jugadores.",
+                "Las restricciones de ascenso/descenso ya aplican a los jugadores "
+                "con la vigencia y cupo configurados.",
             )
         return redirect("temporada_movimientos", temporada_pk=temporada.id)
 
@@ -3057,6 +3094,22 @@ def temporada_movimientos(request, temporada_pk):
     movimientos = {
         m.equipo_id: m for m in temporada.movimientos_equipos.all()
     }
+
+    # Detalle para gestionar vigencia, cupo y jugadores de cada movimiento
+    detalle_movimiento = {}
+    for m in movimientos.values():
+        plantilla = list(
+            JugadorEquipo.objects.filter(equipo=m.equipo, activo=True)
+            .select_related("jugador").order_by("jugador__apellido", "jugador__nombre")
+        )
+        detalle_movimiento[m.equipo_id] = {
+            "mov": m,
+            "regla_activa": m.regla_activa,
+            "cupo_porcentaje": m.cupo_porcentaje,
+            "cupo": m.cupo_50(),
+            "transferidos": m.transferidos(),
+            "plantilla": plantilla,
+        }
 
     tabla = temporada.calcular_tabla() if temporada.tipo_rol == "TODOS" else []
     datos_tabla = {r["equipo"].id: r for r in tabla}
@@ -3088,6 +3141,7 @@ def temporada_movimientos(request, temporada_pk):
         "cat_inferior": cat_inf,
         "filas": filas,
         "sugerir": sugerir,
+        "detalle_movimiento": detalle_movimiento,
     })
 
 

@@ -23,7 +23,7 @@ def movimientos_activos(jugador):
         return []
     qs = (
         MovimientoEquipo.objects
-        .filter(equipo_id__in=ids, temporada__aplicar_movimientos=True)
+        .filter(equipo_id__in=ids, temporada__aplicar_movimientos=True, regla_activa=True)
         .select_related("temporada", "origen_categoria", "destino_categoria", "equipo")
     )
     latest = {}
@@ -76,7 +76,7 @@ def errores_movimiento_jugador(jugador, equipo_destino, categoria_destino):
             cupo = mov.cupo_50()
             if cupo <= mov.transferidos():
                 errs.append(
-                    f"{mov.equipo.nombre} ascendió: el cupo del 50% de la plantilla para "
-                    f"cambiarse de equipo ya se llenó ({cupo} jugadores)."
+                    f"{mov.equipo.nombre} ascendió: el cupo del {mov.cupo_porcentaje}% de la plantilla "
+                    f"para cambiarse de equipo ya se llenó ({cupo} jugadores)."
                 )
     return errs
