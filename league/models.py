@@ -2042,6 +2042,57 @@ class SuspensionJugador(models.Model):
         return self.restantes() > 0
 
 
+class JugadorHerencia(models.Model):
+    """Registra el historial heredado de un jugador al iniciar el sistema.
+
+    Se usa solo una vez al principio para registrar jugadores que ya tenían
+    un castigo, o jugadores de equipos que ascendieron, descendieron o se
+    dieron de baja antes de tener el sistema.
+
+    Tipo:
+    - CASTIGADO: registrado como expulsado en la categoría indicada.
+      Si lleva jornadas, se crea una SuspensJugador que bloquea
+      en TODAS las categorías hasta cumplirla o levantarla.
+    - ASCENSO / DESCENSO: el jugador puede registrarse solo en la
+      categoría indicada o una inferior; si cambia de equipo, se
+      aplican las mismas reglas que un movimiento real.
+    - DESAPARECE: solo puede jugar en la categoría indicada o la
+      inmediata inferior.
+    """
+    TIPOS = [
+        ("CASTIGADO", "Castigado (expulsado del equipo)"),
+        ("ASCENSO", "Ascendido (desde otra categoría)"),
+        ("DESCENSO", "Descendido (desde otra categoría)"),
+        ("DESAPARECE", "Equipo se dio de baja"),
+    ]
+
+    jugador = models.ForeignKey(
+        Jugador, on_delete=models.CASCADE, related_name="herencia"
+    )
+    tipo = models.CharField(max_length=12, choices=TIPOS)
+    categoria = models.ForeignKey(
+        Categoria, on_delete=models.PROTECT, related_name="jugadores_heredados",
+        verbose_name="Categoría del evento",
+        help_text="Categoría donde se castigó / ascendió / descendió / se dio de baja."
+    )
+    jornadas = models.PositiveIntegerField(
+        default=0, verbose_name="Jornadas de castigo restantes",
+        help_text="Opcional: jornadas que le faltan de cumplir. "
+                  "Si se pone un número mayor a 0, se crea una suspensión que bloquea al jugador en toda la liga."
+    )
+    motivo = models.TextField(blank=True, verbose_name="Motivo")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Jugador heredado"
+        verbose_name_plural = "Jugadores heredados"
+        ordering = ["-creado"]
+
+    def __str__(self):
+        return f"{self.jugador} — {self.get_tipo_display()} ({self.categoria})"
+
+
 @deconstructible
 class RawCloudinaryStorage(Storage):
     def __init__(self, folder=""):

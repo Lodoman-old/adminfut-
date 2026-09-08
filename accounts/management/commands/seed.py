@@ -22,6 +22,7 @@ class Command(BaseCommand):
             "gestion_usuarios": False,
             "gestion_suspensiones": False,
             "temporada_movimientos": False,
+            "gestion_jugadores_heredados": False,
         })
         Rol.objects.get_or_create(nombre="Operador", defaults={"permisos": op_permisos})
         inv_permisos = {key: False for key, _, _, _, _ in flat}
@@ -33,6 +34,30 @@ class Command(BaseCommand):
         rep_permisos = {key: False for key, _, _, _, _ in flat}
         rep_permisos.update({"jugador_crear": True, "reporte_semanal": True})
         Rol.objects.get_or_create(nombre="Representante Equipo", defaults={"permisos": rep_permisos})
+
+        # Asegurar que los roles ya existentes tengan todos los permisos nuevos
+        # (get_or_create no actualiza roles creados con una versión anterior del seed)
+        rol_descriptions = {
+            "Administrador": admin_permisos,
+            "Operador": op_permisos,
+            "Invitado": inv_permisos,
+            "Arbitro": arb_permisos,
+            "Representante Equipo": rep_permisos,
+        }
+        for rol in Rol.objects.all():
+            defaults = rol_descriptions.get(rol.nombre)
+            if not defaults:
+                continue
+            permisos = dict(rol.permisos or {})
+            changed = False
+            for key, default in defaults.items():
+                if key not in permisos:
+                    permisos[key] = default
+                    changed = True
+            if changed:
+                rol.permisos = permisos
+                rol.save(update_fields=["permisos"])
+
         admin_user, created = Usuario.objects.get_or_create(
             username="admin",
             defaults={

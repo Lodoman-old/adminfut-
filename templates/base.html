@@ -161,6 +161,7 @@
                             {% if user|tiene_permiso:"gestion_categorias" %}<li><a class="dropdown-item" href="{% url 'categoria_list' %}">Categorías</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_equipos" %}<li><a class="dropdown-item" href="{% url 'equipo_list' %}">Equipos</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_jugadores" %}<li><a class="dropdown-item" href="{% url 'jugador_list' %}">Jugadores</a></li>{% endif %}
+                            {% if user|tiene_permiso:"gestion_jugadores_heredados" %}<li><a class="dropdown-item" href="{% url 'alta_jugadores_heredados' %}"><i class="bi bi-archive"></i> Jugadores Heredados</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_campos" %}<li><a class="dropdown-item" href="{% url 'campo_list' %}">Campos</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_temporadas" or user|tiene_permiso:"gestion_jornadas" or user|tiene_permiso:"gestion_partidos" %}<li><hr class="dropdown-divider"></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_temporadas" %}<li><a class="dropdown-item" href="{% url 'temporada_list' %}">Temporadas</a></li>{% endif %}

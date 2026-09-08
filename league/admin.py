@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia
 
 
 @admin.register(ConfiguracionLiga)
@@ -138,6 +138,13 @@ class SuspensionJugadorAdmin(admin.ModelAdmin):
     @admin.display(description="Restantes")
     def restantes(self, obj):
         return obj.restantes()
+
+
+@admin.register(JugadorHerencia)
+class JugadorHerenciaAdmin(admin.ModelAdmin):
+    list_display = ["jugador", "tipo", "categoria", "jornadas", "activo", "creado"]
+    list_filter = ["tipo", "categoria", "activo"]
+    search_fields = ["jugador__nombre", "jugador__apellido"]
 
 
 @admin.register(CampoIndisponibilidad)

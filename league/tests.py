@@ -3,8 +3,8 @@ from datetime import date, datetime, timedelta
 from django.test import TestCase, Client
 from django.utils import timezone
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador
-from .reglas_movimientos import errores_movimiento_jugador
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia
+from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
 
 
 class FixtureDescansoTest(TestCase):
@@ -542,3 +542,105 @@ class JugadorSinEquipoTest(TestCase):
         j2 = self._jornada(2)
         self._partido(j2, self.eq1, self.eq2, timezone.now() + timedelta(days=7), n=3)
         self.assertEqual(susp.restantes(), 0)
+
+
+class JugadorHeredadoTest(TestCase):
+    def setUp(self):
+        self.c1 = Categoria.objects.create(nombre="MaximaH", nivel=0, activo=True, curp_obligatoria=False)
+        self.c2 = Categoria.objects.create(nombre="IntermediaH", nivel=1, activo=True, curp_obligatoria=False)
+        self.c3 = Categoria.objects.create(nombre="SegundaH", nivel=2, activo=True, curp_obligatoria=False)
+        self.eq_sup = Equipo.objects.create(nombre="Kings", categoria=self.c1, activo=True)
+
+    def test_castigado_con_jornadas_crea_suspension_global(self):
+        j = Jugador.objects.create(nombre="Leo", apellido="Messi", posicion="DEL")
+        he = aplicar_movimiento_a_jugador(j, "CASTIGADO", self.c2, jornadas=2, motivo="Expulsado")
+        self.assertEqual(JugadorHerencia.objects.filter(jugador=j, activo=True).count(), 1)
+        susp = SuspensionJugador.objects.filter(jugador=j, activo=True).first()
+        self.assertIsNotNone(susp)
+        self.assertEqual(susp.equipo, None)
+        self.assertEqual(susp.jornadas, 2)
+        self.assertEqual(he.tipo, "CASTIGADO")
+
+    def test_castigado_sin_jornadas_no_crea_suspension(self):
+        j = Jugador.objects.create(nombre="Sergio", apellido="Ramos", posicion="DEF")
+        aplicar_movimiento_a_jugador(j, "CASTIGADO", self.c2, jornadas=0)
+        self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
+        self.assertEqual(errores_movimiento_jugador(j, self.eq_sup, self.c1), [])
+
+    def test_herencia_ascenso_descenso_desaparece_aplican_reglas(self):
+        base = Jugador.objects.create(nombre="Pelusa", apellido="Rojo", posicion="DEL")
+        aplicar_movimiento_a_jugador(base, "ASCENSO", self.c3)
+        # Ascendió a SegundaH (c3): solo puede jugar en c3 o la inmediata inferior
+        eq_c3 = Equipo.objects.create(nombre="SegundaH Eq", categoria=self.c3, activo=True)
+        self.assertEqual(errores_movimiento_jugador(base, eq_c3, self.c3), [])
+        self.assertTrue(any("asciende (heredado)" in e for e in errores_movimiento_jugador(base, self.eq_sup, self.c1)))
+        self.assertTrue(any("asciende (heredado)" in e for e in errores_movimiento_jugador(base, self.eq_sup, self.c2)))
+
+        des = Jugador.objects.create(nombre="Dena", apellido="Dos", posicion="MED")
+        aplicar_movimiento_a_jugador(des, "DESCENSO", self.c1)
+        # Descendió a MaximaH (c1): no puede jugar por encima (no hay); sí en c1, c2, c3
+        self.assertEqual(errores_movimiento_jugador(des, None, self.c1), [])
+        eq_c2 = Equipo.objects.create(nombre="IntermediaH Eq", categoria=self.c2, activo=True)
+        self.assertEqual(errores_movimiento_jugador(des, eq_c2, self.c2), [])
+        self.assertEqual(errores_movimiento_jugador(des, None, self.c3), [])
+
+        desa = Jugador.objects.create(nombre="Baja", apellido="Tres", posicion="POR")
+        aplicar_movimiento_a_jugador(desa, "DESAPARECE", self.c1)
+        self.assertEqual(errores_movimiento_jugador(desa, None, self.c1), [])
+        self.assertEqual(errores_movimiento_jugador(desa, eq_c2, self.c2), [])
+        self.assertTrue(any("equipo dado de baja" in e for e in errores_movimiento_jugador(desa, None, self.c3)))
+
+    def test_herencia_desactivada_deja_de_restringir(self):
+        j = Jugador.objects.create(nombre="Free", apellido="Cuatro", posicion="DEL")
+        he = aplicar_movimiento_a_jugador(j, "DESAPARECE", self.c1)
+        self.assertTrue(any("equipo dado de baja" in e for e in errores_movimiento_jugador(j, None, self.c3)))
+        he.activo = False
+        he.save(update_fields=["activo"])
+        self.assertEqual(errores_movimiento_jugador(j, None, self.c3), [])
+
+    def test_alta_duplicado_bloqueado_y_guardado_herencia(self):
+        from django.contrib.auth import get_user_model
+        existente = Jugador.objects.create(
+            nombre="Dup", apellido="Cinco", posicion="DEL", equipo=self.eq_sup,
+            fecha_nacimiento=date(1995, 5, 5),
+        )
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminh", password="p")
+        self.client.force_login(admin)
+        # Crear con mismo nombre+fecha: debe bloquear el alta (responder 200 sin crear otro)
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "crear",
+            "nombre": "Dup", "apellido": "Cinco",
+            "fecha_nacimiento": "1995-05-05",
+            "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "1",
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Jugador.objects.filter(nombre="Dup").count(), 1)
+        self.assertContains(r, "Ya existe")
+        # Heredar al existente sin nuevo alta
+        r2 = self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": existente.id,
+            "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "1", "motivo": "",
+        })
+        self.assertEqual(r2.status_code, 302)
+        self.assertTrue(SuspensionJugador.objects.filter(jugador=existente, activo=True).exists())
+        # Sigue con el mismo equipo y el cupo principal intacto
+        existente.refresh_from_db()
+        self.assertEqual(existente.equipo_id, self.eq_sup.id)
+
+    def test_crear_jugador_nuevo_con_herencia(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminj", password="p")
+        self.client.force_login(admin)
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "crear",
+            "nombre": "Nuevo", "apellido": "Heredado",
+            "tipo": "DESCENSO", "categoria_id": self.c2.id, "jornadas": "0", "motivo": "baja previa",
+        })
+        self.assertEqual(r.status_code, 302)
+        j = Jugador.objects.get(nombre="Nuevo")
+        self.assertIsNone(j.equipo)
+        he = JugadorHerencia.objects.get(jugador=j)
+        self.assertEqual(he.tipo, "DESCENSO")
+        self.assertEqual(he.categoria_id, self.c2.id)

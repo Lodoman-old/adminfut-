@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
 from finance.models import ConceptoIngreso, Ingreso
 
@@ -2978,6 +2978,173 @@ def levantar_suspension(request, pk):
     if temporada_pk:
         return redirect("temporada_suspensiones", temporada_pk=temporada_pk)
     return redirect("tabla_castigados")
+
+
+def alta_jugadores_heredados(request):
+    """Pantalla inicial (solo administrador) para registrar jugadores heredados:
+    castigados de antes del sistema, o jugadores de equipos que ascendieron,
+    descendieron o se dieron de baja.
+
+    Antes de dar de alta, busca en el universo de jugadores si ya existe
+    alguien con el mismo CURP (o nombre+apellido+fecha): si ya está registrado
+    y tiene un equipo, se bloquea y se indica dónde está. Se guarda la
+    categoría del evento para aplicar las reglas y los castigos.
+    """
+    from datetime import date as dt_date
+    from .reglas_movimientos import aplicar_movimiento_a_jugador, errores_movimiento_jugador
+
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
+    error = None
+    resultados = []
+    q = request.GET.get("q", "").strip()
+
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        try:
+            if accion == "buscar":
+                q = request.POST.get("q", "").strip()
+            elif accion == "crear":
+                nombre = request.POST.get("nombre", "").strip()
+                apellido = request.POST.get("apellido", "").strip()
+                curp = request.POST.get("curp", "").strip() or None
+                fecha_raw = request.POST.get("fecha_nacimiento", "").strip()
+                fecha_nac = None
+                if fecha_raw:
+                    try:
+                        fecha_nac = datetime.datetime.strptime(fecha_raw, "%Y-%m-%d").date()
+                    except ValueError:
+                        error = "Fecha de nacimiento inválida."
+                tipo = request.POST.get("tipo", "CASTIGADO")
+                categoria_id = request.POST.get("categoria_id")
+                jornadas_raw = request.POST.get("jornadas", "0").strip()
+                motivo = request.POST.get("motivo", "").strip()
+                if error:
+                    pass
+                elif not nombre or not apellido:
+                    error = "Nombre y apellido son obligatorios."
+                elif not categoria_id or not Categoria.objects.filter(id=categoria_id).exists():
+                    error = "Selecciona una categoría."
+                else:
+                    categoria = Categoria.objects.get(id=categoria_id)
+                    jornadas = int(jornadas_raw) if jornadas_raw.isdigit() else 0
+                    # Buscar si el jugador ya existe
+                    already = None
+                    if curp:
+                        already = Jugador.objects.filter(curp=curp).first()
+                    elif nombre and apellido and fecha_nac:
+                        already = Jugador.objects.filter(
+                            nombre__iexact=nombre, apellido__iexact=apellido,
+                            fecha_nacimiento=fecha_nac,
+                        ).first()
+                    if already:
+                        bloqueado = bool(already.equipo_id)
+                        eq_disp = already.equipo.nombre if already.equipo else "sin equipo"
+                        datos = {
+                            "nombre": already.nombre,
+                            "apellido": already.apellido,
+                            "curp": already.curp,
+                            "fecha_nacimiento": already.fecha_nacimiento,
+                            "equipo_id": already.equipo_id,
+                        }
+                        duplicado = {"jugador": already, "equipo": eq_disp, "bloqueado": bloqueado, "datos": datos}
+                        if bloqueado:
+                            messages.error(
+                                request,
+                                f"Ya existe un jugador ({already}) y está registrado con el equipo "
+                                f"{already.equipo.nombre} ({already.equipo.categoria.nombre}). "
+                                f"Para heredar este jugador usa el botón 'Ya existe' (no ocupará cupo).",
+                            )
+                        else:
+                            messages.warning(
+                                request,
+                                f"Ya existe el jugador {already} (sin equipo): "
+                                f"usa el botón 'Ya existe' para heredarlo.",
+                            )
+                        raise EarlyReturn(render(request, "league/jugadores_heredados.html", {
+                            "categorias": categorias, "q": q, "resultados": [],
+                            "duplicado": duplicado, "form_heredar": datos, "seleccionado": {
+                                "tipo": tipo, "categoria_id": categoria_id, "jornadas": jornadas_raw, "motivo": motivo,
+                            },
+                            "heredados": JugadorHerencia.objects.select_related("jugador", "categoria").order_by("-creado")[:50],
+                            "error": error,
+                        }))
+                    # No existe: crear jugador sin equipo
+                    jugador = Jugador.objects.create(
+                        nombre=nombre, apellido=apellido, curp=curp,
+                        fecha_nacimiento=fecha_nac, posicion=request.POST.get("posicion", "DEL"),
+                    )
+                    aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas, motivo)
+                    if tipo == "CASTIGADO" and jornadas > 0:
+                        messages.success(request, f"{jugador} creado y suspendido en {categoria.nombre} ({jornadas} jornada(s)).")
+                    else:
+                        messages.success(request, f"{jugador} registrado como herencia ({categoria.nombre}).")
+                    return redirect("alta_jugadores_heredados")
+            elif accion == "desactivar":
+                he_id = request.POST.get("herencia_id")
+                he = JugadorHerencia.objects.filter(id=he_id).first()
+                if not he:
+                    error = "Registro de herencia no encontrado."
+                else:
+                    he.activo = False
+                    he.save(update_fields=["activo"])
+                    messages.success(request, f"Herencia de {he.jugador} ('{he.get_tipo_display()}') desactivada.")
+                    return redirect("alta_jugadores_heredados")
+            elif accion == "heredar":
+                jugador_id = request.POST.get("jugador_id")
+                tipo = request.POST.get("tipo", "CASTIGADO")
+                categoria_id = request.POST.get("categoria_id")
+                jornadas_raw = request.POST.get("jornadas", "0").strip()
+                motivo = request.POST.get("motivo", "").strip()
+                jugador = Jugador.objects.filter(id=jugador_id).first()
+                if not jugador:
+                    error = "Jugador no encontrado."
+                elif not categoria_id or not Categoria.objects.filter(id=categoria_id).exists():
+                    error = "Selecciona una categoría."
+                else:
+                    categoria = Categoria.objects.get(id=categoria_id)
+                    jornadas = int(jornadas_raw) if jornadas_raw.isdigit() else 0
+                    if tipo == "CASTIGADO" and jornadas > 0:
+                        activa = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
+                        if activa:
+                            error = f"{jugador} ya tiene una suspensión activa ({activa.categoria.nombre}). Lévala o pausa antes de crear otra."
+                    if not error:
+                        aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas, motivo)
+                        messages.success(request, f"{jugador} registrado como herencia en {categoria.nombre}.")
+                        return redirect("alta_jugadores_heredados")
+        except EarlyReturn as e:
+            return e.response
+        except Exception as e:
+            error = str(e)
+
+    if q:
+        tokens = [t for t in q.split() if t]
+        resultados = Jugador.objects.filter(activo=True).select_related("equipo__categoria", "equipo")
+        if len(tokens) >= 2:
+            resultados = resultados.filter(
+                Q(nombre__icontains=tokens[0]) & Q(apellido__icontains=" ".join(tokens[1:]))
+            )
+        else:
+            resultados = resultados.filter(
+                Q(nombre__icontains=tokens[0]) | Q(apellido__icontains=tokens[0])
+            )
+        resultados = resultados.order_by("apellido", "nombre")[:30]
+
+    heredados = (
+        JugadorHerencia.objects.select_related("jugador", "categoria")
+        .order_by("-creado")[:50]
+    )
+    return render(request, "league/jugadores_heredados.html", {
+        "categorias": categorias,
+        "q": q,
+        "resultados": resultados,
+        "heredados": heredados,
+        "error": error,
+    })
+
+
+class EarlyReturn(Exception):
+    def __init__(self, response):
+        self.response = response
 
 
 def temporada_movimientos(request, temporada_pk):

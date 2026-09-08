@@ -60,6 +60,7 @@ urlpatterns = [
     path("arbitros/<int:pk>/editar/", views.ArbitroUpdateView.as_view(), name="arbitro_update"),
     path("arbitros/<int:pk>/eliminar/", views.ArbitroDeleteView.as_view(), name="arbitro_delete"),
 
+    path("jugadores-heredados/", views.alta_jugadores_heredados, name="alta_jugadores_heredados"),
     path("tabla-posiciones/", views.tabla_posiciones, name="tabla_posiciones"),
     path("tabla-goleo/", views.tabla_goleo, name="tabla_goleo"),
     path("tabla-tarjetas/", views.tabla_tarjetas, name="tabla_tarjetas"),

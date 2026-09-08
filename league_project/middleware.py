@@ -209,6 +209,8 @@ PERMISO_POR_URL = {
     'levantar_suspension': 'gestion_suspensiones',
     # Ascensos/descensos al cerrar temporada
     'temporada_movimientos': 'temporada_movimientos',
+    # Módulo de jugadores heredados (solo administrador)
+    'alta_jugadores_heredados': 'gestion_jugadores_heredados',
     'reporte_cedula_arbitral_pdf': 'partido_cedula',
     'reporte_cedula_arbitral_xlsx': 'partido_cedula',
     'horarios_fijos_report': 'reporte_horarios',

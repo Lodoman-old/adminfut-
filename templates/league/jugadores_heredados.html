@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Jugadores Heredados{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-archive"></i> Jugadores heredados</h3>
+    <a href="{% url 'home' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Inicio</a>
+</div>
+<p class="text-muted small">
+    Registra a los jugadores que llegan con historial previo al sistema: <strong>castigados</strong> (expulsados de un equipo),
+    o de equipos que <strong>ascendieron / descendieron / se dieron de baja</strong>. Solo se usa al inicio de la liga, antes de comenzar temporadas.
+</p>
+<div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i> Antes de dar de alta, el sistema busca en el universo de jugadores. Si alguien ya está registrado con un equipo, <strong>no se permite el alta</strong> y se deja el cupo libre (puedes registrar igual su historial). Los castigados quedan suspendidos en <strong>toda la liga</strong>.
+</div>
+
+{% if messages %}
+{% for m in messages %}<div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show">{{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+{% endif %}
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+{% if duplicado %}
+<div class="alert alert-warning">
+    <strong>Ya existe: {{ duplicado.jugador }} — {{ duplicado.equipo }}</strong><br>
+    {% if duplicado.bloqueado %}
+    Este jugador ya está registrado <strong>con el equipo {{ duplicado.equipo }}</strong>. No se le dio de alta: el cupo del equipo de origen queda libre. Puedes registrar su historial (castigo o movimiento) sin alterar su equipo.
+    {% else %}
+    Este jugador ya existe en el sistema pero <strong>sin equipo</strong>. Puedes heredarlo sin ocupar cupo de ningún equipo.
+    {% endif %}
+    <form method="post" class="row g-2 bg-light p-2 rounded mt-2">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="heredar">
+        <input type="hidden" name="jugador_id" value="{{ duplicado.jugador.id }}">
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Tipo de herencia</label>
+            <select name="tipo" class="form-select form-select-sm">
+                <option value="CASTIGADO" {% if seleccionado.tipo == "CASTIGADO" %}selected{% endif %}>Castigado (expulsado)</option>
+                <option value="ASCENSO" {% if seleccionado.tipo == "ASCENSO" %}selected{% endif %}>Ascendió</option>
+                <option value="DESCENSO" {% if seleccionado.tipo == "DESCENSO" %}selected{% endif %}>Descendió</option>
+                <option value="DESAPARECE" {% if seleccionado.tipo == "DESAPARECE" %}selected{% endif %}>Equipo se dio de baja</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Categoría del evento</label>
+            <select name="categoria_id" class="form-select form-select-sm">
+                {% for c in categorias %}<option value="{{ c.id }}" {% if seleccionado.categoria_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-0">Jornadas</label>
+            <input type="number" name="jornadas" value="{{ seleccionado.jornadas|default:0 }}" min="0" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small mb-0">Motivo (opcional)</label>
+            <input type="text" name="motivo" value="{{ seleccionado.motivo }}" class="form-control form-control-sm" placeholder="Expulsado previo, etc.">
+        </div>
+        <div class="col-12"><button class="btn btn-sm btn-primary"><i class="bi bi-archive"></i> Registrar herencia (sin nuevo alta)</button></div>
+    </form>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-search"></i> Buscar jugador ya registrado</div>
+            <div class="card-body">
+                <form method="get" class="d-flex gap-2 mb-3">
+                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Nombre o apellido" autocomplete="off">
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                </form>
+                {% if resultados %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead><tr><th>Jugador</th><th>Equipo actual</th><th>Opción</th></tr></thead>
+                        <tbody>
+                        {% for j in resultados %}
+                        <tr>
+                            <td>{{ j.nombre }} {{ j.apellido }}{% if j.curp %}<br><small class="text-muted">{{ j.curp }}</small>{% endif %}</td>
+                            <td>{% if j.equipo %}{{ j.equipo.nombre }} <span class="text-muted small">({{ j.equipo.categoria.nombre }})</span>{% else %}<span class="text-muted">Sin equipo</span>{% endif %}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#hered{{ j.id }}">Heredar</button>
+                            </td>
+                        </tr>
+                        <tr class="collapse" id="hered{{ j.id }}">
+                            <td colspan="3">
+                                <form method="post" class="row g-2 bg-light p-2 rounded">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="accion" value="heredar">
+                                    <input type="hidden" name="jugador_id" value="{{ j.id }}">
+                                    <div class="col-md-3">
+                                        <label class="form-label small mb-0">Tipo de herencia</label>
+                                        <select name="tipo" class="form-select form-select-sm">
+                                            <option value="CASTIGADO">Castigado (expulsado)</option>
+                                            <option value="ASCENSO">Ascendió</option>
+                                            <option value="DESCENSO">Descendió</option>
+                                            <option value="DESAPARECE">Equipo se dio de baja</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small mb-0">Categoría del evento</label>
+                                        <select name="categoria_id" class="form-select form-select-sm">
+                                            {% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-0">Jornadas</label>
+                                        <input type="number" name="jornadas" value="0" min="0" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0">Motivo (opcional)</label>
+                                        <input type="text" name="motivo" class="form-control form-control-sm" placeholder="Expulsado previo, etc.">
+                                    </div>
+                                    <div class="col-12"><button class="btn btn-sm btn-primary"><i class="bi bi-archive"></i> Registrar herencia</button></div>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-muted text-center py-3">Sin resultados.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% elif q %}
+                <p class="text-muted">Sin resultados para "<strong>{{ q }}</strong>".</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person-plus"></i> Crear jugador nuevo con herencia</div>
+            <div class="card-body">
+                <p class="text-muted small">Si el CURP o el nombre + fecha de nacimiento ya existen en el sistema, el alta se bloquea automáticamente y se te muestra el jugador encontrado.</p>
+                <form method="post" class="row g-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="crear">
+                    <div class="col-md-6"><label class="form-label small mb-0">Nombre *</label><input name="nombre" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label small mb-0">Apellido *</label><input name="apellido" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label small mb-0">CURP (opcional)</label><input name="curp" class="form-control" maxlength="18"></div>
+                    <div class="col-md-6"><label class="form-label small mb-0">Fecha de nacimiento (opcional)</label><input type="date" name="fecha_nacimiento" class="form-control"></div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0">Posición</label>
+                        <select name="posicion" class="form-select">
+                            <option value="POR">Portero</option>
+                            <option value="DEF">Defensa</option>
+                            <option value="MED">Mediocampista</option>
+                            <option value="DEL" selected>Delantero</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0">Tipo de herencia</label>
+                        <select name="tipo" class="form-select">
+                            <option value="CASTIGADO">Castigado (expulsado)</option>
+                            <option value="ASCENSO">Ascendió</option>
+                            <option value="DESCENSO">Descendió</option>
+                            <option value="DESAPARECE">Equipo se dio de baja</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0">Categoría del evento</label>
+                        <select name="categoria_id" class="form-select">
+                            {% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3"><label class="form-label small mb-0">Jornadas (0 = ninguna)</label><input type="number" name="jornadas" value="0" min="0" class="form-control"></div>
+                    <div class="col-md-9"><label class="form-label small mb-0">Motivo (opcional)</label><input type="text" name="motivo" class="form-control" placeholder="Castigado antes del sistema, etc."></div>
+                    <div class="col-12"><button class="btn btn-success"><i class="bi bi-person-plus"></i> Crear jugador y registrar herencia</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-list-check"></i> Herencias registradas</div>
+            <div class="card-body table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th>Jugador</th><th>Tipo</th><th>Categoría</th><th>Jornadas</th><th>Estado</th><th></th></tr></thead>
+                    <tbody>
+                    {% for he in heredados %}
+                    <tr>
+                        <td>{{ he.jugador.nombre }} {{ he.jugador.apellido }}</td>
+                        <td><span class="badge {% if he.tipo == 'CASTIGADO' %}bg-danger{% elif he.tipo == 'ASCENSO' %}bg-success{% elif he.tipo == 'DESCENSO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ he.get_tipo_display }}</span></td>
+                        <td>{{ he.categoria.nombre }}</td>
+                        <td>{{ he.jornadas }}</td>
+                        <td>{% if he.activo %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Desactivada</span>{% endif %}{% if he.motivo %}<br><small class="text-muted">{{ he.motivo }}</small>{% endif %}</td>
+                        <td>
+                            {% if he.activo %}
+                            <form method="post" onsubmit="return confirm('¿Desactivar la herencia de {{ he.jugador }}? El jugador recupera sus condiciones normales.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="accion" value="desactivar">
+                                <input type="hidden" name="herencia_id" value="{{ he.id }}">
+                                <button class="btn btn-sm btn-outline-secondary" title="Desactivar"><i class="bi bi-x-circle"></i></button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">Aún no hay herencias registradas.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -24,6 +24,9 @@ PERMISOS_MENU = {
             ("jugador_editar", "Editar Jugadores"),
             ("jugador_eliminar", "Eliminar Jugadores"),
         ],
+        "Jugadores heredados": [
+            ("gestion_jugadores_heredados", "Gestionar Jugadores Heredados"),
+        ],
         "Campos": [
             ("gestion_campos", "Acceso a Campos"),
             ("campo_crear", "Crear Campos"),
