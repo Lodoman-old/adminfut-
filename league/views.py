@@ -2980,6 +2980,23 @@ def levantar_suspension(request, pk):
     return redirect("tabla_castigados")
 
 
+def _normalizar_texto(valor):
+    """Minúsculas y sin acentos para búsquedas insensibles (Pérez == Perez)."""
+    import unicodedata
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", valor or "")
+        if unicodedata.category(ch) != "Mn"
+    ).lower()
+
+
+def _coincide_nombre(jugador, nombre, apellido):
+    """True si nombre y apellido coinciden ignorando tildes/mayúsculas."""
+    return (
+        _normalizar_texto(jugador.nombre) == _normalizar_texto(nombre)
+        and _normalizar_texto(jugador.apellido) == _normalizar_texto(apellido)
+    )
+
+
 def alta_jugadores_heredados(request):
     """Pantalla inicial (solo administrador) para registrar jugadores heredados:
     castigados de antes del sistema, o jugadores de equipos que ascendieron,
@@ -3027,16 +3044,24 @@ def alta_jugadores_heredados(request):
                 else:
                     categoria = Categoria.objects.get(id=categoria_id)
                     jornadas = int(jornadas_raw) if jornadas_raw.isdigit() else 0
-                    # Buscar si el jugador ya existe
+                    forzar = request.POST.get("forzar") == "1"
+                    # Buscar si el jugador ya existe en el universo (CURP o nombre+apellido)
                     already = None
                     if curp:
                         already = Jugador.objects.filter(curp=curp).first()
-                    elif nombre and apellido and fecha_nac:
-                        already = Jugador.objects.filter(
-                            nombre__iexact=nombre, apellido__iexact=apellido,
-                            fecha_nacimiento=fecha_nac,
-                        ).first()
-                    if already:
+                    if not already and nombre and apellido:
+                        candidatos = [j for j in Jugador.objects.all() if _coincide_nombre(j, nombre, apellido)]
+                        if fecha_nac:
+                            already = next(
+                                (j for j in candidatos if j.fecha_nacimiento == fecha_nac),
+                                None,
+                            )
+                        if not already:
+                            already = (
+                                next((j for j in candidatos if j.equipo_id), None)
+                                or (candidatos[0] if candidatos else None)
+                            )
+                    if already and not forzar:
                         bloqueado = bool(already.equipo_id)
                         eq_disp = already.equipo.nombre if already.equipo else "sin equipo"
                         datos = {
@@ -3068,7 +3093,9 @@ def alta_jugadores_heredados(request):
                             "heredados": JugadorHerencia.objects.select_related("jugador", "categoria").order_by("-creado")[:50],
                             "error": error,
                         }))
-                    # No existe: crear jugador sin equipo
+                    # No existe (o se forzó): crear jugador sin equipo
+                    if forzar and curp and Jugador.objects.filter(curp=curp).exists():
+                        curp = None  # no reutilizar un CURP ya asignado en el universo
                     jugador = Jugador.objects.create(
                         nombre=nombre, apellido=apellido, curp=curp,
                         fecha_nacimiento=fecha_nac, posicion=request.POST.get("posicion", "DEL"),
@@ -3117,17 +3144,13 @@ def alta_jugadores_heredados(request):
             error = str(e)
 
     if q:
-        tokens = [t for t in q.split() if t]
-        resultados = Jugador.objects.filter(activo=True).select_related("equipo__categoria", "equipo")
-        if len(tokens) >= 2:
-            resultados = resultados.filter(
-                Q(nombre__icontains=tokens[0]) & Q(apellido__icontains=" ".join(tokens[1:]))
-            )
-        else:
-            resultados = resultados.filter(
-                Q(nombre__icontains=tokens[0]) | Q(apellido__icontains=tokens[0])
-            )
-        resultados = resultados.order_by("apellido", "nombre")[:30]
+        tokens = [_normalizar_texto(t) for t in q.split() if t]
+        resultados = []
+        for j in Jugador.objects.select_related("equipo__categoria", "equipo").order_by("apellido", "nombre"):
+            texto = _normalizar_texto(f"{j.nombre} {j.apellido}")
+            if all(tok in texto for tok in tokens):
+                resultados.append(j)
+        resultados = resultados[:30]
 
     heredados = (
         JugadorHerencia.objects.select_related("jugador", "categoria")

@@ -644,3 +644,50 @@ class JugadorHeredadoTest(TestCase):
         he = JugadorHerencia.objects.get(jugador=j)
         self.assertEqual(he.tipo, "DESCENSO")
         self.assertEqual(he.categoria_id, self.c2.id)
+
+    def test_busqueda_nombre_completo_con_acentos_sin_acento(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminbus", password="p")
+        self.client.force_login(admin)
+        j = Jugador.objects.create(
+            nombre="Juan Carlos", apellido="Pérez Ramírez", posicion="DEL",
+            equipo=self.eq_sup, fecha_nacimiento=date(1990, 1, 1),
+        )
+        # Nombre completo en otro orden y sin tildes debe encontrarlo
+        r = self.client.get("/jugadores-heredados/", {"q": "juan carlos perez ramirez"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Pérez Ramírez")
+        # Buscando solo el apellido compuesto también
+        r2 = self.client.get("/jugadores-heredados/", {"q": "perez ramirez"})
+        self.assertContains(r2, j.apellido)
+
+    def test_duplicado_solo_por_nombre_y_apellido_bloqueado(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admindup2", password="p")
+        self.client.force_login(admin)
+        existente = Jugador.objects.create(nombre="Ana", apellido="López", posicion="DEL", equipo=self.eq_sup)
+        # Sin CURP ni fecha: solo nombre+apellido (con tilde distinta) debe bloquear
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "crear",
+            "nombre": "Ana", "apellido": "Lopez",
+            "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "0",
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Ya existe")
+        self.assertEqual(Jugador.objects.filter(nombre="Ana").count(), 1)
+
+    def test_crear_forzado_permite_homonimo(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminfor", password="p")
+        self.client.force_login(admin)
+        Jugador.objects.create(nombre="Ana", apellido="López", posicion="DEL", equipo=self.eq_sup)
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "crear", "forzar": "1",
+            "nombre": "Ana", "apellido": "Lopez",
+            "tipo": "CASTIGADO", "categoria_id": self.c1.id, "jornadas": "0", "motivo": "homonimo real",
+        })
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Jugador.objects.filter(nombre="Ana").count(), 2)

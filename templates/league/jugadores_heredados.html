@@ -56,6 +56,19 @@
         </div>
         <div class="col-12"><button class="btn btn-sm btn-primary"><i class="bi bi-archive"></i> Registrar herencia (sin nuevo alta)</button></div>
     </form>
+    <form method="post" class="border-top mt-2 pt-2" onsubmit="return confirm('¿Crear igualmente un jugador nuevo con los mismos datos? Úsalo solo si son personas distintas (homónimos).');">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="crear">
+        <input type="hidden" name="forzar" value="1">
+        <input type="hidden" name="nombre" value="{{ form_heredar.nombre }}">
+        <input type="hidden" name="apellido" value="{{ form_heredar.apellido }}">
+        <input type="hidden" name="curp" value="{{ form_heredar.curp|default:'' }}">
+        <input type="hidden" name="tipo" value="{{ seleccionado.tipo }}">
+        <input type="hidden" name="categoria_id" value="{{ seleccionado.categoria_id }}">
+        <input type="hidden" name="jornadas" value="{{ seleccionado.jornadas|default:0 }}">
+        <input type="hidden" name="motivo" value="{{ seleccionado.motivo }}">
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-person-plus"></i> Es otra persona — crear igualmente</button>
+    </form>
 </div>
 {% endif %}
 
