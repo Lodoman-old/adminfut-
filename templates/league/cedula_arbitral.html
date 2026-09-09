@@ -17,6 +17,7 @@
 </div>
 <form method="post" id="cedulaForm" onsubmit="return false">
     {% csrf_token %}
+    <div class="alert alert-info py-2"><i class="bi bi-info-circle"></i> Para capturar goles y tarjetas, marca en cada jugador <strong>Titular</strong> o <strong>Cambio</strong>: los campos se habilitan automáticamente. Al terminar activa <strong>Finalizar cédula</strong> y pulsa Guardar.</div>
     <div class="card mb-3">
         <div class="card-body py-2">
             <div class="row align-items-center g-2">
