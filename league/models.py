@@ -2006,6 +2006,8 @@ class SuspensionJugador(models.Model):
         verbose_name="Temporada donde inicia",
     )
     jornadas = models.PositiveIntegerField(default=1, verbose_name="Jornadas de suspensión")
+    vitalicia = models.BooleanField(default=False, verbose_name="De por vida",
+        help_text="Si está activa, la suspensión nunca expira (expulsión de por vida).")
     motivo = models.TextField(blank=True, verbose_name="Motivo")
     activo = models.BooleanField(default=True, verbose_name="Activa")
     fecha_inicio = models.DateField(verbose_name="Inicio del conteo")
@@ -2038,9 +2040,14 @@ class SuspensionJugador(models.Model):
         return qs.order_by().values("jornada_id").distinct().count()
 
     def restantes(self):
-        """Jornadas que faltan por cumplir (0 si ya cumplió o está pausada)."""
+        """Jornadas que faltan por cumplir (0 si ya cumplió o está pausada).
+
+        Para suspensiones de por vida siempre devuelve 1 mientras estén
+        activas: nunca se cumplan."""
         if not self.activo:
             return 0
+        if self.vitalicia:
+            return 1
         return max(0, self.jornadas - self.consumidos())
 
     def vigente(self):
@@ -2066,6 +2073,7 @@ class JugadorHerencia(models.Model):
     """
     TIPOS = [
         ("CASTIGADO", "Castigado (expulsado del equipo)"),
+        ("VITALICIO", "Expulsado de por vida"),
         ("ASCENSO", "Ascendido (desde otra categoría)"),
         ("DESCENSO", "Descendido (desde otra categoría)"),
         ("DESAPARECE", "Equipo se dio de baja"),

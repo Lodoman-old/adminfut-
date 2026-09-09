@@ -630,7 +630,7 @@ body {
               {% endif %}
               <div class="fw-bold mt-1" style="font-size:0.8rem">{{ t.jugador.nombre }} {{ t.jugador.apellido }}</div>
               <small class="text-white-50">{{ t.equipo.nombre }}</small>
-              <div><span class="badge bg-danger mt-2">{{ t.suspension_jornadas }} Jornadas</span></div>
+              <div>{% if t.vitalicia %}<span class="badge bg-danger mt-2">Expulsado — Por vida</span>{% else %}<span class="badge bg-danger mt-2">{{ t.suspension_jornadas }} Jornadas</span>{% endif %}</div>
               {% if t.es_manual %}
               <small class="text-muted">Suspensión manual{% if t.motivo %} · {{ t.motivo }}{% endif %}</small>
               {% else %}

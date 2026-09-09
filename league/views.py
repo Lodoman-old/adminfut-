@@ -1265,6 +1265,7 @@ class _SuspensionManualEnvelope:
         self.equipo = record.equipo
         self.categoria = record.categoria
         self.suspension_jornadas = record.jornadas
+        self.vitalicia = record.vitalicia
         self.motivo = record.motivo
         self.fecha_creacion = record.creado
         self.partido = None
@@ -1335,6 +1336,20 @@ def _suspensiones_temporada(temporada, jug_ids=None):
             continue
         restantes = m.restantes()
         if restantes <= 0:
+            continue
+        if m.vitalicia:
+            # Suspensión de por vida: no hay partidos pendientes ni cuenta que cumplir
+            env = _SuspensionManualEnvelope(m, restantes, [])
+            result[m.jugador_id] = {
+                "pendientes": [],
+                "todos": [],
+                "expulsion_partido": None,
+                "expulsion_equipo": m.equipo,
+                "suspension_jornadas": m.jornadas,
+                "restantes": restantes,
+                "_tarjeta": env,
+                "es_manual": True,
+            }
             continue
         prox = Partido.objects.filter(
             temporada=temporada,
@@ -2975,6 +2990,7 @@ def temporada_suspensiones(request, temporada_pk):
             "equipo_display": (s.equipo.nombre if s.equipo else f"Toda la categoría"),
             "temporada": s.temporada,
             "jornadas": s.jornadas,
+            "vitalicia": s.vitalicia,
             "restantes": rest,
             "motivo": s.motivo,
             "activo": s.activo,
@@ -3125,7 +3141,9 @@ def alta_jugadores_heredados(request):
                         fecha_nacimiento=fecha_nac, posicion=request.POST.get("posicion", "DEL"),
                     )
                     aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas, motivo)
-                    if tipo == "CASTIGADO" and jornadas > 0:
+                    if tipo == "VITALICIO":
+                        messages.success(request, f"{jugador} creado y expulsado de por vida en {categoria.nombre}.")
+                    elif tipo == "CASTIGADO" and jornadas > 0:
                         messages.success(request, f"{jugador} creado y suspendido en {categoria.nombre} ({jornadas} jornada(s)).")
                     else:
                         messages.success(request, f"{jugador} registrado como herencia ({categoria.nombre}).")
@@ -3138,7 +3156,7 @@ def alta_jugadores_heredados(request):
                 else:
                     nombre = str(he.jugador)
                     tipo_nombre = he.get_tipo_display()
-                    if he.tipo == "CASTIGADO":
+                    if he.tipo in ("CASTIGADO", "VITALICIO"):
                         # Al eliminar un castigo heredado se levanta su suspensión
                         SuspensionJugador.objects.filter(jugador=he.jugador, activo=True).update(activo=False)
                         he.delete()
@@ -3169,7 +3187,7 @@ def alta_jugadores_heredados(request):
                         previo = JugadorHerencia.objects.filter(jugador=jugador).exists()
                         if previo:
                             # Corregir/ajustar: se borra el historial previo y se re-registra de cero
-                            if tipo == "CASTIGADO" and jornadas > 0:
+                            if tipo in ("CASTIGADO", "VITALICIO") and (tipo == "VITALICIO" or jornadas > 0):
                                 activa = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
                                 cat_prev = f" (categoría anterior: {activa.categoria.nombre})" if activa else ""
                                 mensaje_evento = f"Se reemplazó la herencia/suspensión anterior de {jugador}{cat_prev} por la nueva."

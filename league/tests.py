@@ -677,6 +677,33 @@ class JugadorHeredadoTest(TestCase):
         self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
         self.assertEqual(errores_movimiento_jugador(j, self.eq_sup, self.c1), [])
 
+    def test_expulsado_por_vida_crea_suspension_permanente(self):
+        j = Jugador.objects.create(nombre="Diego", apellido="Campos Cerrito", posicion="DEL")
+        he = aplicar_movimiento_a_jugador(j, "VITALICIO", self.c2, motivo="Expulsado por agresión")
+        self.assertEqual(he.tipo, "VITALICIO")
+        susp = SuspensionJugador.objects.filter(jugador=j, activo=True).first()
+        self.assertIsNotNone(susp)
+        self.assertTrue(susp.vitalicia)
+        self.assertEqual(susp.equipo, None)
+        # Nunca se cumple: restantes siempre > 0 aunque pasen partidos
+        self.assertEqual(susp.restantes(), 1)
+        self.assertTrue(susp.vigente())
+        # Bloquea el registro en cualquier categoría
+        errs = errores_movimiento_jugador(j, self.eq_sup, self.c1)
+        self.assertTrue(any("por vida" in e for e in errs))
+        errs2 = errores_movimiento_jugador(j, None, self.c3)
+        self.assertTrue(any("por vida" in e for e in errs2))
+
+    def test_expulsado_por_vida_sale_de_todos_los_equipos(self):
+        j = Jugador.objects.create(
+            nombre="Raul", apellido="Jimeno", posicion="DEF", equipo=self.eq_sup
+        )
+        aplicar_movimiento_a_jugador(j, "VITALICIO", self.c1)
+        j.refresh_from_db()
+        self.assertIsNone(j.equipo)
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=j, activo=True).exists())
+        self.assertEqual(SuspensionJugador.objects.filter(jugador=j, activo=True).count(), 1)
+
     def test_castigado_heredero_expulsa_de_todos_los_equipos(self):
         j = Jugador.objects.create(
             nombre="Gabriel", apellido="Reyes Casas", posicion="DEL", equipo=self.eq_sup

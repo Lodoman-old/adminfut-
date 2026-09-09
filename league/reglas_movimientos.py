@@ -88,6 +88,7 @@ def errores_herencia_por_categoria(jugador, categoria_destino):
     """Restricciones del historial heredado del jugador para una categoría destino.
 
     * CASTIGADO:   no puede registrarse en ningún equipo (suspensión global).
+    * VITALICIO:   expulsado de por vida: no puede registrarse en ningún equipo.
     * ASCENSO:     solo su categoría o la inmediata inferior.
     * DESCENSO:    no puede jugar por encima de su categoría.
     * DESAPARECE:  solo su categoría o la inmediata inferior.
@@ -100,7 +101,12 @@ def errores_herencia_por_categoria(jugador, categoria_destino):
         h_cat = he.categoria
         if h_cat.nivel is None:
             continue
-        if he.tipo == "CASTIGADO":
+        if he.tipo == "VITALICIO":
+            errs.append(
+                f"{jugador} está expulsado de por vida en {h_cat.nombre}: "
+                f"no puede registrarse en ningún equipo."
+            )
+        elif he.tipo == "CASTIGADO":
             if he.jornadas > 0:
                 errs.append(
                     f"{jugador} es jugador heredado con castigo pendiente en {h_cat.nombre}: "
@@ -169,6 +175,8 @@ def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""
 
     * CASTIGADO: expulsa al jugador de todos sus equipos actuales y, con
       jornadas>0, crea una SuspensionJugador activa que lo bloquea en toda la liga.
+    * VITALICIO: expulsado de por vida: expulsa de todos los equipos y crea
+      una SuspensionJugador permanente que lo bloquea en toda la liga.
     * ASCENSO/DESCENSO/DESAPARECE: se le da de baja automáticamente de los
       equipos cuya categoría viole la restricción heredada."""
     he = JugadorHerencia.objects.create(
@@ -178,17 +186,18 @@ def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""
         jornadas=jornadas,
         motivo=motivo,
     )
-    if tipo == "CASTIGADO":
+    if tipo in ("CASTIGADO", "VITALICIO"):
         expulsar_de_todos_los_equipos(jugador)
-        if jornadas > 0:
+        if tipo == "VITALICIO" or jornadas > 0:
             SuspensionJugador.objects.get_or_create(
                 jugador=jugador,
                 categoria=categoria,
                 activo=True,
                 defaults={
                     "equipo": None,
-                    "jornadas": jornadas,
-                    "motivo": motivo or "Castigo heredado al inicio del sistema.",
+                    "jornadas": jornadas or 1,
+                    "vitalicia": tipo == "VITALICIO",
+                    "motivo": motivo or ("Expulsado de por vida al inicio del sistema." if tipo == "VITALICIO" else "Castigo heredado al inicio del sistema."),
                     "fecha_inicio": date.today(),
                 },
             )

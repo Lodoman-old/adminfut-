@@ -35,6 +35,7 @@
             <label class="form-label small mb-0">Tipo de herencia</label>
             <select name="tipo" class="form-select form-select-sm">
                 <option value="CASTIGADO" {% if seleccionado.tipo == "CASTIGADO" %}selected{% endif %}>Castigado (expulsado)</option>
+                <option value="VITALICIO" {% if seleccionado.tipo == "VITALICIO" %}selected{% endif %}>Expulsado de por vida</option>
                 <option value="ASCENSO" {% if seleccionado.tipo == "ASCENSO" %}selected{% endif %}>Ascendió</option>
                 <option value="DESCENSO" {% if seleccionado.tipo == "DESCENSO" %}selected{% endif %}>Descendió</option>
                 <option value="DESAPARECE" {% if seleccionado.tipo == "DESAPARECE" %}selected{% endif %}>Equipo se dio de baja</option>
@@ -104,6 +105,7 @@
                                         <label class="form-label small mb-0">Tipo de herencia</label>
                                         <select name="tipo" class="form-select form-select-sm">
                                             <option value="CASTIGADO">Castigado (expulsado)</option>
+                                            <option value="VITALICIO">Expulsado de por vida</option>
                                             <option value="ASCENSO">Ascendió</option>
                                             <option value="DESCENSO">Descendió</option>
                                             <option value="DESAPARECE">Equipo se dio de baja</option>
@@ -163,6 +165,7 @@
                         <label class="form-label small mb-0">Tipo de herencia</label>
                         <select name="tipo" class="form-select">
                             <option value="CASTIGADO">Castigado (expulsado)</option>
+                            <option value="VITALICIO">Expulsado de por vida</option>
                             <option value="ASCENSO">Ascendió</option>
                             <option value="DESCENSO">Descendió</option>
                             <option value="DESAPARECE">Equipo se dio de baja</option>
@@ -192,13 +195,13 @@
                     {% for he in heredados %}
                     <tr>
                         <td>{{ he.jugador.nombre }} {{ he.jugador.apellido }}</td>
-                        <td><span class="badge {% if he.tipo == 'CASTIGADO' %}bg-danger{% elif he.tipo == 'ASCENSO' %}bg-success{% elif he.tipo == 'DESCENSO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ he.get_tipo_display }}</span></td>
+                        <td><span class="badge {% if he.tipo == 'CASTIGADO' or he.tipo == 'VITALICIO' %}bg-danger{% elif he.tipo == 'ASCENSO' %}bg-success{% elif he.tipo == 'DESCENSO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ he.get_tipo_display }}</span></td>
                         <td>{{ he.categoria.nombre }}</td>
                         <td>{{ he.jornadas }}</td>
                         <td>{% if he.activo %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Desactivada</span>{% endif %}{% if he.motivo %}<br><small class="text-muted">{{ he.motivo }}</small>{% endif %}</td>
                         <td>
                             {% if he.activo %}
-                            <form method="post" onsubmit="return confirm('¿Eliminar la herencia de {{ he.jugador }}?{% if he.tipo == 'CASTIGADO' %} Si era castigado, se levantará su suspensión.{% endif %}');">
+                            <form method="post" onsubmit="return confirm('¿Eliminar la herencia de {{ he.jugador }}?{% if he.tipo == 'CASTIGADO' or he.tipo == 'VITALICIO' %} Si era castigado, se levantará su suspensión.{% endif %}');">
                                 {% csrf_token %}
                                 <input type="hidden" name="accion" value="eliminar">
                                 <input type="hidden" name="herencia_id" value="{{ he.id }}">

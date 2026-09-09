@@ -465,18 +465,23 @@ def reporte_castigados_pdf(request):
                 continue
             env = info["_tarjeta"]
             pend_list = info["pendientes"]
-            if pend_list:
+            if getattr(env, "vitalicia", False):
+                pend_text = "Por vida"
+                susp_col = "Por vida"
+            elif pend_list:
                 pend_text = "; ".join(
                     f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
                     for p in pend_list
                 )
+                susp_col = env.suspension_jornadas
             else:
                 pend_text = f"Pendiente ({info['restantes']}) - próxima temporada"
+                susp_col = env.suspension_jornadas
             data.append([
                 len(data),
                 Paragraph(f"{env.jugador.nombre} {env.jugador.apellido}", ps),
                 Paragraph(env.equipo.nombre, ps),
-                env.suspension_jornadas,
+                susp_col,
                 Paragraph("Suspensión manual", ps),
                 Paragraph(pend_text, ps),
             ])
@@ -864,25 +869,30 @@ def reporte_castigados_xlsx(request):
             rst = m.restantes()
             if rst <= 0:
                 continue
-            prox = Partido.objects.filter(
-                temporada=temp, estado__in=("PRO", "PROG"),
-            ).filter(
-                Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
-            ).order_by("jornada__numero", "fecha_hora", "id")[:rst]
-            pend_list = list(prox)
-            if pend_list:
-                pend_str = "; ".join(
-                    f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
-                    for p in pend_list
-                )
+            if m.vitalicia:
+                pend_str = "Por vida"
+                susp_col = "Por vida"
             else:
-                pend_str = f"Pendiente ({rst}) - próxima temporada"
+                prox = Partido.objects.filter(
+                    temporada=temp, estado__in=("PRO", "PROG"),
+                ).filter(
+                    Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
+                ).order_by("jornada__numero", "fecha_hora", "id")[:rst]
+                pend_list = list(prox)
+                if pend_list:
+                    pend_str = "; ".join(
+                        f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
+                        for p in pend_list
+                    )
+                else:
+                    pend_str = f"Pendiente ({rst}) - próxima temporada"
+                susp_col = m.jornadas
             num_fila = ws.max_row or 2
             ws.append([
                 num_fila - 1,
                 f"{m.jugador.nombre} {m.jugador.apellido}",
                 m.equipo.nombre,
-                m.jornadas,
+                susp_col,
                 "Suspensión manual",
                 pend_str,
             ])

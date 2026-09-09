@@ -125,8 +125,8 @@
                         <td>{{ s.jugador.nombre }} {{ s.jugador.apellido }}</td>
                         <td>{{ s.equipo_display }}</td>
                         <td>{{ s.temporada.nombre|default:"-" }}</td>
-                        <td>{{ s.jornadas }}</td>
-                        <td>{{ s.restantes }}</td>
+                        <td>{% if s.vitalicia %}Por vida{% else %}{{ s.jornadas }}{% endif %}</td>
+                        <td>{% if s.vitalicia %}Permanente{% else %}{{ s.restantes }}{% endif %}</td>
                         <td>
                             {% if s.activo and s.restantes > 0 %}<span class="badge bg-danger" title="Según el conteo de partidos">Vigente</span>
                             {% elif s.activo %}<span class="badge bg-success" title="Ya cumplió el número de partidos">Cumplida</span>

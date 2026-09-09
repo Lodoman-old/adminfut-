@@ -16,6 +16,7 @@ class _EnvelopeManual:
         self.jugador = record.jugador
         self.equipo = record.equipo
         self.suspension_jornadas = record.jornadas
+        self.vitalicia = record.vitalicia
         self.motivo = record.motivo
         self.fecha_creacion = record.creado
         self.partido = None
