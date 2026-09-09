@@ -756,3 +756,39 @@ class JugadorHeredadoTest(TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertFalse(JugadorHerencia.objects.filter(jugador=j).exists())
         self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
+
+    def test_herencia_desaparece_saca_del_equipo_incompatible(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="adminmov", password="p")
+        self.client.force_login(admin)
+        # Orden: c1=Primera(nivel 0), c2=Intermedia(1), c3=Segunda(2)
+        eq_3 = Equipo.objects.create(nombre="SegundaH Club", categoria=self.c3, activo=True)
+        j = Jugador.objects.create(nombre="Dani", apellido="Oli", posicion="DEL", equipo=eq_3)
+        rer = self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": j.id,
+            "tipo": "DESAPARECE", "categoria_id": self.c1.id, "jornadas": "0", "motivo": "",
+        })
+        self.assertEqual(rer.status_code, 302)
+        j.refresh_from_db()
+        self.assertIsNone(j.equipo)
+        # Registro desactivado (historial conservado) y no aparece en listas
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=j, equipo=eq_3, activo=True).exists())
+        self.assertEqual(JugadorEquipo.objects.filter(jugador=j, equipo=eq_3).count(), 1)
+
+    def test_herencia_descenso_conserva_equipo_compatible(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin = User.objects.create_superuser(username="admincon", password="p")
+        self.client.force_login(admin)
+        eq_3 = Equipo.objects.create(nombre="SegundaH Club B", categoria=self.c3, activo=True)
+        j = Jugador.objects.create(nombre="Ana", apellido="Com", posicion="DEF", equipo=eq_3)
+        r = self.client.post("/jugadores-heredados/", {
+            "accion": "heredar", "jugador_id": j.id,
+            "tipo": "DESCENSO", "categoria_id": self.c1.id, "jornadas": "0", "motivo": "",
+        })
+        self.assertEqual(r.status_code, 302)
+        j.refresh_from_db()
+        # c3 está por debajo (nivel 2): descendido en c1(nivel 0) sí puede jugar ahí
+        self.assertEqual(j.equipo_id, eq_3.id)
+        self.assertTrue(JugadorEquipo.objects.filter(jugador=j, equipo=eq_3, activo=True).exists())

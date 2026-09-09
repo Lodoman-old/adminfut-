@@ -80,7 +80,22 @@ def errores_movimiento_jugador(jugador, equipo_destino, categoria_destino):
                     f"{mov.equipo.nombre} ascendió: el cupo del {mov.cupo_porcentaje}% de la plantilla "
                     f"para cambiarse de equipo ya se llenó ({cupo} jugadores)."
                 )
-    # Herencia del jugador (registros previos al sistema: castigados / ascienden / descienden / baja)
+    errs += errores_herencia_por_categoria(jugador, categoria_destino)
+    return errs
+
+
+def errores_herencia_por_categoria(jugador, categoria_destino):
+    """Restricciones del historial heredado del jugador para una categoría destino.
+
+    * CASTIGADO:   no puede registrarse en ningún equipo (suspensión global).
+    * ASCENSO:     solo su categoría o la inmediata inferior.
+    * DESCENSO:    no puede jugar por encima de su categoría.
+    * DESAPARECE:  solo su categoría o la inmediata inferior.
+    """
+    if categoria_destino is None or categoria_destino.nivel is None:
+        return []
+    nivel_dest = categoria_destino.nivel
+    errs = []
     for he in JugadorHerencia.objects.filter(jugador=jugador, activo=True):
         h_cat = he.categoria
         if h_cat.nivel is None:
@@ -114,6 +129,23 @@ def errores_movimiento_jugador(jugador, equipo_destino, categoria_destino):
     return errs
 
 
+def baja_equipos_incompatibles_heredados(jugador):
+    """Tras heredar un movimiento (ASCENSO/DESCENSO/DESAPARECE), saca al jugador
+    de los equipos cuya categoría viole la restricción heredada. Desactiva esos
+    registros (el historial se conserva) y desvincula el equipo principal."""
+    incompatibles = []
+    for r in JugadorEquipo.objects.filter(jugador=jugador, activo=True).select_related("equipo", "equipo__categoria"):
+        if errores_herencia_por_categoria(jugador, r.equipo.categoria):
+            incompatibles.append(r.equipo_id)
+            r.activo = False
+            r.es_principal = False
+            r.save(update_fields=["activo", "es_principal"])
+    if incompatibles and jugador.equipo_id in incompatibles:
+        jugador.equipo = None
+        jugador.save(update_fields=["equipo"])
+    return incompatibles
+
+
 def expulsar_de_todos_los_equipos(jugador):
     """CASTIGADO heredado = expulsado: sale de todos sus equipos (principal y
     secundarios) para que no aparezca en listas, rosters ni credenciales."""
@@ -133,11 +165,12 @@ def reemplazar_herederos(jugador):
 
 def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""):
     """Registra en el historial heredado un ascenso/descenso/baja o un castigo
-    de un jugador previo al sistema. Para CASTIGADO con jornadas>0 crea además
-    una SuspensionJugador activa que bloquea al jugador en toda la liga.
+    de un jugador previo al sistema.
 
-    Un CASTIGADO heredado queda expulsado de sus equipos actuales: se le da de
-    baja de todos sus equipos y no aparece en listas, rosters ni credenciales."""
+    * CASTIGADO: expulsa al jugador de todos sus equipos actuales y, con
+      jornadas>0, crea una SuspensionJugador activa que lo bloquea en toda la liga.
+    * ASCENSO/DESCENSO/DESAPARECE: se le da de baja automáticamente de los
+      equipos cuya categoría viole la restricción heredada."""
     he = JugadorHerencia.objects.create(
         jugador=jugador,
         tipo=tipo,
@@ -149,14 +182,16 @@ def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""
         expulsar_de_todos_los_equipos(jugador)
         if jornadas > 0:
             SuspensionJugador.objects.get_or_create(
-            jugador=jugador,
-            categoria=categoria,
-            activo=True,
-            defaults={
-                "equipo": None,
-                "jornadas": jornadas,
-                "motivo": motivo or "Castigo heredado al inicio del sistema.",
-                "fecha_inicio": date.today(),
-            },
-        )
+                jugador=jugador,
+                categoria=categoria,
+                activo=True,
+                defaults={
+                    "equipo": None,
+                    "jornadas": jornadas,
+                    "motivo": motivo or "Castigo heredado al inicio del sistema.",
+                    "fecha_inicio": date.today(),
+                },
+            )
+    else:
+        baja_equipos_incompatibles_heredados(jugador)
     return he
