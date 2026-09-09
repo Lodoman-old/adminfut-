@@ -802,30 +802,39 @@ class Temporada(models.Model):
         }
         mapa_dias = {"LUN": 0, "MAR": 1, "MIE": 2, "JUE": 3, "VIE": 4, "SAB": 5, "DOM": 6}
 
-        # --- Cuáles parejas ya se enfrentaron (local/visit usa par no ordenado) ---
+        # --- Cuántas veces se ha enfrentado cada pareja (par no ordenado) ---
+        # Si una vuelta entera ya fue jugada, las siguientes vueltas repiten parejas:
+        # solo se descartan las apariciones ya consumidas, no la pareja por completo.
+        from collections import Counter
         partidos_existentes = Partido.objects.filter(temporada=self)
-        parejas_jugadas = set()
+        veces_jugadas = Counter()
         for p in partidos_existentes.values_list("equipo_local_id", "equipo_visitante_id"):
             a, b = p
             if a and b:
-                parejas_jugadas.add(frozenset((a, b)))
+                veces_jugadas[frozenset((a, b))] += 1
         equipos_por_grupo = self._equipos_para_rol()
 
         # --- Construir las rondas de jornadas futuras (cada ronda = apareamiento válido) ---
         jornadas_futuras = []
 
         def _generar_apareamientos_por_vueltas(eqs_ids, grupo_letra):
-            """Retorna todas las parejas (local_id, visit_id) de todas las vueltas,
-            FILTRADAS por las parejas ya jugadas. La localía alterna por vuelta."""
+            """Retorna las parejas (local_id, visit_id) de todas las vueltas que aún
+            faltan por jugar. Cada partido ya registrado consume una de las apariciones
+            de la vuelta correspondiente; las vueltas restantes sí se generan (revueltas).
+            La localía alterna por vuelta."""
             parejas_ida = self._pairings_robin_una_vuelta(eqs_ids)
             total = []
+            restantes = dict(veces_jugadas)
             for vuelta in range(self.vueltas):
                 vuelta_pares = list(parejas_ida)
                 if vuelta % 2 == 1:
                     vuelta_pares = [(v, l) for l, v in vuelta_pares]
                 for l, v in vuelta_pares:
-                    if frozenset((l, v)) not in parejas_jugadas:
-                        total.append((l, v, grupo_letra))
+                    fs = frozenset((l, v))
+                    if restantes.get(fs, 0) > 0:
+                        restantes[fs] -= 1
+                        continue
+                    total.append((l, v, grupo_letra))
             return total
 
         def _asignar_jornadas(parejas):

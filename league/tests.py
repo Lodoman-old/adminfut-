@@ -129,6 +129,77 @@ class PartidosPorJornadaAbandonoTest(TestCase):
         self.assertEqual(temp.partidos_por_jornada(), 3)
 
 
+class RolDespuesDeVueltaCompletaTest(TestCase):
+    """Si las jornadas pasadas cubren una (o más) vueltas completas, las vueltas
+    restantes (que repiten parejas) sí deben generarse (regresión del bug que
+    dejaba 0 partidos cuando todas las parejas ya se habían enfrentado)."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="Revueltas", dias_juego=["SAB"])
+        self.campo = Campo.objects.create(nombre="Campo U", activo=True)
+        self.equipos = [
+            Equipo.objects.create(nombre=f"EQ{i}", categoria=self.cat, activo=True)
+            for i in range(6)
+        ]
+
+    def _crear_vuelta_completa(self, temp, n_jornadas=5):
+        """Registra a mano la primera vuelta completa (todas las parejas, una vez)."""
+        eqs = temp._equipos_para_rol()[""]
+        parejas = temp._pairings_robin_una_vuelta(eqs)
+        self.assertEqual(len(parejas), 15)
+        fecha = temp._proxima_fecha_juego()
+        for i, (l_id, v_id) in enumerate(parejas):
+            jornada, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=(i // 3) + 1,
+                defaults={"nombre": f"Jornada {(i // 3) + 1}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=jornada,
+                equipo_local_id=l_id, equipo_visitante_id=v_id,
+                campo=self.campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(fecha, time(15, 0))),
+            )
+
+    def test_vuelta_entera_jugada_genera_las_vueltas_restantes(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=3,
+        )
+        self._crear_vuelta_completa(temp)
+        self.assertEqual(temp.partidos.count(), 15)
+
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=6)
+
+        self.assertEqual(temp.partidos.count(), 45)  # 3 vueltas x15
+        nums = sorted(temp.jornadas.values_list("numero", flat=True))
+        self.assertEqual(nums, list(range(1, 16)))
+
+        # Cada pareja quedó con exactamente 3 partidos (una por vuelta)
+        from collections import Counter
+        veces = Counter()
+        for l, v in temp.partidos.values_list("equipo_local_id", "equipo_visitante_id"):
+            veces[frozenset((l, v))] += 1
+        self.assertEqual((set(veces.values())), {3})
+        self.assertEqual(sum(veces.values()), 45)
+
+        # Ningún equipo juega 2 veces en la misma jornada
+        for j in Jornada.objects.filter(temporada=temp):
+            pjs = temp.partidos.filter(jornada=j)
+            ids = list(pjs.values_list("equipo_local_id", flat=True))
+            ids += list(pjs.values_list("equipo_visitante_id", flat=True))
+            self.assertEqual(len(ids), len(set(ids)))
+
+    def test_sin_partidos_previos_sigue_generando_todas_las_vueltas(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp2", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=3,
+        )
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=1)
+
+        self.assertEqual(temp.partidos.count(), 45)
+        self.assertEqual(sorted(temp.jornadas.values_list("numero", flat=True)), list(range(1, 16)))
+
+
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):
         t = Temporada(cambios_permitidos=5)
