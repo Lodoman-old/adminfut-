@@ -322,8 +322,8 @@ class Temporada(models.Model):
         help_text="Número mínimo de jugadores que debe tener un equipo en cédula para poder jugar. Si no se cumple, solo se puede guardar como Default."
     )
     cambios_permitidos = models.IntegerField(
-        default=5, verbose_name="Cambios permitidos por equipo",
-        help_text="Número máximo de cambios (suplentes) permitidos por equipo por partido."
+        null=True, blank=True, default=5, verbose_name="Cambios permitidos por equipo",
+        help_text="Máximo de cambios (suplentes) permitidos por equipo por partido. Déjalo en blanco o pon 0 para no limitar los cambios (sin restricción)."
     )
     max_titulares = models.IntegerField(
         default=11, verbose_name="Máximo de titulares por equipo",
@@ -424,6 +424,11 @@ class Temporada(models.Model):
     def equipo_debe_partido(self, equipo):
         """True si el equipo debe perder por default (mora o abandono)"""
         return self.equipo_en_mora(equipo) or self.equipo_abandono(equipo)
+
+    def limite_cambios_efectivo(self):
+        """Cambios permitidos por equipo por partido; None si no hay límite (0 o vacío)."""
+        c = self.cambios_permitidos
+        return c if (c or 0) > 0 else None
 
     def grupos_asignados(self):
         """Retorna dict {nombre_grupo: [equipos]}"""

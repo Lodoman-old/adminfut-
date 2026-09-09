@@ -90,6 +90,27 @@ class FixtureDescansoTest(TestCase):
         ])
 
 
+class LimiteCambiosTest(TestCase):
+    def test_limite_cambios_efectivo(self):
+        t = Temporada(cambios_permitidos=5)
+        self.assertEqual(t.limite_cambios_efectivo(), 5)
+        t.cambios_permitidos = 1
+        self.assertEqual(t.limite_cambios_efectivo(), 1)
+        t.cambios_permitidos = 0
+        self.assertIsNone(t.limite_cambios_efectivo())
+        t.cambios_permitidos = None
+        self.assertIsNone(t.limite_cambios_efectivo())
+
+    def test_guardar_cambios_cero_y_nulo(self):
+        cat = Categoria.objects.create(nombre="LimiteCat")
+        t0 = Temporada.objects.create(nombre="Sin cambios", categoria=cat, fecha_inicio=date(2026, 1, 1), cambios_permitidos=0)
+        tn = Temporada.objects.create(nombre="Sin limite", categoria=cat, fecha_inicio=date(2026, 1, 1), cambios_permitidos=None)
+        t5 = Temporada.objects.create(nombre="Con limite", categoria=cat, fecha_inicio=date(2026, 1, 1), cambios_permitidos=5)
+        self.assertIsNone(t0.limite_cambios_efectivo())
+        self.assertIsNone(tn.limite_cambios_efectivo())
+        self.assertEqual(t5.limite_cambios_efectivo(), 5)
+
+
 class CedulaInvitadoTest(TestCase):
     def setUp(self):
         self.cat = Categoria.objects.create(nombre="CedulaCat")

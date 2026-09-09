@@ -39,7 +39,8 @@ def procesar_cedula(partido, post_data, user):
             elif jid in jugadores_visit_ids:
                 cuenta_visit += 1
 
-    max_cambios = partido.temporada.cambios_permitidos if (partido.temporada_id and not partido.es_amistoso) else 99
+    max_cambios = partido.temporada.limite_cambios_efectivo() if (partido.temporada_id and not partido.es_amistoso) else 99
+    max_cambios = max_cambios if max_cambios is not None else 99
     max_tits = 99
     min_jugs = 0
     if not partido.es_amistoso and partido.temporada_id:

@@ -72,7 +72,7 @@
                     <label class="form-label">{{ form.cambios_permitidos.label }}</label>
                     {{ form.cambios_permitidos }}
                     {% if form.cambios_permitidos.errors %}<div class="text-danger small">{{ form.cambios_permitidos.errors }}</div>{% endif %}
-                    <div class="form-text">Máximo de cambios (suplentes) por equipo por partido.</div>
+                    <div class="form-text">Máximo de cambios (suplentes) por equipo por partido. Déjalo en blanco o pon 0 para no limitar (sin restricción).</div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">{{ form.max_titulares.label }}</label>

@@ -4065,6 +4065,7 @@ def api_offline_datos(request):
 
     matches = []
     for p in partidos.order_by("fecha_hora"):
+        max_cambios = p.temporada.limite_cambios_efectivo() if p.temporada_id else 3
         matches.append({
             "id": p.id,
             "fecha_hora": p.fecha_hora.isoformat(),
@@ -4074,7 +4075,7 @@ def api_offline_datos(request):
             "es_liguilla": p.es_liguilla,
             "goles_default": p.temporada.goles_default if p.temporada_id else 1,
             "min_jugadores": p.temporada.min_jugadores if p.temporada_id else 7,
-            "cambios_permitidos": p.temporada.cambios_permitidos if p.temporada_id else 3,
+            "cambios_permitidos": max_cambios if max_cambios is not None else 99,
             "max_titulares": (p.temporada.max_titulares or 11) if p.temporada_id else 11,
             "arbitro_id": p.arbitro_id,
             "equipo_local": {"id": p.equipo_local_id, "nombre": p.equipo_local.nombre,

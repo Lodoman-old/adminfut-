@@ -32,7 +32,7 @@ class TemporadaForm(forms.ModelForm):
             "goles_default": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "puntos_default": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "min_jugadores": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
-            "cambios_permitidos": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+            "cambios_permitidos": forms.NumberInput(attrs={"class": "form-control", "min": 0, "placeholder": "Ej: 5 (0 o vacío = sin límite)"}),
             "max_titulares": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "ida_vuelta": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "final_ida_vuelta": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
