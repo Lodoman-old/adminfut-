@@ -758,15 +758,17 @@ class Temporada(models.Model):
 
     def partidos_por_jornada(self):
         """Cantidad de partidos esperados por jornada según el tipo de rol.
-        Excluye equipos marcados como abandono (no juegan y no ocupan partido)."""
+
+        Incluye a los equipos marcados como abandono: siguen activos en la categoría,
+        se les programa su partido en el rol y al marcarlo FIN pierden por default.
+        Debe coincidir con lo que genera generar_rol / generar_rol_respaldando_pasadas."""
         equipos = self._equipos_para_rol()
         if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
             total = 0
             for ids in equipos.values():
-                grupo = [eid for eid in ids if not self.equipo_abandono_id(eid)]
-                total += len(grupo) // 2
+                total += len(ids) // 2
             return max(total, 1)
-        ids = [eid for eid in equipos.get("", []) if not self.equipo_abandono_id(eid)]
+        ids = equipos.get("", [])
         return max(len(ids) // 2, 1)
 
     def equipo_abandono_id(self, equipo_id):

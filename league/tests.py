@@ -1,10 +1,11 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 
 from django.test import TestCase, Client
 from django.utils import timezone
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
+from .views import _hora_por_defecto_partido
 
 
 class FixtureDescansoTest(TestCase):
@@ -88,6 +89,44 @@ class FixtureDescansoTest(TestCase):
             date(2026, 5, 23),
             date(2026, 5, 30),
         ])
+
+
+class HoraDefectoPartidoTest(TestCase):
+    def test_hora_por_defecto_cicla_horarios_de_categoria(self):
+        cat = Categoria.objects.create(nombre="Sabadito", horarios=["15:00", "17:00"])
+        t = Temporada(categoria=cat)
+        self.assertEqual(_hora_por_defecto_partido(t, 0), time(15, 0))
+        self.assertEqual(_hora_por_defecto_partido(t, 1), time(17, 0))
+        self.assertEqual(_hora_por_defecto_partido(t, 2), time(15, 0))
+
+    def test_hora_por_defecto_sin_horarios_usa_12(self):
+        cat = Categoria.objects.create(nombre="SinHoras")
+        t = Temporada(categoria=cat)
+        self.assertEqual(_hora_por_defecto_partido(t, 0), time(12, 0))
+
+
+class PartidosPorJornadaAbandonoTest(TestCase):
+    def test_equivale_al_rol_con_abandono(self):
+        cat = Categoria.objects.create(nombre="ConBaja")
+        temp = Temporada.objects.create(
+            nombre="T", categoria=cat, fecha_inicio=date(2026, 1, 1)
+        )
+        equipos = []
+        for i in range(6):
+            equipos.append(Equipo.objects.create(nombre=f"E{i}", categoria=cat))
+        # 5 equipos se quedan; el equipo 6 "se da de baja" (abandono)
+        AbandonoTemporada.objects.create(temporada=temp, equipo=equipos[5])
+        # El rol real incluye al de baja: 6 // 2 = 3 partidos por jornada
+        self.assertEqual(temp.partidos_por_jornada(), 3)
+
+    def test_par_de_equipos_sin_abandono(self):
+        cat = Categoria.objects.create(nombre="SinBaja")
+        temp = Temporada.objects.create(
+            nombre="T2", categoria=cat, fecha_inicio=date(2026, 1, 1)
+        )
+        for i in range(6):
+            Equipo.objects.create(nombre=f"E{i}", categoria=cat)
+        self.assertEqual(temp.partidos_por_jornada(), 3)
 
 
 class LimiteCambiosTest(TestCase):

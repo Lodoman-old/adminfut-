@@ -1811,6 +1811,18 @@ def confirmar_grupos(request, pk):
     return redirect("temporada_list")
 
 
+def _hora_por_defecto_partido(temporada, indice_en_jornada):
+    """Hora por defecto para partidos ya jugados sin hora definida.
+
+    Sigue cíclicamente los horarios configurados de la categoría (ej. 15:00,
+    17:00): el 1er partido de la jornada usa el 1º horario, el 2º el siguiente,
+    etc. Si la categoría no tiene horarios, usa las 12:00 (como el generador
+    de rol)."""
+    hs = temporada.categoria.horarios or ["12:00"]
+    hh, mm = hs[indice_en_jornada % len(hs)].split(":")
+    return datetime.time(int(hh), int(mm))
+
+
 def iniciar_temporada_jornadas_pasadas(request, pk):
     """Wizard para temporadas ya iniciadas: captura los partidos reales de las
     jornadas ya jugadas (local, visitante, campo, hora, fecha, marcador opcional con
@@ -1897,13 +1909,21 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
                     errores.append(f"{local} vs {visit} ya jugaron entre sí (jornada {jn}).")
                     continue
 
-                # Fecha/hora
+                # Fecha obligatoria; hora opcional (usa las de la categoría por defecto)
                 try:
                     fecha = datetime.datetime.strptime(env_fecha[i], "%Y-%m-%d").date()
-                    hora = datetime.datetime.strptime(env_hora[i], "%H:%M").time()
                 except (ValueError, IndexError):
-                    errores.append(f"Fecha/hora inválida en la fila {i + 1}.")
+                    errores.append(f"Fecha inválida en la fila {i + 1}.")
                     continue
+                if env_hora[i] and env_hora[i].strip():
+                    try:
+                        hora = datetime.datetime.strptime(env_hora[i], "%H:%M").time()
+                    except ValueError:
+                        errores.append(f"Hora inválida en la fila {i + 1}.")
+                        continue
+                else:
+                    # Sin hora: usa las horas configuradas de la categoría
+                    hora = _hora_por_defecto_partido(temporada, ya_en_jornada)
                 fecha_hora_dt = datetime.datetime.combine(fecha, hora)
                 fecha_hora = timezone.make_aware(fecha_hora_dt)
 

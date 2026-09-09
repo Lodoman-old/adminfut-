@@ -73,6 +73,7 @@
         <form method="post" id="form-partidos">
             {% csrf_token %}
             <h6 class="fw-bold"><i class="bi bi-plus-circle text-success"></i> Agregar partidos jugados</h6>
+            <p class="text-muted small">Fecha es obligatoria; hora y campo son opcionales. Si dejas la hora vacía se usan las <strong>horas configuradas de la categoría</strong> (por orden en la jornada); campo vacío queda sin asignar.</p>
             <div class="table-responsive">
                 <table class="table table-bordered align-middle" id="tabla-partidos">
                     <thead class="table-light">
