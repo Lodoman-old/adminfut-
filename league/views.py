@@ -2773,12 +2773,20 @@ def tabla_castigados(request):
     temp_id = request.GET.get("temporada")
     jornada_id = request.GET.get("jornada")
     categorias = Categoria.objects.filter(activo=True)
+    filtro_cat = int(cat_id) if cat_id else None
     qs_temp = Temporada.objects.all().select_related("categoria").order_by("finalizada", "-iniciada", "nombre")
-    if cat_id:
-        qs_temp = qs_temp.filter(categoria_id=cat_id)
+    if filtro_cat:
+        qs_temp = qs_temp.filter(categoria_id=filtro_cat)
     else:
-        default_cat = Categoria.objects.filter(es_principal=True).first()
+        # Misma lógica que el dashboard: categoría preferida del usuario,
+        # luego la principal de la liga, para que se vean los mismos castigados
+        default_cat = None
+        if request.user.is_authenticated and request.user.categoria_preferida:
+            default_cat = request.user.categoria_preferida
+        if default_cat is None:
+            default_cat = Categoria.objects.filter(es_principal=True).first()
         if default_cat:
+            filtro_cat = default_cat.id
             qs_temp = qs_temp.filter(categoria=default_cat)
     temporadas = qs_temp
 
@@ -2839,6 +2847,22 @@ def tabla_castigados(request):
                     r.restantes = len(pendientes)
                     r.expulsion_partido = info["expulsion_partido"]
                     castigados.append(r)
+
+    if not temp_id:
+        # Sin temporada (o categoría sin temporada creada): mostrar igual las
+        # suspensiones manuales/heredadas vigentes, como hace el dashboard
+        manual_qs = SuspensionJugador.objects.filter(activo=True).select_related("jugador", "equipo", "categoria")
+        if filtro_cat:
+            manual_qs = manual_qs.filter(categoria_id=filtro_cat)
+        vistos = {
+            getattr(c, "jugador_id", getattr(getattr(c, "jugador", None), "id", None))
+            for c in castigados
+        }
+        for m in manual_qs:
+            if m.jugador_id in vistos or m.restantes() <= 0:
+                continue
+            env = _SuspensionManualEnvelope(m, m.restantes(), [])
+            castigados.append(env)
 
     return render(request, "league/tabla_castigados.html", {
         "castigados": castigados,

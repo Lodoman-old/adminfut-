@@ -302,6 +302,46 @@ class SuspensionJugadorTest(TestCase):
         # La página usa el patrón sin permiso (ruta pública de tabla)
         self.assertContains(r, "Juan Perez")
 
+    def test_tabla_castigados_heredero_global_sin_temporada(self):
+        # Heredado global (equipo None) en una categoría sin temporadas:
+        # debe verse igual aunque no haya temporada creada
+        cat2 = Categoria.objects.create(nombre="Libre B", curp_obligatoria=False)
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=cat2, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        r = Client().get(f"/tabla-castigados/?categoria={cat2.id}")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Juan Perez")
+        self.assertContains(r, "Expulsado de la liga")
+
+    def test_tabla_castigados_usa_categoria_preferida_del_usuario(self):
+        from django.contrib.auth import get_user_model
+        cat_principal = Categoria.objects.create(
+            nombre="Principal", activo=True, es_principal=True, curp_obligatoria=False
+        )
+        cat_pref = Categoria.objects.create(
+            nombre="Preferida", activo=True, curp_obligatoria=False
+        )
+        Temporada.objects.create(
+            categoria=cat_pref, nombre="T Pref", fecha_inicio=date.today(),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=cat_pref, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        User = get_user_model()
+        u = User.objects.create_user(
+            username="prefcat", password="x", categoria_preferida=cat_pref
+        )
+        client = Client()
+        client.force_login(u)
+        r = client.get("/tabla-castigados/")
+        self.assertEqual(r.status_code, 200)
+        # Sin seleccionar categoría se usa la preferida del usuario, no la principal
+        self.assertContains(r, "Juan Perez")
+
     def test_clean_equipo_bloquea_cambio_de_equipo_suspendido(self):
         from .forms import JugadorForm
         SuspensionJugador.objects.create(
