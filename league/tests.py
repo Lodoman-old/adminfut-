@@ -243,6 +243,55 @@ class CurpReglaMariaJoseTest(TestCase):
         )
         self.assertEqual(errs, [])
 
+    def _curp18(self, base17):
+        from .forms import JugadorForm
+        return base17 + str(JugadorForm._calcular_digito_curp(base17))
+
+    def test_apellido_con_particula_paterno_deriva_del_nucleo(self):
+        f = self._form()
+        # 'De la Torre García' → de 'TORRE' (T,O) y 'GARCÍA' (G)
+        curp = self._curp18("TOGP" + "900101" + "HDF" + "RCR" + "0")
+        errs = f._validar_curp_contra_datos(
+            curp, "Pedro", "De la Torre García", date(1990, 1, 1)
+        )
+        self.assertEqual(errs, [])
+
+    def test_apellido_con_particula_materno_deriva_del_nucleo(self):
+        f = self._form()
+        # 'García De la Torre' → 'GARCÍA' (G,A) y materno 'TORRE' (T)
+        curp = self._curp18("GATP" + "900101" + "HDF" + "RCR" + "0")
+        errs = f._validar_curp_contra_datos(
+            curp, "Pedro", "García De la Torre", date(1990, 1, 1)
+        )
+        self.assertEqual(errs, [])
+
+    def test_apellido_unico_con_particula(self):
+        f = self._form()
+        # 'De León' (apellido único) → 'LEÓN' (L,E); sin materno usa 'X'
+        curp = self._curp18("LEXJ" + "900101" + "HDF" + "RCR" + "0")
+        errs = f._validar_curp_contra_datos(
+            curp, "Juan", "De León", date(1990, 1, 1)
+        )
+        self.assertEqual(errs, [])
+
+    def test_curp_real_de_la_cruz_acepta(self):
+        f = self._form()
+        # Caso real RENAPO: 'DE LA CRUZ FLORINDA' + 'FELIPE' → 'CUFF...'
+        curp = self._curp18("CUFF" + "760301" + "HDF" + "RCR" + "0")
+        errs = f._validar_curp_contra_datos(
+            curp, "Felipe", "De la Cruz Florinda", date(1976, 3, 1)
+        )
+        self.assertEqual(errs, [])
+
+    def test_apellido_con_particula_mal_capturado_si_marca_error(self):
+        f = self._form()
+        # Con la letra de la partícula ('D' en vez de 'T') debe reportar el error
+        curp = self._curp18("DEGP" + "900101" + "HDF" + "RCR" + "0")
+        errs = f._validar_curp_contra_datos(
+            curp, "Pedro", "De la Torre García", date(1990, 1, 1)
+        )
+        self.assertTrue(any("apellido paterno" in e for e in errs))
+
     def test_validacion_rechaza_inicial_del_primer_nombre(self):
         f = self._form()
         # Con la inicial del primer nombre (J de José) debe marcar error explicando la regla

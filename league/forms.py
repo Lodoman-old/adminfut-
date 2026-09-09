@@ -263,8 +263,8 @@ class JugadorForm(forms.ModelForm):
     def _normalize_curp_str(s):
         """Limpia acentos, ñ y diéresis para comparación CURP."""
         import unicodedata
-        s = unicodedata.normalize('NFKD', s.upper()).encode('ASCII', 'ignore').decode('ASCII')
-        s = s.replace('Ñ', 'X')
+        s = s.upper().replace('Ñ', 'X')
+        s = unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('ASCII')
         return s
 
     @staticmethod
@@ -284,6 +284,21 @@ class JugadorForm(forms.ModelForm):
         return 'X'
 
     _PARTICULAS_NOMBRE = {"DE", "LA", "LAS", "DEL", "LOS", "Y"}
+
+    # Partículas que RENAPO descarta al tomar las letras de un apellido
+    # (ej.: 'DE LA CRUZ' deriva de 'CRUZ'; 'DE TORRES' de 'TORRES').
+    _PARTICULAS_APELLIDO = frozenset({"DE", "DEL", "LA", "LAS", "LOS", "Y", "MAC", "MC", "VAN", "VON"})
+
+    @classmethod
+    def _letras_apellido_nucleo(cls, tokens):
+        """(Inicial, primera vocal interna) de un apellido descartando las
+        partículas iniciales (DE, DE LA, DEL, LA, LAS, LOS, Y, ...)."""
+        while tokens and tokens[0] in cls._PARTICULAS_APELLIDO:
+            tokens = list(tokens[1:])
+        if not tokens:
+            return (None, None)
+        s = tokens[0]
+        return (s[0], cls._first_vowel(s))
 
     @classmethod
     def _inicial_nombre_curp(cls, nombre):
@@ -358,19 +373,29 @@ class JugadorForm(forms.ModelForm):
         n_nombre = self._normalize_curp_str(nombre)
         n_apellido = self._normalize_curp_str(apellido)
 
-        # Separar apellido en paterno + materno
+        # Separar apellido en paterno + materno. Las partículas (DE, DE LA,
+        # DEL, LA, LAS, LOS, Y...) pertenecen al apellido que les sigue y no
+        # cuentan para las letras (RENAPO: 'DE LA CRUZ' deriva de 'CRUZ').
         partes = n_apellido.split()
-        paterno = partes[0] if partes else ""
-        materno = partes[1] if len(partes) > 1 else ""
+        k = 0
+        if partes:
+            while k < len(partes) and partes[k] in self._PARTICULAS_APELLIDO:
+                k += 1
+            if k < len(partes):
+                k += 1  # núcleo del apellido paterno
+        paterno_tokens = partes[:k]
+        materno_tokens = partes[k:]
+        paterno_inicial, paterno_vocal = self._letras_apellido_nucleo(paterno_tokens)
+        materno_inicial, _ = self._letras_apellido_nucleo(materno_tokens)
 
         # Validar iniciales
         errores = []
-        if paterno and curp_paterno != paterno[0]:
-            errores.append(f"La 1ª letra del apellido paterno debería ser '{paterno[0]}' (CURP dice '{curp_paterno}')")
-        if paterno and curp_vocal != self._first_vowel(paterno):
-            errores.append(f"La 1ª vocal del apellido paterno debería ser '{self._first_vowel(paterno)}' (CURP dice '{curp_vocal}')")
-        if materno and curp_materno != materno[0]:
-            errores.append(f"La 1ª letra del apellido materno debería ser '{materno[0]}' (CURP dice '{curp_materno}')")
+        if paterno_inicial and curp_paterno != paterno_inicial:
+            errores.append(f"La 1ª letra del apellido paterno debería ser '{paterno_inicial}' (CURP dice '{curp_paterno}')")
+        if paterno_vocal and curp_vocal != paterno_vocal:
+            errores.append(f"La 1ª vocal del apellido paterno debería ser '{paterno_vocal}' (CURP dice '{curp_vocal}')")
+        if materno_inicial and curp_materno != materno_inicial:
+            errores.append(f"La 1ª letra del apellido materno debería ser '{materno_inicial}' (CURP dice '{curp_materno}')")
         inicial_nombre = self._inicial_nombre_curp(n_nombre)
         if inicial_nombre and curp_nombre != inicial_nombre:
             motivo = ""
