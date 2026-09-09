@@ -160,6 +160,55 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
                 fecha_hora=timezone.make_aware(datetime.combine(fecha, time(15, 0))),
             )
 
+    def _crear_vuelta_completa_desordenada(self, temp):
+        """Registra la primera vuelta pero con las parejas acomodadas en jornadas en
+        un orden DISTINTO al que produce el algoritmo (reverso), para comprobar que
+        las vueltas siguientes replican EL ORDEN REGISTRADO."""
+        eqs = temp._equipos_para_rol()[""]
+        parejas = temp._pairings_robin_una_vuelta(eqs)
+        self.assertEqual(len(parejas), 15)
+        fecha = temp._proxima_fecha_juego()
+        for i, (l_id, v_id) in enumerate(reversed(parejas)):
+            jornada, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=((15 - 1 - i) // 3) + 1,
+                defaults={"nombre": f"Jornada {(15 - 1 - i) // 3 + 1}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=jornada,
+                equipo_local_id=l_id, equipo_visitante_id=v_id,
+                campo=self.campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(fecha, time(15, 0))),
+            )
+
+    def _parejas_de_jornada(self, temp, jn):
+        out = []
+        for l, v in temp.partidos.filter(jornada__numero=jn).values_list(
+                "equipo_local_id", "equipo_visitante_id"):
+            out.append((l, v))
+        return sorted(out)
+
+    def test_vueltas_siguientes_replican_el_orden_real_registrado(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp3", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=3,
+        )
+        self._crear_vuelta_completa_desordenada(temp)
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=6)
+
+        for j in range(1, 6):
+            base = temp.partidos.filter(jornada__numero=j)
+            esperado = sorted(
+                [(v, l) for l, v in base.values_list("equipo_local_id", "equipo_visitante_id")]
+            )
+            # Vuelta 2 (j+5): mismos enfrentamientos, localía invertida
+            self.assertEqual(self._parejas_de_jornada(temp, j + 5), esperado, f"vuelta2 j{j}")
+            # Vuelta 3 (j+10): mismos enfrentamientos que la vuelta 1
+            self.assertEqual(
+                self._parejas_de_jornada(temp, j + 10),
+                sorted(base.values_list("equipo_local_id", "equipo_visitante_id")),
+                f"vuelta3 j{j}",
+            )
+
     def test_vuelta_entera_jugada_genera_las_vueltas_restantes(self):
         temp = Temporada.objects.create(
             categoria=self.cat, nombre="Temp", fecha_inicio=date(2026, 1, 3),

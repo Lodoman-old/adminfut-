@@ -808,8 +808,7 @@ class Temporada(models.Model):
         from collections import Counter
         partidos_existentes = Partido.objects.filter(temporada=self)
         veces_jugadas = Counter()
-        for p in partidos_existentes.values_list("equipo_local_id", "equipo_visitante_id"):
-            a, b = p
+        for a, b in partidos_existentes.values_list("equipo_local_id", "equipo_visitante_id"):
             if a and b:
                 veces_jugadas[frozenset((a, b))] += 1
         equipos_por_grupo = self._equipos_para_rol()
@@ -817,11 +816,45 @@ class Temporada(models.Model):
         # --- Construir las rondas de jornadas futuras (cada ronda = apareamiento válido) ---
         jornadas_futuras = []
 
+        def _base_vuelta_por_grupo(eqs_ids):
+            """Si ya se jugó al menos una vuelta completa, replica su ORDEN real:
+            las siguientes vueltas repiten los enfrentamientos de la primera vuelta
+            (alternando localía) en el MISMO orden por jornada que se registró,
+            en lugar de reordenarlos con el algoritmo."""
+            grupo = set(eqs_ids)
+            base = []
+            vistos = set()
+            for p in partidos_existentes.order_by("jornada__numero", "id"):
+                a, b = p.equipo_local_id, p.equipo_visitante_id
+                if not a or not b or a not in grupo or b not in grupo:
+                    continue
+                fs = frozenset((a, b))
+                if fs in vistos:
+                    continue
+                vistos.add(fs)
+                base.append((a, b))
+            todos = set(frozenset((l, v)) for l, v in
+                        self._pairings_robin_una_vuelta(eqs_ids))
+            if vistos != todos:
+                return None, 0
+            minimo = min(veces_jugadas.get(fs, 0) for fs in todos)
+            return base, minimo
+
         def _generar_apareamientos_por_vueltas(eqs_ids, grupo_letra):
-            """Retorna las parejas (local_id, visit_id) de todas las vueltas que aún
-            faltan por jugar. Cada partido ya registrado consume una de las apariciones
-            de la vuelta correspondiente; las vueltas restantes sí se generan (revueltas).
-            La localía alterna por vuelta."""
+            """Retorna las parejas (local_id, visit_id) de las vueltas que aún faltan.
+            Si la temporada ya cubrió vuelta(s) completas, las vueltas restantes copian
+            el orden real de la primera vuelta (localía alternada). En caso parcial usa
+            las parejas del algoritmo consumiendo las apariciones ya jugadas."""
+            base, jugadas = _base_vuelta_por_grupo(eqs_ids)
+            if base and jugadas < self.vueltas:
+                total = []
+                for v in range(jugadas, self.vueltas):
+                    for l, vv in base:
+                        if v % 2 == 1:
+                            total.append((vv, l, grupo_letra))
+                        else:
+                            total.append((l, vv, grupo_letra))
+                return total
             parejas_ida = self._pairings_robin_una_vuelta(eqs_ids)
             total = []
             restantes = dict(veces_jugadas)
