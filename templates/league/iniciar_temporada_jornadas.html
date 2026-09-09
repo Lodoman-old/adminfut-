@@ -153,7 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var fila = tabla.querySelector('tr.partido-fila');
         var clone = fila.cloneNode(true);
         clone.querySelectorAll('input, select').forEach(function(el) {
-            el.value = '';
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = false;
+                el.value = el.defaultValue || '';
+            } else {
+                el.value = '';
+            }
         });
         fila.parentNode.appendChild(clone);
         return clone;
