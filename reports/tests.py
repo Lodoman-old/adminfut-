@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Rol
-from league.models import Categoria, Equipo, Jugador, JugadorEquipo
+from league.models import Categoria, Equipo, Jugador, JugadorEquipo, SuspensionJugador
 
 User = get_user_model()
 
@@ -54,6 +54,38 @@ class CredencialJugadorMultiEquipoTest(TestCase):
     def test_pdf_por_equipo_secundario_incluye_al_jugador(self):
         r = self.client.get(
             reverse("reporte_credenciales_pdf"), {"equipo": self.eq2.id}
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/pdf")
+
+    def test_suspendido_global_no_genera_credencial_ni_pdf(self):
+        SuspensionJugador.objects.create(
+            jugador=self.j, categoria=self.cat1, equipo=None, activo=True,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        r = self.client.get(
+            reverse("reporte_credenciales"),
+            {"categoria": self.cat1.id, "equipo": self.eq1.id},
+        )
+        self.assertNotContains(r, "García Hernández")
+        # PDF por jugador suspendido se rechaza (no hay credenciales)
+        r2 = self.client.get(
+            reverse("reporte_credenciales_pdf"), {"jugadores": self.j.id}
+        )
+        self.assertEqual(r2.status_code, 302)
+
+    def test_pdf_por_equipo_solo_incluye_a_los_no_suspendidos(self):
+        otro = Jugador.objects.create(
+            nombre="Otro", apellido="Jugador", equipo=self.eq1, activo=True, posicion="DEF",
+            dorsal=2, tipo_documento="CURP", curp="OTRO910101HDFRCR00",
+            fecha_nacimiento=date(1999, 1, 1),
+        )
+        SuspensionJugador.objects.create(
+            jugador=self.j, categoria=self.cat1, equipo=None, activo=True,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        r = self.client.get(
+            reverse("reporte_credenciales_pdf"), {"equipo": self.eq1.id}
         )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r["Content-Type"], "application/pdf")

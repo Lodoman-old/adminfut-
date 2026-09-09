@@ -13,7 +13,7 @@ temporada:
                50% de la plantilla (los primeros que se registren).
 """
 
-from .models import MovimientoEquipo, JugadorHerencia, SuspensionJugador
+from .models import MovimientoEquipo, JugadorHerencia, SuspensionJugador, JugadorEquipo
 from datetime import date
 
 
@@ -114,6 +114,15 @@ def errores_movimiento_jugador(jugador, equipo_destino, categoria_destino):
     return errs
 
 
+def expulsar_de_todos_los_equipos(jugador):
+    """CASTIGADO heredado = expulsado: sale de todos sus equipos (principal y
+    secundarios) para que no aparezca en listas, rosters ni credenciales."""
+    JugadorEquipo.objects.filter(jugador=jugador).update(activo=False, es_principal=False)
+    if jugador.equipo_id:
+        jugador.equipo = None
+        jugador.save(update_fields=["equipo"])
+
+
 def reemplazar_herederos(jugador):
     """Borra el historial heredado previo de un jugador (y las suspensiones
     sin equipo creadas por esa herencia) para corregir re-registrando de cero.
@@ -125,7 +134,10 @@ def reemplazar_herederos(jugador):
 def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""):
     """Registra en el historial heredado un ascenso/descenso/baja o un castigo
     de un jugador previo al sistema. Para CASTIGADO con jornadas>0 crea además
-    una SuspensionJugador activa que bloquea al jugador en toda la liga."""
+    una SuspensionJugador activa que bloquea al jugador en toda la liga.
+
+    Un CASTIGADO heredado queda expulsado de sus equipos actuales: se le da de
+    baja de todos sus equipos y no aparece en listas, rosters ni credenciales."""
     he = JugadorHerencia.objects.create(
         jugador=jugador,
         tipo=tipo,
@@ -133,8 +145,10 @@ def aplicar_movimiento_a_jugador(jugador, tipo, categoria, jornadas=0, motivo=""
         jornadas=jornadas,
         motivo=motivo,
     )
-    if tipo == "CASTIGADO" and jornadas > 0:
-        SuspensionJugador.objects.get_or_create(
+    if tipo == "CASTIGADO":
+        expulsar_de_todos_los_equipos(jugador)
+        if jornadas > 0:
+            SuspensionJugador.objects.get_or_create(
             jugador=jugador,
             categoria=categoria,
             activo=True,

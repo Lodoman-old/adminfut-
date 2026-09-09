@@ -567,6 +567,21 @@ class JugadorHeredadoTest(TestCase):
         self.assertFalse(SuspensionJugador.objects.filter(jugador=j, activo=True).exists())
         self.assertEqual(errores_movimiento_jugador(j, self.eq_sup, self.c1), [])
 
+    def test_castigado_heredero_expulsa_de_todos_los_equipos(self):
+        j = Jugador.objects.create(
+            nombre="Gabriel", apellido="Reyes Casas", posicion="DEL", equipo=self.eq_sup
+        )
+        otro = Equipo.objects.create(nombre="Otro Club", categoria=self.c1, activo=True)
+        JugadorEquipo.objects.create(jugador=j, equipo=otro, es_principal=False, activo=True)
+        aplicar_movimiento_a_jugador(j, "CASTIGADO", self.c1, jornadas=2, motivo="Expulsado")
+        j.refresh_from_db()
+        self.assertIsNone(j.equipo)
+        # Ningún registro activo: no aparece en rosters ni credenciales
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=j, activo=True).exists())
+        # Corte histórico conservado
+        self.assertEqual(JugadorEquipo.objects.filter(jugador=j, equipo=self.eq_sup).count(), 1)
+        self.assertEqual(SuspensionJugador.objects.filter(jugador=j, activo=True).count(), 1)
+
     def test_herencia_ascenso_descenso_desaparece_aplican_reglas(self):
         base = Jugador.objects.create(nombre="Pelusa", apellido="Rojo", posicion="DEL")
         aplicar_movimiento_a_jugador(base, "ASCENSO", self.c3)
@@ -624,9 +639,12 @@ class JugadorHeredadoTest(TestCase):
         })
         self.assertEqual(r2.status_code, 302)
         self.assertTrue(SuspensionJugador.objects.filter(jugador=existente, activo=True).exists())
-        # Sigue con el mismo equipo y el cupo principal intacto
+        # Expulsado por castigo heredado: sale del equipo actual y deja el cupo
         existente.refresh_from_db()
-        self.assertEqual(existente.equipo_id, self.eq_sup.id)
+        self.assertIsNone(existente.equipo)
+        self.assertFalse(
+            JugadorEquipo.objects.filter(jugador=existente, equipo=self.eq_sup, activo=True).exists()
+        )
 
     def test_crear_jugador_nuevo_con_herencia(self):
         from django.contrib.auth import get_user_model

@@ -13,7 +13,7 @@ from io import BytesIO
 import os
 import math
 from django.conf import settings
-from league.models import Partido, Gol, Temporada, Equipo, Jugador, Jornada, Tarjeta, Arbitro, JugadorPartido, Categoria, ConfiguracionLiga, SuscripcionEmail
+from league.models import Partido, Gol, Temporada, Equipo, Jugador, Jornada, Tarjeta, Arbitro, JugadorPartido, Categoria, ConfiguracionLiga, SuscripcionEmail, SuspensionJugador
 from finance.models import Ingreso, ConceptoIngreso
 
 
@@ -1625,6 +1625,11 @@ def _imagen_pdf(filefield, timeout=15):
         return None
 
 
+def _suspensos_globales():
+    """Jugadores con suspensión en toda la liga (sin equipo): no generan credencial."""
+    return set(SuspensionJugador.objects.filter(activo=True, equipo__isnull=True).values_list("jugador_id", flat=True))
+
+
 def reporte_credenciales(request):
     if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("credenciales_ver", False):
         messages.error(request, "No tienes permiso para generar credenciales.")
@@ -1639,10 +1644,12 @@ def reporte_credenciales(request):
         equipos = Equipo.objects.filter(categoria_id=cat_id, activo=True).order_by("nombre")
     if equipo_id:
         equipo = get_object_or_404(Equipo, pk=equipo_id)
+        sus = _suspensos_globales()
         jugadores = (
             Jugador.objects.filter(
                 registros_equipo__equipo=equipo, registros_equipo__activo=True, activo=True
             )
+            .exclude(id__in=sus)
             .distinct()
             .order_by("dorsal")
         )
@@ -1666,10 +1673,11 @@ def reporte_credenciales_pdf(request):
     equipo_id = request.GET.get("equipo")
     mostrar_logo = "1" in request.GET.getlist("logo")
     mostrar_numero = "1" in request.GET.getlist("numero")
+    sus = _suspensos_globales()
 
     if jugadores_ids:
         ids = [int(x) for x in jugadores_ids.split(",") if x.strip().isdigit()]
-        jugadores = list(Jugador.objects.filter(id__in=ids, activo=True).select_related("equipo__categoria").order_by("nombre", "apellido"))
+        jugadores = list(Jugador.objects.filter(id__in=ids, activo=True).exclude(id__in=sus).select_related("equipo__categoria").order_by("nombre", "apellido"))
         if not jugadores:
             messages.error(request, "No se encontraron jugadores seleccionados.")
             return redirect("reporte_credenciales")
@@ -1684,7 +1692,7 @@ def reporte_credenciales_pdf(request):
         filename = f"credenciales_{list(teams)[0]}.pdf" if len(teams) == 1 else "credenciales_seleccionadas.pdf"
     elif equipo_id:
         equipo = get_object_or_404(Equipo, pk=equipo_id)
-        jugadores = list(Jugador.objects.filter(registros_equipo__equipo=equipo, registros_equipo__activo=True, activo=True).distinct().select_related("equipo__categoria").order_by("nombre", "apellido"))
+        jugadores = list(Jugador.objects.filter(registros_equipo__equipo=equipo, registros_equipo__activo=True, activo=True).exclude(id__in=sus).distinct().select_related("equipo__categoria").order_by("nombre", "apellido"))
         if not jugadores:
             messages.error(request, "El equipo no tiene jugadores activos.")
             return redirect("reporte_credenciales")
