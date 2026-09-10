@@ -1451,15 +1451,30 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     else:
         p.drawRightString(w - margin, info_y, "Árbitro: __________________________")
 
-    def draw_team_table(jugadores, x_start, y_start, header_color, suspendidos_set, no_elegibles_set):
+    def draw_team_table(jugadores, x_start, y_start, header_color, titulo, equipo, suspendidos_set, no_elegibles_set):
         y = y_start
+        # Logo del equipo
+        logo_band = 26
+        if equipo.logo:
+            logo_src = None
+            local_path = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
+            if os.path.exists(local_path):
+                logo_src = local_path
+            else:
+                logo_src = _imagen_pdf(equipo.logo)
+            if logo_src:
+                try:
+                    p.drawImage(logo_src, x_start + (table_w - 22) / 2, y - logo_band + 2, width=22, height=22, preserveAspectRatio=True)
+                except Exception:
+                    pass
+        y -= logo_band
         # Team name header
         p.setFillColor(header_color)
         p.setStrokeColor(colors.black)
         p.rect(x_start, y - row_h, table_w, row_h, fill=1, stroke=1)
         p.setFillColor(colors.white)
         p.setFont("Helvetica-Bold", 9)
-        p.drawCentredString(x_start + table_w / 2, y - row_h + 4, "TITULARES" if header_color == colors.HexColor("#2d6b2e") else "VISITANTES")
+        p.drawCentredString(x_start + table_w / 2, y - row_h + 4, titulo)
         y -= row_h
 
         # Column headers
@@ -1519,12 +1534,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             y -= row_h
         return y
 
-    table_top = info_y - 20
+    table_top = info_y - 50
     max_rows = max(len(jugadores_local), len(jugadores_visit))
     needed_height = (2 + max_rows) * row_h + 20
 
-    y_local = draw_team_table(jugadores_local, left_x, table_top, colors.HexColor("#2d6b2e"), suspendidos, no_elegibles)
-    y_visit = draw_team_table(jugadores_visit, right_x, table_top, colors.HexColor("#1a5276"), suspendidos, no_elegibles)
+    y_local = draw_team_table(jugadores_local, left_x, table_top, colors.HexColor("#2d6b2e"), "LOCAL", partido.equipo_local, suspendidos, no_elegibles)
+    y_visit = draw_team_table(jugadores_visit, right_x, table_top, colors.HexColor("#1a5276"), "VISITANTES", partido.equipo_visitante, suspendidos, no_elegibles)
 
     footer_y = min(y_local, y_visit) - 50
     if footer_y < 120:
