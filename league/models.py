@@ -1785,18 +1785,29 @@ class Partido(models.Model):
                 self.estado = "FIN"
 
         # Si el partido se marca como FIN, aplicar walkover por mora/abandono (solo liga)
+        # El ganador recibe 1 gol y se libera el CAMPO (el partido no se juega).
+        # fecha_hora se conserva: la columna es NOT NULL y la fecha/orden del
+        # fixture no debe perderse.
         if self.estado == "FIN" and self.temporada_id:
             local_debe = self.temporada.equipo_debe_partido(self.equipo_local)
             visit_debe = self.temporada.equipo_debe_partido(self.equipo_visitante)
             if local_debe and not visit_debe:
                 self.goles_local = 0
                 self.goles_visitante = 1
+                self.campo = None
             elif visit_debe and not local_debe:
                 self.goles_local = 1
                 self.goles_visitante = 0
+                self.campo = None
             elif local_debe and visit_debe:
                 self.goles_local = 0
                 self.goles_visitante = 0
+                self.campo = None
+
+        # Un partido marcado como default (walkover por baja/alineación) no se juega:
+        # liberar el campo para dejar libre ese bloque.
+        if (self.default_team == "local" or self.default_visitante) and self.estado == "FIN":
+            self.campo = None
 
         super().save(*args, **kwargs)
 

@@ -172,11 +172,13 @@ def procesar_cedula(partido, post_data, user):
         motivo_default_visit = str(post_data.get("motivo_default_visitante", "")).strip()
 
     goles_default = partido.temporada.goles_default if partido.temporada_id else 1
-    if default_local or default_visit:
-        if default_forzado_local or default_forzado_visit:
-            update_kwargs = {}
-        else:
-            update_kwargs = {"estado": "FIN"}
+if default_local or default_visit:
+            if default_forzado_local or default_forzado_visit:
+                update_kwargs = {}
+            else:
+                update_kwargs = {"estado": "FIN"}
+            # El partido por default no se juega: liberar el campo
+            update_kwargs["campo"] = None
         if default_local:
             update_kwargs["default_team"] = "local"
             update_kwargs["motivo_default"] = motivo_default_local

@@ -174,6 +174,38 @@ class TablaPenalizacionDefaultTest(TestCase):
         )
         self.assertEqual(p.ganador_walkover, self.e3)
 
+    def test_walkover_libera_campo(self):
+        """Un partido marcado como default (baja/alineación) no se juega:
+        debe liberar el campo para dejar libre el bloque."""
+        camp = Campo.objects.create(nombre="C", activo=True)
+        p = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.e2, equipo_visitante=self.e3,
+            campo=camp, fecha_hora=datetime(2026, 1, 10, 12, 0), estado="PEND",
+        )
+        p.default_team = "local"
+        p.goles_local = 0
+        p.goles_visitante = 1
+        p.motivo_default = "Baja"
+        p.estado = "FIN"
+        p.save()
+        p.refresh_from_db()
+        self.assertIsNone(p.campo_id)
+        self.assertIsNotNone(p.fecha_hora)
+
+    def test_mora_libera_campo(self):
+        """Walkover por mora/abandono también libera el campo."""
+        camp = Campo.objects.create(nombre="C", activo=True)
+        p = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.e0, equipo_visitante=self.e1,
+            campo=camp, fecha_hora=datetime(2026, 1, 10, 12, 0), estado="PEND",
+        )
+        p.estado = "FIN"
+        p.save()
+        p.refresh_from_db()
+        self.assertEqual((p.goles_local, p.goles_visitante), (0, 1))
+        self.assertIsNone(p.campo_id)
+        self.assertIsNotNone(p.fecha_hora)
+
 
 class RolDespuesDeVueltaCompletaTest(TestCase):
     """Si las jornadas pasadas cubren una (o más) vueltas completas, las vueltas
