@@ -421,7 +421,7 @@ body {
 <div class="row">
   <!-- Left: Matches -->
   <div class="col-lg-6 mb-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header bg-success text-white">
         <i class="bi bi-calendar-event"></i> Próximos Partidos - {{ categoria_sel.nombre }}
       </div>
@@ -462,46 +462,9 @@ body {
         {% endif %}
       </div>
     </div>
-
-    <!-- Recent results -->
-    <div class="card mt-3">
-      <div class="card-header bg-info text-white">
-        <i class="bi bi-check-circle"></i> Resultados Recientes
-      </div>
-      <div class="card-body">
-        {% if resultados %}
-        {% for p in resultados %}
-        <div class="match-row" style="border-left-color:var(--pitch-light)">
-          {% with agregado=p.agregado_info %}
-          <div class="match-team-col{% if agregado and agregado.avanza_local == True %} avanzado{% endif %}">
-            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_local.nombre }}</strong>
-          </div>
-          <div class="match-center-col">
-            <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
-            {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
-            {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
-            <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
-            <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
-            {% if not user.is_authenticated or user|tiene_permiso:"partido_cedula" %}
-            <a href="{% url 'cedula_arbitral' p.id %}" class="btn btn-outline-light btn-sm mt-2" style="--bs-btn-color:#1a3a15;--bs-btn-border-color:rgba(26,58,21,0.4)"><i class="bi bi-clipboard-data"></i> Ver cédula</a>
-            {% endif %}
-          </div>
-          <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
-            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_visitante.nombre }}</strong>
-          </div>
-          {% endwith %}
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="text-muted text-center my-3">No hay resultados aún.</p>
-        {% endif %}
-      </div>
-    </div>
   </div>
 
-  <!-- Right: Top scorers cards -->
+  <!-- Fila 1 (derecha): goleadores -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100">
       <div class="card-header bg-primary text-white">
@@ -583,9 +546,52 @@ body {
             {% endif %}
           </div>
         </div>
+</div>
+    </div>
+  </div>
+</div>
+
+<!-- Fila 2: resultados + tarjetas -->
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <!-- Recent results -->
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <i class="bi bi-check-circle"></i> Resultados Recientes
+      </div>
+      <div class="card-body">
+        {% if resultados %}
+        {% for p in resultados %}
+        <div class="match-row" style="border-left-color:var(--pitch-light)">
+          {% with agregado=p.agregado_info %}
+          <div class="match-team-col{% if agregado and agregado.avanza_local == True %} avanzado{% endif %}">
+            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_local.nombre }}</strong>
+          </div>
+          <div class="match-center-col">
+            <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
+            {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
+            {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
+            <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
+            <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
+            {% if not user.is_authenticated or user|tiene_permiso:"partido_cedula" %}
+            <a href="{% url 'cedula_arbitral' p.id %}" class="btn btn-outline-light btn-sm mt-2" style="--bs-btn-color:#1a3a15;--bs-btn-border-color:rgba(26,58,21,0.4)"><i class="bi bi-clipboard-data"></i> Ver cédula</a>
+            {% endif %}
+          </div>
+          <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
+            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            <strong>{{ p.equipo_visitante.nombre }}</strong>
+          </div>
+          {% endwith %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted text-center my-3">No hay resultados aún.</p>
+        {% endif %}
       </div>
     </div>
-
+  </div>
+  <div class="col-lg-6 mb-4">
     <!-- Tarjetas Amarillas -->
     <div class="card mt-3">
       <div class="card-header bg-warning">
