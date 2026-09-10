@@ -685,6 +685,27 @@ class ArbitroOpcionalTest(TestCase):
         partido.refresh_from_db()
         self.assertEqual(partido.arbitro_id, self.arb.id)
 
+    def test_cedula_rechaza_arbitro_ya_ocupado_mismo_horario(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbConflicto", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        hora = timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0)))
+        ocupado = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND", fecha_hora=hora, arbitro=self.arb,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[2], equipo_visitante=self.eqs[3],
+            campo=self.campo, estado="PEND", fecha_hora=hora,
+        )
+        r = procesar_cedula(partido, {"arbitro": str(self.arb.id), "finalizar": "1"}, None)
+        self.assertFalse(r["ok"])
+        self.assertTrue(any("ya está asignado" in e for e in r["errors"]), r["errors"])
+        partido.refresh_from_db()
+        self.assertIsNone(partido.arbitro_id)
+        self.assertEqual(ocupado.arbitro_id, self.arb.id)
+
 
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):

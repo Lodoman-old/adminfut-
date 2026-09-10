@@ -17,6 +17,17 @@ def procesar_cedula(partido, post_data, user):
         return {"ok": False, "errors": errors, "warnings": warnings, "finalizado": False}
 
     arbitro_id = post_data.get("arbitro") or None
+    if arbitro_id and partido.fecha_hora:
+        duplicado = Partido.objects.filter(
+            fecha_hora=partido.fecha_hora,
+            arbitro_id=arbitro_id,
+        ).exclude(pk=partido.pk).exists()
+        if duplicado:
+            errors.append(
+                "El árbitro seleccionado ya está asignado a otro partido "
+                "en esa fecha y horario."
+            )
+            return {"ok": False, "errors": errors, "warnings": warnings, "finalizado": False}
 
     default_local = post_data.get("defaultLocalCheck") == "on"
     default_visit = post_data.get("defaultVisitCheck") == "on"
