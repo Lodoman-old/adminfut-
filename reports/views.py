@@ -1514,7 +1514,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.rect(x_start, y - row_h, table_w, row_h, fill=1, stroke=1)
         p.setFillColor(colors.white)
         p.setFont("Helvetica-Bold", 9)
-        p.drawCentredString(x_start + table_w / 2, y - row_h + 4, titulo)
+        p.drawCentredString(x_start + table_w / 2, y - row_h + 4, f"{titulo} - {equipo.nombre}")
         y -= row_h
 
         # Column headers
