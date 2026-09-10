@@ -98,9 +98,9 @@
           {% for t in amarillas %}
           <div class="col-md-6 col-lg-4 mb-3">
             <div class="player-card-small" style="background:linear-gradient(135deg,#3d2a1a,#5a3d2a)">
-              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-              {% if t.jugador__foto %}
-              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto_url %}
+              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
@@ -126,9 +126,9 @@
           {% for t in rojas %}
           <div class="col-md-6 col-lg-4 mb-3">
             <div class="player-card-small" style="background:linear-gradient(135deg,#2a1a1a,#5a2a2a)">
-              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-              {% if t.jugador__foto %}
-              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto_url %}
+              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}

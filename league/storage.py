@@ -59,3 +59,24 @@ class MediaCloudinaryStorageConFallback(MediaCloudinaryStorage):
         if media_url.startswith("http"):
             return media_url.rstrip("/") + "/" + name.lstrip("/")
         return super().url(name)
+
+
+def url_para_nombre(nombre):
+    """URL estable para un nombre de archivo de media (para agregados / values()).
+
+    Usa el storage por defecto (Cloudinary con fallback entre nubes) cuando hay
+    CLOUDINARY_URL; sin credenciales de Cloudinary (ej. desarrollo local) cae a
+    MEDIA_URL + nombre, que es el comportamiento histórico de las tarjetas.
+    """
+    if not nombre:
+        return ""
+    if getattr(settings, "CLOUDINARY_URL", None):
+        try:
+            from django.core.files.storage import default_storage
+            return default_storage.url(nombre)
+        except Exception:
+            pass
+    media_url = getattr(settings, "MEDIA_URL", "") or ""
+    if media_url:
+        return media_url.rstrip("/") + "/" + str(nombre).lstrip("/")
+    return str(nombre)

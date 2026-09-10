@@ -4,6 +4,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone
 from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta, SuspensionJugador
+from league.storage import url_para_nombre
 from django.db.models import Q
 from finance.models import Ingreso
 
@@ -119,6 +120,15 @@ def home(request):
         }
 
     # Top goleadores con datos para cards (separados por liguilla)
+    def _con_urls(lista):
+        out = []
+        for d in lista:
+            d = dict(d)
+            d["equipo__logo_url"] = url_para_nombre(d.get("equipo__logo"))
+            d["jugador__foto_url"] = url_para_nombre(d.get("jugador__foto"))
+            out.append(d)
+        return out
+
     def _build_top_goleadores(es_liguilla):
         qs = Gol.objects.filter(partido__es_liguilla=es_liguilla)
         if categoria_sel:
@@ -134,8 +144,8 @@ def home(request):
             .order_by("-total")[:5]
         )
 
-    top_goleadores = _build_top_goleadores(False)   # temporada regular
-    top_goleadores_finales = _build_top_goleadores(True)  # liguilla / finales
+    top_goleadores = _con_urls(_build_top_goleadores(False))   # temporada regular
+    top_goleadores_finales = _con_urls(_build_top_goleadores(True))  # liguilla / finales
 
     # Top tarjetas amarillas
     amar_filter = Tarjeta.objects.filter(tipo="AMARILLA")
@@ -144,7 +154,7 @@ def home(request):
         amar_filter = amar_filter.filter(partido__temporada__categoria=categoria_sel)
         rojas_filter = rojas_filter.filter(partido__temporada__categoria=categoria_sel)
 
-    top_amarillas = (
+    top_amarillas = _con_urls(
         amar_filter
         .values(
             "jugador__id", "jugador__nombre", "jugador__apellido",
@@ -155,7 +165,7 @@ def home(request):
         .order_by("-total")[:5]
     )
 
-    top_rojas = (
+    top_rojas = _con_urls(
         rojas_filter
         .values(
             "jugador__id", "jugador__nombre", "jugador__apellido",

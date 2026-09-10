@@ -21,6 +21,7 @@ from django import forms
 from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
 from finance.models import ConceptoIngreso, Ingreso
+from .storage import url_para_nombre
 
 
 class CategoriaListView(ListView):
@@ -2557,7 +2558,7 @@ def tabla_goleo(request):
         qs = Gol.objects.filter(partido__temporada_id=temp_id)
         if jornada_id:
             qs = qs.filter(partido__jornada_id=jornada_id)
-        goleadores = (
+        goleadores = list(
             qs
             .values(
                 "jugador__id", "jugador__nombre", "jugador__apellido",
@@ -2567,6 +2568,9 @@ def tabla_goleo(request):
             .annotate(total_goles=Count("id"))
             .order_by("-total_goles")
         )
+        for g in goleadores:
+            g["equipo__logo_url"] = url_para_nombre(g.get("equipo__logo"))
+            g["jugador__foto_url"] = url_para_nombre(g.get("jugador__foto"))
 
     return render(request, "league/tabla_goleo.html", {
         "goleadores": goleadores,
@@ -2770,7 +2774,7 @@ def tabla_tarjetas(request):
         if jornada_id:
             qs_amarillas = qs_amarillas.filter(partido__jornada_id=jornada_id)
             qs_rojas = qs_rojas.filter(partido__jornada_id=jornada_id)
-        amarillas = (
+        amarillas = list(
             qs_amarillas
             .values(
                 "jugador__id", "jugador__nombre", "jugador__apellido",
@@ -2780,7 +2784,7 @@ def tabla_tarjetas(request):
             .annotate(total=Count("id"))
             .order_by("-total")
         )
-        rojas = (
+        rojas = list(
             qs_rojas
             .values(
                 "jugador__id", "jugador__nombre", "jugador__apellido",
@@ -2790,6 +2794,9 @@ def tabla_tarjetas(request):
             .annotate(total=Count("id"))
             .order_by("-total")
         )
+        for t in amarillas + rojas:
+            t["equipo__logo_url"] = url_para_nombre(t.get("equipo__logo"))
+            t["jugador__foto_url"] = url_para_nombre(t.get("jugador__foto"))
 
     return render(request, "league/tabla_tarjetas.html", {
         "amarillas": amarillas,

@@ -392,7 +392,7 @@ body {
 <div class="row">
   <!-- Left: Matches -->
   <div class="col-lg-6 mb-4">
-    <div class="card h-100">
+    <div class="card">
       <div class="card-header bg-success text-white">
         <i class="bi bi-calendar-event"></i> Próximos Partidos - {{ categoria_sel.nombre }}
       </div>
@@ -407,6 +407,9 @@ body {
           </div>
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
+            {% with gw=p.ganador_walkover %}{% if gw %}
+            <div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resuelve por default">Walkover: gana {{ gw.nombre }} por DEFAULT</span></div>
+            {% endif %}{% endwith %}
             <div class="match-score" style="font-size:0.85rem;margin-top:2px">{{ p.fecha_hora|date:"d/m/Y" }} {{ p.fecha_hora|date:"H:i" }}</div>
             <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
@@ -440,6 +443,7 @@ body {
           </div>
           <div class="match-center-col">
             <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
+            {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Walkover: gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
             {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
             {% if not user.is_authenticated or user|tiene_permiso:"partido_cedula" %}
@@ -488,9 +492,9 @@ body {
               <div class="col-md-6 col-lg-4 mb-3">
                 <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
-                  {% if g.equipo__logo %}<img src="{{ MEDIA_URL }}{{ g.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-                  {% if g.jugador__foto %}
-                  <img src="{{ MEDIA_URL }}{{ g.jugador__foto }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.jugador__foto_url %}
+                  <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
                   <div class="player-avatar-placeholder">
                     <i class="bi bi-person-fill"></i>
@@ -518,9 +522,9 @@ body {
               <div class="col-md-6 col-lg-4 mb-3">
                 <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
-                  {% if g.equipo__logo %}<img src="{{ MEDIA_URL }}{{ g.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-                  {% if g.jugador__foto %}
-                  <img src="{{ MEDIA_URL }}{{ g.jugador__foto }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.jugador__foto_url %}
+                  <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
                   <div class="player-avatar-placeholder">
                     <i class="bi bi-person-fill"></i>
@@ -562,9 +566,9 @@ body {
           <div class="col-md-4 mb-3">
             <div class="player-card" style="background: linear-gradient(135deg, #3d2a1a, #5a3d2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
-              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-              {% if t.jugador__foto %}
-              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto_url %}
+              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
@@ -596,9 +600,9 @@ body {
           <div class="col-md-4 mb-3">
             <div class="player-card" style="background: linear-gradient(135deg, #2a1a1a, #5a2a2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
-              {% if t.equipo__logo %}<img src="{{ MEDIA_URL }}{{ t.equipo__logo }}" class="team-logo-bg" alt="">{% endif %}
-              {% if t.jugador__foto %}
-              <img src="{{ MEDIA_URL }}{{ t.jugador__foto }}" class="player-avatar" alt="">
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.jugador__foto_url %}
+              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}

@@ -129,6 +129,52 @@ class PartidosPorJornadaAbandonoTest(TestCase):
         self.assertEqual(temp.partidos_por_jornada(), 3)
 
 
+class TablaPenalizacionDefaultTest(TestCase):
+    """Cada derrota por default (equipo en abandono/mora) debe restar
+    `puntos_default` de la tabla, una vez POR PARTIDO (regresión del bug
+    que solo restaba la penalización en el primer partido)."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="Default")
+        self.temp = Temporada.objects.create(
+            nombre="Temp", categoria=self.cat, fecha_inicio=date(2026, 1, 1),
+            puntos_default=3,
+        )
+        self.e0, self.e1, self.e2, self.e3 = [
+            Equipo.objects.create(nombre=f"E{i}", categoria=self.cat)
+            for i in range(4)
+        ]
+        AbandonoTemporada.objects.create(temporada=self.temp, equipo=self.e0)
+
+    def _partido(self, local, visitante):
+        return Partido.objects.create(
+            temporada=self.temp, equipo_local=local, equipo_visitante=visitante,
+            fecha_hora=datetime(2026, 1, 1, 12, 0), estado="FIN",
+        )
+
+    def test_penaliza_una_vez_por_partido(self):
+        self._partido(self.e0, self.e1)   # 0-1 (walkover)
+        self._partido(self.e2, self.e0)   # 1-0
+        self._partido(self.e0, self.e3)   # 0-1
+        tabla = {r["nombre"]: r for r in self.temp.calcular_tabla()}
+        self.assertEqual(tabla["E0 (Default)"]["pts"], -9)
+
+    def test_ganador_walkover_pendiente(self):
+        pendiente = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.e0, equipo_visitante=self.e1,
+            fecha_hora=datetime(2026, 1, 10, 12, 0), estado="PEND",
+        )
+        self.assertEqual(pendiente.ganador_walkover, self.e1)
+
+    def test_ganador_walkover_finalizado_default_local(self):
+        p = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.e2, equipo_visitante=self.e3,
+            fecha_hora=datetime(2026, 1, 10, 12, 0), estado="FIN",
+            goles_local=1, goles_visitante=0, default_team="local",
+        )
+        self.assertEqual(p.ganador_walkover, self.e3)
+
+
 class RolDespuesDeVueltaCompletaTest(TestCase):
     """Si las jornadas pasadas cubren una (o más) vueltas completas, las vueltas
     restantes (que repiten parejas) sí deben generarse (regresión del bug que
