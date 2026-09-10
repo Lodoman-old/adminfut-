@@ -871,25 +871,27 @@ class Temporada(models.Model):
             return total
 
         def _asignar_jornadas(parejas):
-            """Greedy: arma rondas respetando que cada equipo juegue una vez por ronda.
-            Devuelve lista de rondas; cada ronda = lista de (local_id, visit_id)."""
+            """Greedy: arma rondas respetando que cada equipo juegue una vez por ronda,
+            reiniciando el barrido tras cada emparejamiento para empaquetar rondas
+            completas (evita jornadas cortas por una sola pasada)."""
             rondas = []
             disponibles = list(parejas)
             while disponibles:
                 ronda = []
                 usados = set()
-                sin_avance = False
-                i = 0
-                while i < len(disponibles):
-                    l, v, gl = disponibles[i]
-                    if l not in usados and v not in usados:
-                        ronda.append((l, v, gl))
-                        usados.add(l)
-                        usados.add(v)
-                        disponibles.pop(i)
-                        sin_avance_local = False
-                    else:
-                        i += 1
+                avanzado = True
+                while avanzado:
+                    avanzado = False
+                    i = 0
+                    while i < len(disponibles):
+                        l, v, gl = disponibles[i]
+                        if l not in usados and v not in usados:
+                            ronda.append(disponibles.pop(i))
+                            usados.add(l)
+                            usados.add(v)
+                            avanzado = True
+                        else:
+                            i += 1
                 if not ronda:
                     break
                 rondas.append(ronda)
@@ -915,7 +917,15 @@ class Temporada(models.Model):
             jornadas_futuras = _asignar_jornadas(parejas)
 
         # --- Crear jornadas futuras y asignar campo/hora evitando choques ---
-        cursor_fecha = self._proxima_fecha_juego(self.fecha_inicio)
+        # El cursor arranca el día posterior a la última jornada ya registrada
+        # (no desde hoy), para no repetir la fecha de las jornadas pasadas.
+        ultima_pasada = partidos_existentes.order_by("-fecha_hora").first()
+        base_fecha = (
+            (ultima_pasada.fecha_hora.date() + _dt.timedelta(days=1))
+            if ultima_pasada and ultima_pasada.fecha_hora
+            else self.fecha_inicio
+        )
+        cursor_fecha = self._proxima_fecha_juego(base_fecha)
         # ocupados cross-temporada (otras temporadas y categorías)
         ocupados_externos = set(
             Partido.objects.filter(estado__in=["PEND", "SUSP"])

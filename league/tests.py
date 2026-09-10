@@ -294,6 +294,38 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
         self.assertEqual(temp.partidos.count(), 45)
         self.assertEqual(sorted(temp.jornadas.values_list("numero", flat=True)), list(range(1, 16)))
 
+    def test_fechas_futuras_empiezan_despues_de_la_ultima_pasada(self):
+        """Regresión: el rol de jornadas futuras NO puede repetir la fecha de la
+        última jornada pasada (antes partía de 'hoy', no de la última capturada)."""
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="FechasFuturas", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        eqs = temp._equipos_para_rol()[""]
+        parejas = temp._pairings_robin_una_vuelta(eqs)
+        fecha1 = date(2027, 1, 9)   # sábado
+        fecha2 = date(2027, 1, 16)  # sábado, última jornada pasada
+        for i, (l_id, v_id) in enumerate(parejas[:6]):
+            jn = (i // 3) + 1
+            fecha = fecha1 if jn == 1 else fecha2
+            jornada, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=jornada,
+                equipo_local_id=l_id, equipo_visitante_id=v_id,
+                campo=self.campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(fecha, time(15, 0))),
+            )
+
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=3)
+
+        futuras = temp.partidos.filter(jornada__numero__gte=3)
+        self.assertTrue(futuras.exists())
+        for p in futuras:
+            self.assertGreater(p.fecha_hora.date(), fecha2)
+
 
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):
