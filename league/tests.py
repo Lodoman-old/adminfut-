@@ -1365,3 +1365,98 @@ class JugadorHeredadoTest(TestCase):
         # c3 está por debajo (nivel 2): descendido en c1(nivel 0) sí puede jugar ahí
         self.assertEqual(j.equipo_id, eq_3.id)
         self.assertTrue(JugadorEquipo.objects.filter(jugador=j, equipo=eq_3, activo=True).exists())
+
+
+class FotoJugadorTest(TestCase):
+    """Vista subir_foto_jugador: solo permite subir a jugadores SIN foto.
+    El reemplazo de una foto existente solo lo hace superusuario o con
+    período de altas activo."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        import tempfile, shutil
+        from django.core.files.storage import FileSystemStorage, default_storage
+        cls._shutil = shutil
+        cls._tmp_media = tempfile.mkdtemp()
+        cls._prev_storage = default_storage._wrapped
+        default_storage._wrapped = FileSystemStorage(location=cls._tmp_media, base_url="/media/")
+
+    @classmethod
+    def tearDownClass(cls):
+        from django.core.files.storage import default_storage
+        default_storage._wrapped = cls._prev_storage
+        cls._shutil.rmtree(cls._tmp_media, ignore_errors=True)
+        super().tearDownClass()
+
+    def _png(self, nombre):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(buf, format="PNG")
+        buf.seek(0)
+        return SimpleUploadedFile(nombre, buf.getvalue(), content_type="image/png")
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from accounts.models import Rol
+        self._shutil.rmtree(self._tmp_media, ignore_errors=True)
+        self.rol = Rol.objects.create(
+            nombre="CapturaFoto", permisos={"gestion_jugadores": True, "jugador_foto": True}
+        )
+        self.user = get_user_model().objects.create_user(
+            username="capturafoto", password="p", rol=self.rol
+        )
+        self.cat = Categoria.objects.create(nombre="Libre", dias_juego=["SAB"])
+        self.eq = Equipo.objects.create(nombre="Aguilas", categoria=self.cat, activo=True)
+        self.j_sin_foto = Jugador.objects.create(nombre="Juan", apellido="Perez", equipo=self.eq)
+        self.j_con_foto = Jugador.objects.create(nombre="Ana", apellido="Lopez", equipo=self.eq)
+        self.j_con_foto.foto = self._png("ana.png")
+        self.j_con_foto.save()
+        self.foto_original = self.j_con_foto.foto.name
+        self.client.force_login(self.user)
+
+    def test_sin_permiso_envia_403(self):
+        from django.contrib.auth import get_user_model
+        otro = get_user_model().objects.create_user(username="sinfoto", password="p")
+        c = Client(raise_request_exception=False)
+        c.force_login(otro)
+        r = c.post(f"/jugadores/{self.j_sin_foto.pk}/subir-foto/", {"foto": self._png("x.png")})
+        self.assertEqual(r.status_code, 403)
+
+    def test_sube_foto_a_jugador_sin_foto(self):
+        r = self.client.post(
+            f"/jugadores/{self.j_sin_foto.pk}/subir-foto/", {"foto": self._png("juan.png")}
+        )
+        self.assertRedirects(r, "/jugadores/")
+        self.j_sin_foto.refresh_from_db()
+        self.assertTrue(self.j_sin_foto.foto)
+
+    def test_no_reemplaza_foto_existente(self):
+        r = self.client.post(
+            f"/jugadores/{self.j_con_foto.pk}/subir-foto/", {"foto": self._png("nueva.png")}
+        )
+        self.assertRedirects(r, "/jugadores/")
+        self.j_con_foto.refresh_from_db()
+        self.assertEqual(self.j_con_foto.foto.name, self.foto_original)
+
+    def test_superuser_si_reemplaza(self):
+        from django.contrib.auth import get_user_model
+        admin = get_user_model().objects.create_superuser(username="adminfoto", password="p")
+        self.client.force_login(admin)
+        r = self.client.post(
+            f"/jugadores/{self.j_con_foto.pk}/subir-foto/", {"foto": self._png("nueva.png")}
+        )
+        self.assertRedirects(r, "/jugadores/")
+        self.j_con_foto.refresh_from_db()
+        self.assertTrue(self.j_con_foto.foto)
+        self.assertNotEqual(self.j_con_foto.foto.name, self.foto_original)
+
+    def test_rechaza_archivo_no_imagen(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        bad = SimpleUploadedFile("txt.txt", b"no soy imagen", content_type="text/plain")
+        r = self.client.post(f"/jugadores/{self.j_sin_foto.pk}/subir-foto/", {"foto": bad})
+        self.assertRedirects(r, "/jugadores/")
+        self.j_sin_foto.refresh_from_db()
+        self.assertFalse(self.j_sin_foto.foto)

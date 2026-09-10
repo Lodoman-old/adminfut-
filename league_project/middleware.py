@@ -119,6 +119,7 @@ PERMISO_POR_URL = {
     'jugador_create': 'jugador_crear',
     'jugador_update': 'jugador_editar',
     'jugador_delete': 'jugador_eliminar',
+    'subir_foto_jugador': 'jugador_foto',
     # Gestión - Campos
     'campo_list': 'gestion_campos',
     'campo_create': 'campo_crear',

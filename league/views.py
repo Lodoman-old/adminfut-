@@ -547,6 +547,54 @@ class JugadorUpdateView(JugadorGeneroContextMixin, UpdateView):
         return response
 
 
+def subir_foto_jugador(request, pk):
+    """Sube la foto de un jugador SIN foto (durante temporada en curso).
+
+    Solo actualiza el campo `foto`. Si el jugador ya tiene foto, solo se puede
+    reemplazar siendo superusuario o con un período de altas activo.
+    """
+    jugador = get_object_or_404(Jugador, pk=pk)
+    if request.method != "POST":
+        return redirect("jugador_list")
+
+    if jugador.foto:
+        puede_reemplazar = False
+        if request.user.is_superuser:
+            puede_reemplazar = True
+        elif jugador.equipo_id:
+            puede_reemplazar = Temporada.objects.filter(
+                categoria=jugador.equipo.categoria,
+                iniciada=True,
+                finalizada=False,
+                periodos_altas__activo=True,
+            ).exists()
+        if not puede_reemplazar:
+            messages.error(
+                request,
+                f"{jugador} ya tiene foto asignada. Solo se puede cambiar con un "
+                "período de altas activo o por un administrador."
+            )
+            return redirect("jugador_list")
+
+    foto = request.FILES.get("foto")
+    if not foto:
+        messages.error(request, "Selecciona una imagen para subir.")
+        return redirect("jugador_list")
+
+    from django.forms import ImageField
+    from django.core.exceptions import ValidationError
+    try:
+        ImageField().clean(foto)
+    except ValidationError:
+        messages.error(request, "El archivo no es una imagen válida.")
+        return redirect("jugador_list")
+
+    jugador.foto = foto
+    jugador.save(update_fields=["foto"])
+    messages.success(request, f"Foto de {jugador} guardada.")
+    return redirect("jugador_list")
+
+
 class JugadorDeleteView(DeleteView):
     model = Jugador
     template_name = "league/jugador_confirm_delete.html"

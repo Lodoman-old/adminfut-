@@ -62,6 +62,9 @@
             <td>{% if j.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
             <td>
                 {% with cat_id=j.equipo.categoria_id %}
+                {% if user|tiene_permiso:"jugador_foto" and not j.foto %}
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#fotoModal" data-jugador-id="{{ j.pk }}" data-jugador-nombre="{{ j.nombre }} {{ j.apellido }}" title="Subir foto de jugador"><i class="bi bi-camera"></i></button>
+                {% endif %}
                 {% if user|tiene_permiso:"jugador_editar" %}
                 {% if cat_id in categorias_editables or user.is_superuser %}
                 <a href="{% url 'jugador_update' j.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
@@ -99,6 +102,43 @@ function filtrarJugadores(input) {
 {% endblock %}
 
 {% block extra_modals %}
+<div class="modal fade" id="fotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" enctype="multipart/form-data" id="foto-form" action="{% url 'subir_foto_jugador' 0 %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-camera"></i> Subir foto de jugador</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted" id="foto-jugador-nombre"></p>
+                    <p class="small text-muted">Solo se podrá subir foto a jugadores que aún no tienen una.</p>
+                    <input type="file" name="foto" accept="image/*" class="form-control" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Subir</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('fotoModal');
+    var form = document.getElementById('foto-form');
+    var nombreEl = document.getElementById('foto-jugador-nombre');
+    var baseUrl = "{% url 'subir_foto_jugador' 0 %}";
+    modal.addEventListener('show.bs.modal', function(e) {
+        var btn = e.relatedTarget;
+        var jid = btn.getAttribute('data-jugador-id');
+        var jnom = btn.getAttribute('data-jugador-nombre');
+        form.action = baseUrl.replace('0', jid);
+        nombreEl.innerHTML = '<i class="bi bi-person-circle"></i> <strong>' + jnom + '</strong>';
+    });
+});
+</script>
 {% if mostrar_modal_edad %}
 <div class="modal" id="modalAlertaEdad" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">

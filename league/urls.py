@@ -18,6 +18,7 @@ urlpatterns = [
     path("jugadores/nuevo/", views.JugadorCreateView.as_view(), name="jugador_create"),
     path("jugadores/<int:pk>/editar/", views.JugadorUpdateView.as_view(), name="jugador_update"),
     path("jugadores/<int:pk>/eliminar/", views.JugadorDeleteView.as_view(), name="jugador_delete"),
+    path("jugadores/<int:pk>/subir-foto/", views.subir_foto_jugador, name="subir_foto_jugador"),
 
     path("campos/", views.CampoListView.as_view(), name="campo_list"),
     path("campos/nuevo/", views.CampoCreateView.as_view(), name="campo_create"),

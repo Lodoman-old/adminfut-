@@ -23,6 +23,7 @@ PERMISOS_MENU = {
             ("jugador_crear", "Crear Jugadores"),
             ("jugador_editar", "Editar Jugadores"),
             ("jugador_eliminar", "Eliminar Jugadores"),
+            ("jugador_foto", "Subir Foto (solo jugadores sin foto)"),
         ],
         "Jugadores heredados": [
             ("gestion_jugadores_heredados", "Gestionar Jugadores Heredados"),
