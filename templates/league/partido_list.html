@@ -83,7 +83,7 @@
                     {% endif %}
                 {% endif %}
                 {% if p.estado != "FIN" or user|tiene_permiso:"partido_aperturar" %}
-                    {% if user|tiene_permiso:"partido_finalizar" %}
+                    {% if user|tiene_permiso:"partido_cedula" %}
                     <a href="{% url 'cedula_arbitral' p.pk %}" class="btn btn-sm btn-outline-success" title="Cédula arbitral"><i class="bi bi-clipboard-check"></i></a>
                     {% endif %}
                 {% endif %}
