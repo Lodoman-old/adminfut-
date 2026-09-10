@@ -1446,8 +1446,10 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     info_y = y_start - 20
     p.drawString(margin, info_y, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
     p.drawCentredString(w / 2, info_y, f"Campo: {partido.campo.nombre}")
-    nom_arb = partido.arbitro.nombre_completo() if partido.arbitro else "---"
-    p.drawRightString(w - margin, info_y, f"Arbitro: {nom_arb}")
+    if partido.arbitro:
+        p.drawRightString(w - margin, info_y, f"Árbitro: {partido.arbitro.nombre_completo()}")
+    else:
+        p.drawRightString(w - margin, info_y, "Árbitro: __________________________")
 
     def draw_team_table(jugadores, x_start, y_start, header_color, suspendidos_set, no_elegibles_set):
         y = y_start
@@ -1525,13 +1527,15 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     y_visit = draw_team_table(jugadores_visit, right_x, table_top, colors.HexColor("#1a5276"), suspendidos, no_elegibles)
 
     footer_y = min(y_local, y_visit) - 50
-    if footer_y < 50:
-        footer_y = 50
+    if footer_y < 120:
+        footer_y = 120
     p.setFont("Helvetica", 9)
     p.drawString(left_x, footer_y, "Capitan equipo local: ___________________")
     p.drawString(left_x, footer_y - 24, "Firma: ___________________")
     p.drawString(right_x, footer_y, "Capitan equipo visitante: ___________________")
     p.drawString(right_x, footer_y - 24, "Firma: ___________________")
+    p.drawCentredString(w / 2, footer_y - 48, "Árbitro: _____________________________________")
+    p.drawCentredString(w / 2, footer_y - 72, "Firma del árbitro: _____________________________________")
 
     draw_footer(p, w, h, 14)
 

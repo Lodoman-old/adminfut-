@@ -706,6 +706,25 @@ class ArbitroOpcionalTest(TestCase):
         self.assertIsNone(partido.arbitro_id)
         self.assertEqual(ocupado.arbitro_id, self.arb.id)
 
+    def test_pdf_cedula_genera_sin_arbitro(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbPdf", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        u = get_user_model().objects.create_superuser(username="pdfadmin", password="p")
+        self.client.force_login(u)
+        resp = self.client.get(reverse("reporte_cedula_arbitral_pdf", args=[partido.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        self.assertGreater(len(resp.content), 500)
+
 
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):
