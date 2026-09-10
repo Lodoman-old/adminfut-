@@ -406,6 +406,111 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
                     descansos[e] += 1
         self.assertEqual(set(descansos.values()), {1})
 
+    def test_13_equipos_pasadas_arbitrarias_rondas_completas_y_un_descanso(self):
+        """13 equipos vueltas=1, capturadas 5 jornadas en orden arbitrario (el
+        caso real de Intermedia). El empaquetado por restarts debe dar 8 rondas
+        completas de 6 -> 13 jornadas exactas, 1 descanso por equipo."""
+        cat = Categoria.objects.create(nombre="Intermedia", dias_juego=["SAB"])
+        campo = Campo.objects.create(nombre="C", activo=True)
+        eqs = [Equipo.objects.create(nombre=f"T{i:02d}", categoria=cat, activo=True)
+               for i in range(13)]
+        temp = Temporada.objects.create(
+            categoria=cat, nombre="TreceR", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        ids = [e.id for e in eqs]
+        parejas = temp._pairings_robin_una_vuelta(ids)
+        self.assertEqual(len(parejas), 78)
+        import random as _random
+        rondas = [parejas[i:i + 6] for i in range(0, 78, 6)]
+        _random.Random(4040).shuffle(rondas)
+        manual = [e for r in rondas[:5] for e in r]
+        for i, (l, v) in enumerate(manual):
+            jn = i // 6 + 1
+            j, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=j, equipo_local_id=l, equipo_visitante_id=v,
+                campo=campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+            )
+
+        ok_p, errores_p = temp.validar_continuacion_rol()
+        self.assertTrue(ok_p, errores_p)
+
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=6)
+
+        self.assertEqual(temp.partidos.count(), 78)
+        nums = sorted(temp.jornadas.values_list("numero", flat=True))
+        self.assertEqual(nums, list(range(1, 14)))
+        for j in temp.jornadas.filter(numero__gte=6):
+            self.assertEqual(
+                temp.partidos.filter(jornada=j).count(), 6,
+                f"jornada {j.numero} debe ser completa")
+        from collections import Counter
+        veces = Counter()
+        for l, v in temp.partidos.values_list("equipo_local_id", "equipo_visitante_id"):
+            veces[frozenset((l, v))] += 1
+        self.assertEqual(set(veces.values()), {1})
+        descansos = Counter()
+        for j in temp.jornadas.order_by("numero"):
+            pjs = temp.partidos.filter(jornada=j)
+            ids_j = set(pjs.values_list("equipo_local_id", flat=True)) | set(pjs.values_list("equipo_visitante_id", flat=True))
+            for e in ids:
+                if e not in ids_j:
+                    descansos[e] += 1
+        self.assertEqual(set(descansos.values()), {1})
+
+    def test_validar_continuacion_detecta_descanso_repetido(self):
+        """Si en las pasadas un equipo descansa dos veces, quedan más partidos
+        pendientes que jornadas futuras: la validación debe devolver un error
+        claro que impida regenerar y dejar un rol con rondas rotas."""
+        cat = Categoria.objects.create(nombre="Imposible", dias_juego=["SAB"])
+        campo = Campo.objects.create(nombre="C", activo=True)
+        eqs = [Equipo.objects.create(nombre=f"T{i:02d}", categoria=cat, activo=True)
+               for i in range(13)]
+        temp = Temporada.objects.create(
+            categoria=cat, nombre="TreceImposible", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        ids = [e.id for e in eqs]
+        parejas = temp._pairings_robin_una_vuelta(ids)
+        rondas = [parejas[i:i + 6] for i in range(0, 36, 6)]
+
+        def swap_descanso(ronda, t00):
+            presentes = {x for a, b in ronda for x in (a, b)}
+            ausente = [t for t in ids if t not in presentes][0]
+            out = []
+            for a, b in ronda:
+                if a == t00:
+                    out.append((ausente, b))
+                elif b == t00:
+                    out.append((a, ausente))
+                else:
+                    out.append((a, b))
+            return out
+
+        t00 = ids[0]
+        rondas[1] = swap_descanso(rondas[1], t00)   # T00 descansa aquí
+        rondas[5] = swap_descanso(rondas[5], t00)   # y también aquí
+        for jn, ronda in enumerate(rondas[:6], start=1):
+            j, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            for l, v in ronda:
+                Partido.objects.create(
+                    temporada=temp, jornada=j, equipo_local_id=l, equipo_visitante_id=v,
+                    campo=campo, estado="PEND",
+                    fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+                )
+
+        ok_p, errores_p = temp.validar_continuacion_rol()
+        self.assertFalse(ok_p)
+        self.assertTrue(any("T00" in e for e in errores_p), errores_p)
+
     def test_regenerar_desde_conserva_pasadas_y_rehace_desde_x(self):
         """El comando regenerar_desde borra solo jornadas >= X y conserva las
         capturadas a mano; el optimizador completa las futuras en rondas exactas

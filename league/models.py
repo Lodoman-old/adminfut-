@@ -777,6 +777,56 @@ class Temporada(models.Model):
             temporada=self, equipo_id=equipo_id
         ).exists()
 
+    def validar_continuacion_rol(self):
+        """Verifica si se puede completar el rol respetando las jornadas ya
+        registradas a mano. Devuelve (ok, errores). El principal problema a
+        detectar: un equipo que descansó más veces de las permitidas en las
+        jornadas capturadas (p. ej. dos descansos con 13 equipos) deja más
+        partidos pendientes que jornadas futuras y es imposible completarlo.
+        """
+        from collections import Counter
+        if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
+            return True, []
+        ids = self._equipos_para_rol().get("", [])
+        n = len(ids)
+        if n < 2:
+            return True, []
+        pj = self.partidos_por_jornada()
+        total_partidos = n * (n - 1) // 2 * self.vueltas
+        jugados = Partido.objects.filter(temporada=self).count()
+        faltan = total_partidos - jugados
+        if faltan <= 0:
+            return True, []
+        errores = []
+        if faltan % pj != 0:
+            errores.append(
+                f"Quedan {faltan} partidos por generar, que no completan "
+                f"{pj} exactos por jornada."
+            )
+        futuras = faltan // pj
+        apariciones = Counter()
+        for a, b in Partido.objects.filter(temporada=self).values_list(
+            "equipo_local_id", "equipo_visitante_id"
+        ):
+            if a:
+                apariciones[a] += 1
+            if b:
+                apariciones[b] += 1
+        nombres = {
+            e.id: e.nombre
+            for e in Equipo.objects.filter(id__in=ids)
+        }
+        for eq_id in ids:
+            pendientes = (n - 1) * self.vueltas - apariciones.get(eq_id, 0)
+            if pendientes > futuras:
+                errores.append(
+                    f"{nombres.get(eq_id, eq_id)} aún debería jugar {pendientes} "
+                    f"partidos pero solo quedan {futuras} jornadas futuras. "
+                    f"Revisa los descansos repetidos en las jornadas capturadas "
+                    f"(cada equipo descansa una sola vez)."
+                )
+        return not errores, errores
+
     def generar_rol_respaldando_pasadas(self, jornada_inicial=1):
         """Genera el rol de las jornadas FUTURAS (>= jornada_inicial) teniendo en cuenta
         los partidos ya registrados a mano en las jornadas pasadas (< jornada_inicial).
@@ -872,38 +922,69 @@ class Temporada(models.Model):
 
         def _asignar_jornadas(parejas, tam_ronda=None):
             """Arma rondas respetando que cada equipo juegue una vez por ronda.
-            Primero el greedy reiniciando el barrido; si deja rondas cortas pero
-            existe un empaquetado exacto (todo en rondas completas), lo busca con
-            búsqueda exhaustiva acotada (necesario cuando las jornadas pasadas se
-            capturaron a mano en distinto orden al del algoritmo)."""
-            rondas = []
-            disponibles = list(parejas)
-            while disponibles:
-                ronda = []
-                usados = set()
-                avanzado = True
-                while avanzado:
-                    avanzado = False
+            Si tam_ronda fija un tamaño, intenta empaquetar en rondas EXACTAS de
+            ese tamaño para que ninguna jornada quede corta (ni con más de un
+            descanso). Primero restarts aleatorios (muestreo de matchings en un
+            grafo denso), luego el optimizador exhaustivo acotado y por último
+            el greedy."""
+            def _greedy():
+                rondas = []
+                disponibles = list(parejas)
+                while disponibles:
+                    ronda = []
+                    usados = set()
+                    avanzado = True
+                    while avanzado:
+                        avanzado = False
+                        i = 0
+                        while i < len(disponibles):
+                            l, v, gl = disponibles[i]
+                            if l not in usados and v not in usados:
+                                ronda.append(disponibles.pop(i))
+                                usados.add(l)
+                                usados.add(v)
+                                avanzado = True
+                            else:
+                                i += 1
+                    if not ronda:
+                        break
+                    rondas.append(ronda)
+                return rondas
+
+            n = len(parejas)
+            if tam_ronda is None or n % tam_ronda != 0:
+                return _greedy()
+            objetivo = n // tam_ronda
+
+            sec = [parejas[i:i + tam_ronda] for i in range(0, n, tam_ronda)]
+            if all(len({e[0] for e in b} | {e[1] for e in b}) == 2 * tam_ronda for b in sec):
+                return sec
+
+            import random as _random
+            for _ in range(800):
+                trabajo = list(parejas)
+                rondas = []
+                while len(rondas) < objetivo and trabajo:
+                    _random.shuffle(trabajo)
+                    ronda = []
+                    usados = set()
                     i = 0
-                    while i < len(disponibles):
-                        l, v, gl = disponibles[i]
+                    while i < len(trabajo):
+                        l, v, gl = trabajo[i]
                         if l not in usados and v not in usados:
-                            ronda.append(disponibles.pop(i))
+                            ronda.append(trabajo.pop(i))
                             usados.add(l)
                             usados.add(v)
-                            avanzado = True
                         else:
                             i += 1
-                if not ronda:
-                    break
-                rondas.append(ronda)
-            if tam_ronda is None:
-                return rondas
-            n = len(parejas)
-            if n % tam_ronda != 0 or len(rondas) <= n // tam_ronda:
-                return rondas
+                    if len(ronda) != tam_ronda:
+                        break
+                    rondas.append(ronda)
+                if not trabajo and len(rondas) == objetivo:
+                    return rondas
+
             opt = _buscar_rondas_completas(list(parejas), tam_ronda)
-            return opt if opt is not None else rondas
+            return opt if opt is not None else _greedy()
 
         def _buscar_rondas_completas(parejas, tam_ronda):
             """Busca (acotada en tiempo/nodos) un empaquetado en rondas COMPLETAS.

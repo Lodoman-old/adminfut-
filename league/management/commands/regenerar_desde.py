@@ -37,6 +37,12 @@ class Command(BaseCommand):
                 "Jornadas anteriores incompletas (esperado %d por jornada): %s"
                 % (pj, "; ".join(incompletas)))
 
+        ok_p, errores_p = temporada.validar_continuacion_rol()
+        if not ok_p:
+            raise CommandError(
+                "No se puede completar el rol con las jornadas capturadas: "
+                + "; ".join(errores_p))
+
         numeros_existentes = sorted(
             temporada.jornadas.values_list("numero", flat=True))
         a_borrar = [n for n in numeros_existentes if n >= x]

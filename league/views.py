@@ -2058,6 +2058,14 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
                     + "; ".join(incompletas),
                 )
                 return redirect("iniciar_temporada_pasadas", pk=pk)
+            ok_p, errores_p = temporada.validar_continuacion_rol()
+            if not ok_p:
+                messages.error(
+                    request,
+                    "No se puede completar el rol con las jornadas capturadas: "
+                    + "; ".join(errores_p),
+                )
+                return redirect("iniciar_temporada_pasadas", pk=pk)
             try:
                 temporada.generar_rol_respaldando_pasadas(jornada_inicial=proxima_jornada)
             except Exception as e:
@@ -3749,6 +3757,15 @@ def regenerar_rol_temporada(request, pk):
     if incompletas:
         messages.error(request, "No se puede: jornadas anteriores incompletas (%d por jornada): %s"
                         % (pj, "; ".join(incompletas)))
+        return redirect("temporada_list")
+
+    ok_p, errores_p = temporada.validar_continuacion_rol()
+    if not ok_p:
+        messages.error(
+            request,
+            "No se puede completar el rol con las jornadas capturadas: "
+            + "; ".join(errores_p),
+        )
         return redirect("temporada_list")
 
     a_borrar = temporada.jornadas.filter(numero__gte=x)
