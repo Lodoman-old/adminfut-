@@ -1351,8 +1351,8 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
     headers = ["#", "Jugador", "Titular", "Cambio", "Goles", "Amarilla", "Roja"]
     ws.append(headers)
 
-    def add_jugadores(jugadores, equipo_nombre):
-        ws.append([f"--- {equipo_nombre} ---"])
+    def add_jugadores(jugadores, equipo_nombre, etiqueta):
+        ws.append([f"--- {etiqueta}: {equipo_nombre} ---"])
         for j in jugadores:
             part = participaciones.get(j.id)
             card = tarjetas_dict.get(j.id, {"amarillas": 0, "roja": False})
@@ -1367,8 +1367,48 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
                 "Sí" if card["roja"] else "",
             ])
 
-    add_jugadores(jugadores_local, str(partido.equipo_local))
-    add_jugadores(jugadores_visit, str(partido.equipo_visitante))
+    def _logo_src(equipo):
+        if not equipo.logo:
+            return None
+        local = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
+        if os.path.exists(local):
+            return local
+        try:
+            url = equipo.logo.url
+        except Exception:
+            return None
+        if not url:
+            return None
+        import urllib.request
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; AdminFut)"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                data = r.read()
+            if not data:
+                return None
+            return BytesIO(data)
+        except Exception:
+            return None
+
+    from openpyxl.drawing.image import Image as XLImage
+
+    def _anexar_logo(equipo, fila):
+        src = _logo_src(equipo)
+        if not src:
+            return
+        try:
+            img = XLImage(src)
+            img.width, img.height = 36, 36
+            ws.add_image(img, f"B{fila}")
+        except Exception:
+            pass
+
+    fila_local = 7
+    add_jugadores(jugadores_local, str(partido.equipo_local), "LOCAL")
+    _anexar_logo(partido.equipo_local, fila_local)
+    fila_visit = fila_local + len(jugadores_local) + 1
+    add_jugadores(jugadores_visit, str(partido.equipo_visitante), "VISITANTE")
+    _anexar_logo(partido.equipo_visitante, fila_visit)
 
     wb.save(response)
     return response

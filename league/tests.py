@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, time
+from io import BytesIO
 
 from django.test import TestCase, Client
 from django.utils import timezone
@@ -724,6 +725,30 @@ class ArbitroOpcionalTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/pdf")
         self.assertGreater(len(resp.content), 500)
+
+    def test_xlsx_cedula_genera_sin_arbitro(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbXlsx", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        u = get_user_model().objects.create_superuser(username="xlsxadmin", password="p")
+        self.client.force_login(u)
+        resp = self.client.get(reverse("reporte_cedula_arbitral_xlsx", args=[partido.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("spreadsheetml", resp["Content-Type"].lower())
+        import openpyxl
+        wb = openpyxl.load_workbook(BytesIO(resp.content))
+        ws = wb.active
+        col_a = [ws.cell(row=r, column=1).value for r in range(7, ws.max_row + 1)]
+        self.assertTrue(any(isinstance(v, str) and "LOCAL" in v for v in col_a), col_a)
+        self.assertTrue(any(isinstance(v, str) and "VISITANTE" in v for v in col_a), col_a)
 
 
 class LimiteCambiosTest(TestCase):
