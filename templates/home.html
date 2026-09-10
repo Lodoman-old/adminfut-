@@ -408,7 +408,7 @@ body {
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
             {% with gw=p.ganador_walkover %}{% if gw %}
-            <div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resuelve por default">Walkover: gana {{ gw.nombre }} por DEFAULT</span></div>
+            <div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resuelve por default">Gana {{ gw.nombre }} por DEFAULT</span></div>
             {% endif %}{% endwith %}
             <div class="match-score" style="font-size:0.85rem;margin-top:2px">{{ p.fecha_hora|date:"d/m/Y" }} {{ p.fecha_hora|date:"H:i" }}</div>
             <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
@@ -443,7 +443,7 @@ body {
           </div>
           <div class="match-center-col">
             <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
-            {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Walkover: gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
+            {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
             {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
             {% if not user.is_authenticated or user|tiene_permiso:"partido_cedula" %}

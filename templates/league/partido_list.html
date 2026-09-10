@@ -62,7 +62,7 @@
             {% if tipo == 'amistoso' %}<td><span class="badge bg-info">Amistoso</span></td>{% endif %}
             <td>{% if p.grupo %}<span class="badge bg-secondary">Grupo {{ p.grupo }}</span>{% else %}-{% endif %}</td>
             <td class="{% if agregado and agregado.avanza_local == True %}table-success fw-bold{% endif %}">{{ p.equipo_local }}</td>
-            <td class="text-center vs-cell"><strong>{{ p.goles_local }}-{{ p.goles_visitante }}</strong>{% if agregado %}&nbsp;<span class="agregado">({{ agregado.total_local }}-{{ agregado.total_visitante }})</span>{% endif %}{% with gw=p.ganador_walkover %}{% if gw %}<br><span class="badge bg-warning text-dark mt-1" title="Este partido se resuelve por default">Walkover: gana {{ gw.nombre }} por DEFAULT</span>{% endif %}{% endwith %}</td>
+            <td class="text-center vs-cell"><strong>{{ p.goles_local }}-{{ p.goles_visitante }}</strong>{% if agregado %}&nbsp;<span class="agregado">({{ agregado.total_local }}-{{ agregado.total_visitante }})</span>{% endif %}{% with gw=p.ganador_walkover %}{% if gw %}<br><span class="badge bg-warning text-dark mt-1" title="Este partido se resuelve por default">Gana {{ gw.nombre }} por DEFAULT</span>{% endif %}{% endwith %}</td>
             <td class="{% if agregado and agregado.avanza_local == False %}table-success fw-bold{% endif %}">{{ p.equipo_visitante }}</td>
             <td>{{ p.campo|default:"-" }}</td>
             <td>{% if p.arbitro %}{{ p.arbitro }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
