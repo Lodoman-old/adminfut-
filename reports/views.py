@@ -1493,8 +1493,10 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     def draw_team_table(jugadores, x_start, y_start, header_color, titulo, equipo, suspendidos_set, no_elegibles_set):
         y = y_start
-        # Logo del equipo
-        logo_band = 26
+        # Team name header (logo junto al nombre)
+        p.setFillColor(header_color)
+        p.setStrokeColor(colors.black)
+        p.rect(x_start, y - row_h, table_w, row_h, fill=1, stroke=1)
         if equipo.logo:
             logo_src = None
             local_path = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
@@ -1504,17 +1506,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(equipo.logo)
             if logo_src:
                 try:
-                    p.drawImage(logo_src, x_start + (table_w - 22) / 2, y - logo_band + 2, width=22, height=22, preserveAspectRatio=True)
+                    p.drawImage(logo_src, x_start + 3, y - row_h + 1, width=14, height=14, preserveAspectRatio=True)
                 except Exception:
                     pass
-        y -= logo_band
-        # Team name header
-        p.setFillColor(header_color)
-        p.setStrokeColor(colors.black)
-        p.rect(x_start, y - row_h, table_w, row_h, fill=1, stroke=1)
         p.setFillColor(colors.white)
         p.setFont("Helvetica-Bold", 9)
-        p.drawCentredString(x_start + table_w / 2, y - row_h + 4, f"{titulo} - {equipo.nombre}")
+        p.drawCentredString(x_start + (table_w + 14) / 2, y - row_h + 4, f"{titulo} - {equipo.nombre}")
         y -= row_h
 
         # Column headers
@@ -1574,7 +1571,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             y -= row_h
         return y
 
-    table_top = info_y - 50
+    table_top = info_y - 20
     max_rows = max(len(jugadores_local), len(jugadores_visit))
     needed_height = (2 + max_rows) * row_h + 20
 
