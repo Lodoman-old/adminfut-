@@ -224,13 +224,6 @@
 {% block extra_js %}
 <script>
 function confirmarGuardar() {
-    var arbitro = document.getElementById('arbitroSelect');
-    if (!arbitro.value) {
-        arbitro.classList.add('is-invalid');
-        arbitro.focus();
-        return;
-    }
-    arbitro.classList.remove('is-invalid');
     var modal = new bootstrap.Modal(document.getElementById('finalizarModal'));
     modal.show();
 }
