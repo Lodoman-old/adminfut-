@@ -15,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
@@ -3658,6 +3659,72 @@ def reiniciar_temporada(request, pk):
         temporada.iniciada = False
         temporada.save()
         messages.success(request, f"Temporada '{temporada.nombre}' reiniciada. Puedes volver a iniciarla.")
+    return redirect("temporada_list")
+
+
+def regenerar_rol_temporada(request, pk):
+    """Regenera el rol desde la jornada X indicada conservando las anteriores.
+
+    Borra las jornadas >= X y regenera el rol con el optimizer, respetando los
+    partidos ya capturados a mano en las jornadas < X. Solo se permite si las
+    jornadas a borrar no tienen partidos con resultados capturados (PEND).
+    """
+    temporada = get_object_or_404(Temporada, pk=pk)
+    if request.method != "POST":
+        return redirect("temporada_list")
+    if not request.user.tiene_permiso("temporada_reiniciar"):
+        raise PermissionDenied
+
+    raw = request.POST.get("jornada_inicial", "").strip()
+    try:
+        x = int(raw)
+    except (TypeError, ValueError):
+        messages.error(request, "Indica a partir de qué jornada regenerar (número entero).")
+        return redirect("temporada_list")
+
+    numeros = sorted(temporada.jornadas.values_list("numero", flat=True))
+    max_j = max(numeros) if numeros else 0
+    if x < 2:
+        messages.error(request, "La jornada inicial debe ser al menos 2 (1..N-1 se conservan).")
+        return redirect("temporada_list")
+    if x > max_j:
+        messages.error(request, f"La jornada {x} no existe (máximo creado: {max_j}).")
+        return redirect("temporada_list")
+
+    pj = temporada.partidos_por_jornada()
+    pasadas = temporada.jornadas.filter(numero__lt=x)
+    incompletas = []
+    for j in pasadas.order_by("numero"):
+        cnt = Partido.objects.filter(temporada=temporada, jornada=j).count()
+        if cnt != pj:
+            incompletas.append(f"Jornada {j.numero}: {cnt}/{pj}")
+    if incompletas:
+        messages.error(request, "No se puede: jornadas anteriores incompletas (%d por jornada): %s"
+                        % (pj, "; ".join(incompletas)))
+        return redirect("temporada_list")
+
+    a_borrar = temporada.jornadas.filter(numero__gte=x)
+    capturados = Partido.objects.filter(temporada=temporada, jornada__in=a_borrar)\
+        .exclude(estado="PEND").exists()
+    if capturados:
+        messages.error(request, "No se puede: hay partidos con resultados capturados en las "
+                        "jornadas a regenerar (>= %d). Bórralos primero o elige otra jornada." % x)
+        return redirect("temporada_list")
+
+    n_borrar = a_borrar.count()
+    with transaction.atomic():
+        Partido.objects.filter(temporada=temporada, jornada__in=a_borrar).delete()
+        a_borrar.delete()
+        temporada.generar_rol_respaldando_pasadas(jornada_inicial=x)
+
+    nums = sorted(temporada.jornadas.values_list("numero", flat=True))
+    por_j = {n: Partido.objects.filter(temporada=temporada, jornada__numero=n).count() for n in nums}
+    resumen = ", ".join(f"J{n}:{c}" for n, c in por_j.items())
+    messages.success(
+        request,
+        f"Rol regenerado desde la jornada {x}. Borradas {n_borrar} jornadas. "
+        f"Jornadas finales ({len(nums)}): {resumen}."
+    )
     return redirect("temporada_list")
 
 

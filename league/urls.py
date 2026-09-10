@@ -32,6 +32,7 @@ urlpatterns = [
     path("temporadas/<int:pk>/iniciar/", views.iniciar_temporada, name="iniciar_temporada"),
     path("temporadas/<int:pk>/iniciar/pasadas/", views.iniciar_temporada_jornadas_pasadas, name="iniciar_temporada_pasadas"),
     path("temporadas/<int:pk>/reiniciar/", views.reiniciar_temporada, name="reiniciar_temporada"),
+    path("temporadas/<int:pk>/regenerar-rol/", views.regenerar_rol_temporada, name="regenerar_rol_temporada"),
     path("temporadas/<int:pk>/asignar-grupos/", views.asignar_grupos, name="asignar_grupos"),
     path("temporadas/<int:pk>/confirmar-grupos/", views.confirmar_grupos, name="confirmar_grupos"),
     path("temporadas/<int:pk>/generar-liguilla/", views.generar_liguilla_view, name="generar_liguilla"),

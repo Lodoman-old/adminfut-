@@ -56,6 +56,11 @@
                 <a href="{% url 'reiniciar_temporada' t.pk %}" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmarAccionModal" data-href="{% url 'reiniciar_temporada' t.pk %}" data-mensaje="¿Reiniciar la temporada? Se eliminarán jornadas y partidos.">
                     <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-sm-inline">Reiniciar</span>
                 </a>
+                <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#regenerarModal"
+                    data-url="{% url 'regenerar_rol_temporada' t.pk %}" data-max="{{ t.jornadas.count }}"
+                    title="Regenerar el rol desde la jornada X en adelante, conservando las anteriores">
+                    <i class="bi bi-arrow-repeat"></i> <span class="d-none d-sm-inline">Regenerar rol</span>
+                </button>
                 {% endif %}
                 {% if t.tipo_competencia == 'LIGUILLA' %}
                 {% if user|tiene_permiso:"temporada_liguilla" %}
@@ -165,6 +170,33 @@
     </div>
 </div>
 
+<!-- Modal Regenerar Rol -->
+<div class="modal fade" id="regenerarModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Regenerar Rol</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="regenerarForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="mb-2">¿A partir de qué jornada se regenera el rol?</p>
+                    <input type="number" name="jornada_inicial" id="regenerarJornada" class="form-control" min="2" required>
+                    <div class="form-text">Las jornadas anteriores a la indicada se conservan tal cual (ya capturadas a mano). Las de esta jornada en adelante se borran y se vuelven a generar con el optimizer.</div>
+                    <div class="alert alert-warning small mt-2 mb-0 py-2">
+                        <i class="bi bi-exclamation-triangle"></i> Solo se permitirá si las jornadas a regenerar no tienen partidos con resultados capturados.
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="submit" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Regenerar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Confirmar Acción -->
 <div class="modal fade" id="confirmarAccionModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -194,6 +226,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var accionModal = document.getElementById('confirmarAccionModal');
     var accionBtn = document.getElementById('confirmarAccionBtn');
     var accionMsg = document.getElementById('confirmarAccionMensaje');
+    var regenerarModal = document.getElementById('regenerarModal');
+    var regenerarForm = document.getElementById('regenerarForm');
+    var regenerarJornada = document.getElementById('regenerarJornada');
+
+    if (regenerarModal) {
+        regenerarModal.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            regenerarForm.action = btn.getAttribute('data-url');
+            var max = parseInt(btn.getAttribute('data-max'), 10) || 0;
+            if (regenerarJornada) {
+                regenerarJornada.max = max;
+                regenerarJornada.setAttribute('placeholder', 'Ej: 6 (jornadas 1..' + (max - 1) + ' se conservan)');
+                regenerarJornada.value = '';
+            }
+        });
+        regenerarForm.addEventListener('submit', function(e) {
+            var v = parseInt(regenerarJornada.value, 10);
+            var max = parseInt(regenerarJornada.max, 10) || 0;
+            if (!v || v < 2 || v > max) {
+                e.preventDefault();
+                alert('Indica una jornada entre 2 y ' + max + '.');
+            }
+        });
+    }
 
     if (rolesModal) {
         rolesModal.addEventListener('show.bs.modal', function(event) {

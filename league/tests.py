@@ -467,6 +467,64 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
             set(range(1, 8)),
         )
 
+    def test_regenerar_rol_via_vista(self):
+        """La vista regenerar_rol_temporada pide jornada_inicial por POST,
+        conserva las pasadas y regenera desde X en adelante; sin permiso 403."""
+        cat = Categoria.objects.create(nombre="PrimeraV", dias_juego=["SAB"])
+        campo = Campo.objects.create(nombre="CV", activo=True)
+        eqs = [Equipo.objects.create(nombre=f"U{i:02d}", categoria=cat, activo=True)
+               for i in range(8)]
+        temp = Temporada.objects.create(
+            categoria=cat, nombre="OchoV", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        ids = [e.id for e in eqs]
+        parejas = temp._pairings_robin_una_vuelta(ids)
+        import random as _random
+        pool = list(parejas)
+        _random.Random(2447).shuffle(pool)
+        guardadas = [(l, v, i // 4 + 1) for i, (l, v) in enumerate(pool[:12])]
+        for l, v, jn in guardadas:
+            j, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=j, equipo_local_id=l, equipo_visitante_id=v,
+                campo=campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+            )
+
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        # Primero se generarían las futuras (escenario real: rol ya creado)
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=4)
+        self.assertEqual(temp.jornadas.count(), 7)
+
+        normal = get_user_model().objects.create_user(username="sinpermv", password="p")
+        self.client.force_login(normal)
+        resp = self.client.post(
+            reverse("regenerar_rol_temporada", args=[temp.id]),
+            {"jornada_inicial": 4})
+        self.assertEqual(resp.status_code, 403)
+        self.client.logout()
+
+        admin = get_user_model().objects.create_superuser(username="adminregen", password="p")
+        self.client.force_login(admin)
+        resp2 = self.client.post(
+            reverse("regenerar_rol_temporada", args=[temp.id]),
+            {"jornada_inicial": 4}, follow=True)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(temp.jornadas.count(), 7)
+        self.assertEqual(
+            set(temp.partidos.filter(jornada__numero__lte=3)
+                .values_list("equipo_local_id", "equipo_visitante_id")),
+            set((l, v) for l, v, jn in guardadas),
+        )
+        for j in temp.jornadas.filter(numero__gte=4):
+            self.assertEqual(temp.partidos.filter(jornada=j).count(), 4)
+
 
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):
