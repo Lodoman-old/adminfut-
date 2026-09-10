@@ -151,6 +151,42 @@ body {
   margin: 0.3rem auto;
   font-size: 0.9rem;
 }
+.player-card.compact {
+  padding: 0.5rem;
+  border-radius: 10px;
+}
+.player-card.compact .team-bg { font-size: 50px; }
+.player-card.compact .team-logo-bg { width: 36px; height: 36px; }
+.player-card.compact .player-avatar,
+.player-card.compact .player-avatar-placeholder {
+  width: 42px;
+  height: 42px;
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+.player-card.compact .jersey {
+  width: 30px;
+  height: 40px;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+  border-radius: 6px 6px 0 0;
+}
+.player-card.compact .jersey::after {
+  border-left-width: 15px;
+  border-right-width: 15px;
+  border-top-width: 6px;
+  bottom: -6px;
+}
+.player-card.compact .goal-badge {
+  width: 26px;
+  height: 26px;
+  font-size: 0.7rem;
+  margin: 0.2rem auto;
+}
+.player-card.compact .fw-bold { font-size: 0.75rem !important; line-height: 1.1; }
+.player-card.compact small,
+.player-card.compact .text-white-50 { font-size: 0.65rem !important; }
+.player-card.compact .badge { font-size: 0.6rem; }
 .match-row {
   background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
   border: 1px solid rgba(255,255,255,0.1);
@@ -164,15 +200,8 @@ body {
   align-items: center;
 }
 .proximos-scroll {
-  max-height: 480px;
-  overflow-y: auto;
-  padding-right: 4px;
-  position: relative;
-  z-index: 1;
+  padding-right: 2px;
 }
-.proximos-scroll::-webkit-scrollbar { width: 8px; }
-.proximos-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 4px; }
-.proximos-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.08); border-radius: 4px; }
 .match-row:hover { background: rgba(255,255,255,0.12); transform: translateX(4px); }
 .match-team-col { text-align: center; min-width: 0; }
 .match-team-col strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -497,8 +526,8 @@ body {
             {% if top_goleadores %}
             <div class="row">
               {% for g in top_goleadores %}
-              <div class="col-md-6 col-lg-4 mb-3">
-                <div class="player-card">
+              <div class="col-md-6 col-lg-4 mb-2">
+                <div class="player-card compact">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
@@ -527,8 +556,8 @@ body {
             {% if top_goleadores_finales %}
             <div class="row">
               {% for g in top_goleadores_finales %}
-              <div class="col-md-6 col-lg-4 mb-3">
-                <div class="player-card">
+              <div class="col-md-6 col-lg-4 mb-2">
+                <div class="player-card compact">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
@@ -556,13 +585,9 @@ body {
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- Tarjetas row -->
-<div class="row">
-  <div class="col-md-6 mb-4">
-    <div class="card h-100">
+    <!-- Tarjetas Amarillas -->
+    <div class="card mt-3">
       <div class="card-header bg-warning">
         <i class="bi bi-exclamation-triangle"></i> Tarjetas Amarillas
         <a href="{% url 'tabla_tarjetas' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
@@ -571,8 +596,8 @@ body {
         {% if top_amarillas %}
         <div class="row">
           {% for t in top_amarillas %}
-          <div class="col-md-4 mb-3">
-            <div class="player-card" style="background: linear-gradient(135deg, #3d2a1a, #5a3d2a);">
+          <div class="col-md-4 mb-2">
+            <div class="player-card compact" style="background: linear-gradient(135deg, #3d2a1a, #5a3d2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
@@ -595,9 +620,9 @@ body {
         {% endif %}
       </div>
     </div>
-  </div>
-  <div class="col-md-6 mb-4">
-    <div class="card h-100">
+
+    <!-- Tarjetas Rojas -->
+    <div class="card mt-3">
       <div class="card-header bg-danger text-white">
         <i class="bi bi-x-circle"></i> Tarjetas Rojas
       </div>
@@ -605,8 +630,8 @@ body {
         {% if top_rojas %}
         <div class="row">
           {% for t in top_rojas %}
-          <div class="col-md-4 mb-3">
-            <div class="player-card" style="background: linear-gradient(135deg, #2a1a1a, #5a2a2a);">
+          <div class="col-md-4 mb-2">
+            <div class="player-card compact" style="background: linear-gradient(135deg, #2a1a1a, #5a2a2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
@@ -629,14 +654,10 @@ body {
         {% endif %}
       </div>
     </div>
-  </div>
-</div>
 
-<!-- Castigados row -->
-{% if castigados %}
-<div class="row mb-4">
-  <div class="col-12">
-    <div class="card">
+    {% if castigados %}
+    <!-- Castigados -->
+    <div class="card mt-3">
       <div class="card-header bg-dark text-white">
         <i class="bi bi-lock"></i> Castigados
         <a href="{% url 'tabla_castigados' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
@@ -644,8 +665,8 @@ body {
       <div class="card-body">
         <div class="row">
           {% for t in castigados %}
-          <div class="col-md-3 col-lg-2 mb-3">
-            <div class="player-card" style="background: linear-gradient(135deg, #1a1a1a, #3a2a2a);">
+          <div class="col-6 col-md-4 mb-2">
+            <div class="player-card compact" style="background: linear-gradient(135deg, #1a1a1a, #3a2a2a);">
               {% if t.equipo.logo %}<img src="{{ t.equipo.logo.url }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador.foto %}
               <img src="{{ t.jugador.foto.url }}" class="player-avatar" alt="">
@@ -666,9 +687,9 @@ body {
         </div>
       </div>
     </div>
+    {% endif %}
   </div>
 </div>
-{% endif %}
 
 {% else %}
 <div class="alert alert-warning text-center">

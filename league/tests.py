@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, time
 
 from django.test import TestCase, Client
 from django.utils import timezone
+from django.core.management import call_command
 
 from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
@@ -404,6 +405,67 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
                 if e not in ids_j:
                     descansos[e] += 1
         self.assertEqual(set(descansos.values()), {1})
+
+    def test_regenerar_desde_conserva_pasadas_y_rehace_desde_x(self):
+        """El comando regenerar_desde borra solo jornadas >= X y conserva las
+        capturadas a mano; el optimizador completa las futuras en rondas exactas
+        aunque el greedy (orden de captura en el wizard) deje rondas cortas."""
+        cat = Categoria.objects.create(nombre="Primera", dias_juego=["SAB"])
+        campo = Campo.objects.create(nombre="C", activo=True)
+        eqs = [Equipo.objects.create(nombre=f"T{i:02d}", categoria=cat, activo=True)
+               for i in range(8)]
+        temp = Temporada.objects.create(
+            categoria=cat, nombre="OchoR", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        ids = [e.id for e in eqs]
+        parejas = temp._pairings_robin_una_vuelta(ids)
+        # Secuencia 2447: el residual es empaquetable en 4x4 pero el greedy
+        # (por el orden de captura del wizard) dejaría 6 rondas -> 9 jornadas.
+        import random as _random
+        pool = list(parejas)
+        _random.Random(2447).shuffle(pool)
+        guardadas = [
+            (l, v, i // 4 + 1)
+            for i, (l, v) in enumerate(pool[:12])
+        ]
+        for l, v, jn in guardadas:
+            j, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=j, equipo_local_id=l, equipo_visitante_id=v,
+                campo=campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+            )
+
+        # El greedy por sí solo dejaría 6 rondas (simulación del algoritmo viejo),
+        # pero el optimizador exhaustivo ya empaqueta en 4x4 -> 7 jornadas.
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=4)
+        self.assertEqual(temp.jornadas.count(), 7)
+
+        call_command("regenerar_desde", temporada=temp.id, jornada_inicial=4,
+                     force=True, verbosity=0)
+
+        self.assertEqual(temp.jornadas.count(), 7)
+        # Las 3 primeras conservan exactamente las parejas capturadas
+        capturadas_actual = sorted(
+            temp.partidos.filter(jornada__numero__lte=3)
+            .values_list("equipo_local_id", "equipo_visitante_id"))
+        self.assertEqual(
+            capturadas_actual,
+            sorted((l, v) for l, v, jn in guardadas),
+        )
+        # Futuras completas de 4
+        for j in temp.jornadas.filter(numero__gte=4):
+            self.assertEqual(
+                temp.partidos.filter(jornada=j).count(), 4)
+        self.assertEqual(
+            set(Partido.objects.filter(temporada=temp)
+                .values_list("jornada__numero", flat=True)),
+            set(range(1, 8)),
+        )
 
 
 class LimiteCambiosTest(TestCase):
