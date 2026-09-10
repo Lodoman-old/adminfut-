@@ -62,6 +62,7 @@ def home(request):
 
     # Próximos partidos: solo de la jornada activa (la primera con partidos pendientes)
     from league.models import Jornada
+    equipo_descansa = None
     proximos_amistosos = Partido.objects.filter(
         es_amistoso=True, estado="PEND"
     ).select_related(
@@ -81,8 +82,20 @@ def home(request):
             ).select_related(
                 "equipo_local", "equipo_visitante", "campo", "jornada"
             ).order_by("fecha_hora")
+            ids_juegan = set(
+                proximos_liga.values_list("equipo_local_id", flat=True)
+            ) | set(
+                proximos_liga.values_list("equipo_visitante_id", flat=True)
+            )
+            todos_ids = set(
+                Equipo.objects.filter(categoria=categoria_sel, activo=True)
+                .values_list("id", flat=True)
+            )
+            descansan_ids = todos_ids - ids_juegan
+            equipo_descansa = Equipo.objects.filter(id__in=descansan_ids) if descansan_ids else None
         else:
             proximos_liga = []
+            equipo_descansa = None
         proximos = sorted(
             list(proximos_liga) + list(proximos_amistosos),
             key=lambda p: p.fecha_hora or timezone.datetime.min
@@ -245,6 +258,7 @@ def home(request):
         "categoria_sel": categoria_sel,
         "finanzas_visible": finanzas_visible,
         "ingresos_data": ingresos_data,
+        "equipo_descansa": equipo_descansa,
     })
 
 def change_server(request):

@@ -421,6 +421,13 @@ body {
         </div>
         {% endfor %}
         </div>
+        {% if equipo_descansa %}
+        <div class="text-center mt-2 mb-1">
+          {% for eq in equipo_descansa %}
+          <span class="badge bg-secondary"><i class="bi bi-moon"></i> {{ eq.nombre }} descansa</span>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% else %}
         <p class="text-muted text-center my-3">No hay partidos programados.</p>
         {% endif %}
