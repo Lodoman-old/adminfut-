@@ -527,7 +527,7 @@ body {
             <div class="row">
               {% for g in top_goleadores %}
               <div class="col-md-6 col-lg-4 mb-2">
-                <div class="player-card compact">
+                <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
@@ -557,7 +557,7 @@ body {
             <div class="row">
               {% for g in top_goleadores_finales %}
               <div class="col-md-6 col-lg-4 mb-2">
-                <div class="player-card compact">
+                <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
