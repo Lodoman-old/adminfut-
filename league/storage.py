@@ -7,6 +7,7 @@ quedaron en una nube anterior (la de MEDIA_URL). Este storage genera la URL y,
 si el archivo no existe en la nube principal, devuelve la URL de la nube
 alternativa. El resultado se cachea en memoria para no repetir peticiones HEAD.
 """
+import os
 import threading
 import urllib.request
 
@@ -70,7 +71,7 @@ def url_para_nombre(nombre):
     """
     if not nombre:
         return ""
-    if getattr(settings, "CLOUDINARY_URL", None):
+    if getattr(settings, "CLOUDINARY_URL", None) or os.environ.get("CLOUDINARY_URL"):
         try:
             from django.core.files.storage import default_storage
             return default_storage.url(nombre)
