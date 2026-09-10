@@ -23,8 +23,8 @@
             <div class="row align-items-center g-2">
                 <div class="col-auto"><strong><i class="bi bi-person-badge"></i> Árbitro:</strong></div>
                 <div class="col">
-                    <select name="arbitro" id="arbitroSelect" class="form-select" required>
-                        <option value="">Seleccionar árbitro...</option>
+                    <select name="arbitro" id="arbitroSelect" class="form-select">
+                        <option value="">Sin árbitro / Seleccionar...</option>
                         {% for a in arbitros %}
                         <option value="{{ a.id }}" {% if partido.arbitro_id == a.id %}selected{% endif %}>{{ a.nombre_completo }}</option>
                         {% endfor %}

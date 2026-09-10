@@ -4,7 +4,8 @@ from django.test import TestCase, Client
 from django.utils import timezone
 from django.core.management import call_command
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro
+from .cedula_service import procesar_cedula
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
 from .views import _hora_por_defecto_partido
 
@@ -629,6 +630,60 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
         )
         for j in temp.jornadas.filter(numero__gte=4):
             self.assertEqual(temp.partidos.filter(jornada=j).count(), 4)
+
+
+class ArbitroOpcionalTest(TestCase):
+    """Los roles se generan con el árbitro en blanco (sin asignación
+    automática) y la cédula no lo exige, pero lo guarda si se elige."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="ArbOpCat", dias_juego=["SAB"])
+        self.campo = Campo.objects.create(nombre="CampoArb", activo=True)
+        self.arb = Arbitro.objects.create(nombre="Ref", apellido="Uno", activo=True)
+        self.eqs = [Equipo.objects.create(nombre=f"T{i:02d}", categoria=self.cat, activo=True)
+                    for i in range(6)]
+
+    def test_generar_rol_deja_arbitro_en_blanco(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbBlanco", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        temp.generar_rol()
+        partidos = Partido.objects.filter(temporada=temp)
+        self.assertTrue(partidos.exists())
+        self.assertFalse(partidos.exclude(arbitro__isnull=True).exists())
+
+    def test_cedula_sin_arbitro_guarda_y_finaliza(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbCedula", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        r = procesar_cedula(partido, {"arbitro": "", "finalizar": "1"}, None)
+        self.assertTrue(r["ok"], r["errors"])
+        self.assertTrue(r["finalizado"])
+        partido.refresh_from_db()
+        self.assertEqual(partido.estado, "FIN")
+        self.assertIsNone(partido.arbitro_id)
+
+    def test_cedula_guarda_arbitro_cuando_se_elige(self):
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbEleccion", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        r = procesar_cedula(partido, {"arbitro": str(self.arb.id), "finalizar": "1"}, None)
+        self.assertTrue(r["ok"], r["errors"])
+        partido.refresh_from_db()
+        self.assertEqual(partido.arbitro_id, self.arb.id)
 
 
 class LimiteCambiosTest(TestCase):

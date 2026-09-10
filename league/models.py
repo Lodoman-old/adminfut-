@@ -729,7 +729,6 @@ class Temporada(models.Model):
                 )
 
         self.actualizar_fecha_fin()
-        self._asignar_arbitros_temporada()
 
     def _pairings_robin_una_vuelta(self, equipos_ids):
         """Devuelve la lista de enfrentamientos (local_id, visit_id) de una vuelta
@@ -1149,7 +1148,6 @@ class Temporada(models.Model):
             idx += 1
 
         self.actualizar_fecha_fin()
-        self._asignar_arbitros_temporada()
 
     def _elegir_campo_libre(self, local, visit, fecha_hora, todas_campos,
                             ocupados_externos, nuevos_ocupados, team_uso_campo):
@@ -1360,50 +1358,6 @@ class Temporada(models.Model):
                 gc_directo[p.equipo_visitante_id] += p.goles_local
         grupo.sort(key=lambda t: (pts_directo[t["equipo"].id], gf_directo[t["equipo"].id] - gc_directo[t["equipo"].id], gf_directo[t["equipo"].id]), reverse=True)
         return grupo
-
-    def _asignar_arbitros_temporada(self):
-        """Asigna árbitros activos a todos los partidos de la temporada que no tengan árbitro.
-        Distribuye equitativamente: mismo árbitro no se repite en el mismo horario del mismo día,
-        y se prefiere mantener el mismo árbitro en el mismo campo durante la misma fecha."""
-        from .models import Arbitro
-        arbitros = list(Arbitro.objects.filter(activo=True))
-        if not arbitros:
-            return
-        partidos = list(Partido.objects.filter(temporada=self, arbitro__isnull=True).order_by("fecha_hora"))
-        if not partidos:
-            return
-        total_asignaciones = {a.id: Partido.objects.filter(temporada=self, arbitro=a).count() for a in arbitros}
-        ocupados = {}
-        campo_ref = {}
-        for p in partidos:
-            if not p.fecha_hora:
-                continue
-            fecha = p.fecha_hora.date()
-            time_key = p.fecha_hora.time().strftime("%H:%M")
-            ocupados.setdefault(fecha, {})
-            campo_ref.setdefault(fecha, {})
-            fa = ocupados[fecha]
-            ca = campo_ref[fecha]
-            preferred = ca.get(p.campo_id) if p.campo else None
-            if preferred and preferred not in fa.get(time_key, set()):
-                p.arbitro_id = preferred
-                total_asignaciones[preferred] += 1
-                fa.setdefault(time_key, set()).add(preferred)
-                p.save(update_fields=["arbitro_id"])
-                continue
-            disponibles = sorted(
-                [a for a in arbitros if a.id not in fa.get(time_key, set())],
-                key=lambda a: total_asignaciones[a.id]
-            )
-            if not disponibles:
-                continue
-            elegido = disponibles[0]
-            p.arbitro_id = elegido.id
-            total_asignaciones[elegido.id] += 1
-            fa.setdefault(time_key, set()).add(elegido.id)
-            if p.campo:
-                ca[p.campo_id] = elegido.id
-            p.save(update_fields=["arbitro_id"])
 
     def _crear_partido_liguilla(self, jornada, local, visit, todas_campos, idx, num_campos, horarios_cycle, fecha_base, leg=1):
         """Crea un partido de liguilla."""
@@ -1628,7 +1582,6 @@ class Temporada(models.Model):
                     # Un solo partido: mejor posicionado es local
                     self._crear_partido_liguilla(jornada, mejor, peor, todas_campos, i, num_campos, horarios_cycle, fecha_base)
 
-        self._asignar_arbitros_temporada()
         self.actualizar_fecha_fin()
 
     def _ganadores_ronda(self, partidos_qs):

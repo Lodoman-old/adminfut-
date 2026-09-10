@@ -16,10 +16,7 @@ def procesar_cedula(partido, post_data, user):
         errors.append("No tienes permiso para modificar un partido finalizado.")
         return {"ok": False, "errors": errors, "warnings": warnings, "finalizado": False}
 
-    arbitro_id = post_data.get("arbitro")
-    if not arbitro_id:
-        errors.append("Debes seleccionar un árbitro para guardar la cédula.")
-        return {"ok": False, "errors": errors, "warnings": warnings, "finalizado": False}
+    arbitro_id = post_data.get("arbitro") or None
 
     default_local = post_data.get("defaultLocalCheck") == "on"
     default_visit = post_data.get("defaultVisitCheck") == "on"
@@ -204,7 +201,8 @@ def procesar_cedula(partido, post_data, user):
             motivo_default="",
         )
 
-    Partido.objects.filter(pk=partido.pk).update(arbitro_id=arbitro_id)
+    if arbitro_id:
+        Partido.objects.filter(pk=partido.pk).update(arbitro_id=arbitro_id)
     finalizado = False
     if post_data.get("finalizar") == "1" and not (default_forzado_local or default_forzado_visit):
         Partido.objects.filter(pk=partido.pk).update(estado="FIN")
