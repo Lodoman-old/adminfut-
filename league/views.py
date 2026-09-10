@@ -1942,7 +1942,9 @@ def iniciar_temporada_jornadas_pasadas(request, pk):
 
                 gl = int(env_gl[i]) if (env_gl[i] and env_gl[i].strip()) else None
                 gv = int(env_gv[i]) if (env_gv[i] and env_gv[i].strip()) else None
-                finalizar = (env_finalizar[i].strip() == "1") if env_finalizar[i] else False
+                finalizar = (
+                    len(env_finalizar) > i and env_finalizar[i] and env_finalizar[i].strip() == "1"
+                )
 
                 # Crear/obtener la jornada
                 jornada, _ = Jornada.objects.get_or_create(

@@ -117,7 +117,10 @@
                             <td><input type="time" name="hora" class="form-control form-control-sm"></td>
                             <td><input type="number" name="gl" class="form-control form-control-sm" min="0" placeholder="0"></td>
                             <td><input type="number" name="gv" class="form-control form-control-sm" min="0" placeholder="0"></td>
-                            <td class="text-center"><input type="checkbox" name="finalizar" value="1" class="form-check-input chk-finalizar"></td>
+                            <td class="text-center">
+                                <input type="hidden" name="finalizar" value="" class="finalizar-mirror">
+                                <input type="checkbox" value="1" class="form-check-input chk-finalizar">
+                            </td>
                             <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-fila"><i class="bi bi-x"></i></button></td>
                         </tr>
                     </tbody>
@@ -173,6 +176,16 @@ document.addEventListener('DOMContentLoaded', function() {
             var filas = tabla.querySelectorAll('tr.partido-fila');
             if (filas.length > 1) {
                 e.target.closest('tr').remove();
+            }
+        }
+    });
+
+    tabla.addEventListener('change', function(e) {
+        var chk = e.target.closest('.chk-finalizar');
+        if (chk) {
+            var mirror = chk.closest('tr').querySelector('input.finalizar-mirror');
+            if (mirror) {
+                mirror.value = chk.checked ? '1' : '';
             }
         }
     });
