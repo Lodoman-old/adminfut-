@@ -358,6 +358,53 @@ class RolDespuesDeVueltaCompletaTest(TestCase):
         for p in futuras:
             self.assertGreater(p.fecha_hora.date(), fecha2)
 
+    def test_11_equipos_pasadas_parciales_rondas_completas_y_un_descanso(self):
+        """11 equipos vueltas=1, capturadas 5 jornadas (orden arbitrario). El
+        optimizador exhaustivo debe encontrar 6 rondas completas de 5, dando
+        exactamente 11 jornadas con un descanso por equipo (una vuelta)."""
+        cat = Categoria.objects.create(nombre="Primera", dias_juego=["SAB"])
+        campo = Campo.objects.create(nombre="C", activo=True)
+        eqs = [Equipo.objects.create(nombre=f"T{i:02d}", categoria=cat, activo=True)
+               for i in range(11)]
+        temp = Temporada.objects.create(
+            categoria=cat, nombre="OnceR", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        ids = [e.id for e in eqs]
+        parejas = temp._pairings_robin_una_vuelta(ids)
+        self.assertEqual(len(parejas), 55)
+        for i, (l, v) in enumerate(parejas[:25]):
+            jn = i // 5 + 1
+            j, _ = Jornada.objects.get_or_create(
+                temporada=temp, numero=jn,
+                defaults={"nombre": f"Jornada {jn}"},
+            )
+            Partido.objects.create(
+                temporada=temp, jornada=j, equipo_local_id=l, equipo_visitante_id=v,
+                campo=campo, estado="PEND",
+                fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+            )
+
+        temp.generar_rol_respaldando_pasadas(jornada_inicial=6)
+
+        self.assertEqual(temp.partidos.count(), 55)
+        nums = sorted(temp.jornadas.values_list("numero", flat=True))
+        self.assertEqual(nums, list(range(1, 12)))
+        for j in temp.jornadas.filter(numero__gte=6):
+            self.assertEqual(
+                temp.partidos.filter(jornada=j).count(), 5,
+                f"jornada {j.numero} debe ser completa")
+
+        from collections import Counter
+        descansos = Counter()
+        for j in temp.jornadas.order_by("numero"):
+            pjs = temp.partidos.filter(jornada=j)
+            ids_j = set(pjs.values_list("equipo_local_id", flat=True)) | set(pjs.values_list("equipo_visitante_id", flat=True))
+            for e in ids:
+                if e not in ids_j:
+                    descansos[e] += 1
+        self.assertEqual(set(descansos.values()), {1})
+
 
 class LimiteCambiosTest(TestCase):
     def test_limite_cambios_efectivo(self):

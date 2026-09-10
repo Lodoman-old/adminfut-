@@ -870,10 +870,12 @@ class Temporada(models.Model):
                     total.append((l, v, grupo_letra))
             return total
 
-        def _asignar_jornadas(parejas):
-            """Greedy: arma rondas respetando que cada equipo juegue una vez por ronda,
-            reiniciando el barrido tras cada emparejamiento para empaquetar rondas
-            completas (evita jornadas cortas por una sola pasada)."""
+        def _asignar_jornadas(parejas, tam_ronda=None):
+            """Arma rondas respetando que cada equipo juegue una vez por ronda.
+            Primero el greedy reiniciando el barrido; si deja rondas cortas pero
+            existe un empaquetado exacto (todo en rondas completas), lo busca con
+            búsqueda exhaustiva acotada (necesario cuando las jornadas pasadas se
+            capturaron a mano en distinto orden al del algoritmo)."""
             rondas = []
             disponibles = list(parejas)
             while disponibles:
@@ -895,7 +897,75 @@ class Temporada(models.Model):
                 if not ronda:
                     break
                 rondas.append(ronda)
-            return rondas
+            if tam_ronda is None:
+                return rondas
+            n = len(parejas)
+            if n % tam_ronda != 0 or len(rondas) <= n // tam_ronda:
+                return rondas
+            opt = _buscar_rondas_completas(list(parejas), tam_ronda)
+            return opt if opt is not None else rondas
+
+        def _buscar_rondas_completas(parejas, tam_ronda):
+            """Busca (acotada en tiempo/nodos) un empaquetado en rondas COMPLETAS.
+            Retorna None si no lo encuentra (se usa el greedy)."""
+            import time as _t
+            algo = {}
+            for l, v, g in parejas:
+                algo[frozenset((l, v))] = (l, v, g)
+            aristas = list(algo.keys())
+            grados = Counter()
+            for e in aristas:
+                l, v = tuple(e)
+                grados[l] += 1
+                grados[v] += 1
+            objetivo = len(parejas) // tam_ronda
+            inico = _t.time()
+            presupuesto = [45000]
+            resultado = []
+            fallidos = set()
+
+            def emparejamientos(rem):
+                reml = sorted(rem, key=lambda e: -(grados[tuple(e)[0]] + grados[tuple(e)[1]]))
+                def rec(i, usados, sel):
+                    if len(sel) == tam_ronda:
+                        yield tuple(sel)
+                        return
+                    for j in range(i, len(reml)):
+                        e = reml[j]
+                        a, b = tuple(e)
+                        if a in usados or b in usados:
+                            continue
+                        usados.add(a); usados.add(b); sel.append(e)
+                        yield from rec(j + 1, usados, sel)
+                        sel.pop(); usados.discard(a); usados.discard(b)
+                yield from rec(0, set(), [])
+
+            def buscar(rem, faltan, acum):
+                if resultado:
+                    return
+                if _t.time() - inico > 8:
+                    return
+                if not rem:
+                    resultado.extend(acum)
+                    return
+                if faltan == 0 or len(rem) < tam_ronda * faltan:
+                    return
+                clave = (frozenset(rem), faltan)
+                if clave in fallidos:
+                    return
+                for m in emparejamientos(rem):
+                    presupuesto[0] -= 1
+                    if presupuesto[0] <= 0:
+                        return
+                    buscar(rem.difference(m), faltan - 1, acum + [tuple(m)])
+                    if resultado:
+                        return
+                fallidos.add(clave)
+
+            buscar(frozenset(aristas), objetivo, [])
+            if not resultado:
+                return None
+            return [[algo[e] for e in r] for r in resultado]
 
         if self.tipo_rol == "GRUPOS" and self.num_grupos >= 2:
             # Cada grupo acomoda sus parejas en rondas y luego se intercalan entre grupos.
@@ -914,7 +984,7 @@ class Temporada(models.Model):
         else:
             eqs_ids = equipos_por_grupo[""]
             parejas = _generar_apareamientos_por_vueltas(eqs_ids, "")
-            jornadas_futuras = _asignar_jornadas(parejas)
+            jornadas_futuras = _asignar_jornadas(parejas, tam_ronda=self.partidos_por_jornada())
 
         # --- Crear jornadas futuras y asignar campo/hora evitando choques ---
         # El cursor arranca el día posterior a la última jornada ya registrada
