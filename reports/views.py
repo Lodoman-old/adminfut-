@@ -1471,10 +1471,10 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     response["Content-Disposition"] = f"attachment; filename=cedula_arbitral_{partido_id}.pdf"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
-    col_widths = [13, 150, 21, 21, 21, 17, 17, 23]
+    col_widths = [12, 165, 20, 20, 20, 16, 16, 22]
     hdr = ["#", "Jugador", "Tit", "Camb", "Gol", "A1", "A2", "Roja"]
-    row_h = 9
-    franja_h = 16
+    row_h = 12
+    franja_h = 18
     table_w = sum(col_widths)
     gap = 7
     left_x = (w - (2 * table_w + gap)) // 2
@@ -1492,28 +1492,28 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
             try:
-                p.drawImage(logo_src, x0, h - 52, width=38, height=38, preserveAspectRatio=True)
+                p.drawImage(logo_src, x0, h - 50, width=34, height=34, preserveAspectRatio=True)
             except Exception:
                 logo_src = None
-        x_text = x0 + (46 if logo_src else 0)
-        y0 = h - 18
+        x_text = x0 + (42 if logo_src else 0)
+        y0 = h - 22
         p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
-        p.setFont("Helvetica-Bold", 11)
-        p.drawRightString(w - x0, y0, "CÉDULA ARBITRAL")
-        y1 = y0 - 16
         p.setFont("Helvetica-Bold", 10)
+        p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
+        p.setFont("Helvetica-Bold", 12)
+        p.drawRightString(w - x0, y0, "CÉDULA ARBITRAL")
+        y1 = y0 - 21
+        p.setFont("Helvetica-Bold", 11)
         p.drawCentredString(w / 2, y1, f"{partido.equipo_local.nombre} vs {partido.equipo_visitante.nombre}")
-        y2 = y1 - 14
-        p.setFont("Helvetica", 7)
+        y2 = y1 - 18
+        p.setFont("Helvetica", 8.5)
         p.drawString(x0, y2, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
         p.drawCentredString(w / 2, y2, f"Campo: {partido.campo.nombre if partido.campo else 'Por definir'}")
         if partido.arbitro:
             p.drawRightString(w - x0, y2, f"Árbitro: {partido.arbitro.nombre_completo()}")
         else:
             p.drawRightString(w - x0, y2, "Árbitro: __________________________")
-        return y2 - 13
+        return y2 - 15
 
     table_top = cabecera_pagina()
 
@@ -1530,29 +1530,34 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(equipo.logo)
             if logo_src:
                 try:
-                    p.drawImage(logo_src, x_start + 4, y - franja_h + 1.5, width=13, height=13, preserveAspectRatio=True)
+                    p.drawImage(logo_src, x_start + 4, y - franja_h + 1.5, width=15, height=15, preserveAspectRatio=True)
                 except Exception:
                     pass
         p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 8)
-        p.drawCentredString(x_start + (table_w + 12) / 2, y - franja_h + 4.5, f"{titulo} - {equipo.nombre}")
+        p.setFont("Helvetica-Bold", 9)
+        p.drawCentredString(x_start + (table_w + 12) / 2, y - franja_h + 5, f"{titulo} - {equipo.nombre}")
 
     def dibuja_cabecera_columnas(x_start, y):
-        p.setFont("Helvetica-Bold", 6.5)
+        p.setFont("Helvetica-Bold", 7.5)
         x = x_start
         for i, txt in enumerate(hdr):
             p.setFillColor(colors.white)
             p.rect(x, y - row_h, col_widths[i], row_h, fill=1, stroke=1)
             p.setFillColor(colors.black)
-            p.drawCentredString(x + col_widths[i] / 2, y - row_h + 2.5, txt)
+            p.drawCentredString(x + col_widths[i] / 2, y - row_h + 3, txt)
             x += col_widths[i]
 
+    def nombre_linea(j):
+        full = f"{j.nombre} {j.apellido}"
+        if p.stringWidth(full, "Helvetica", 7.5) <= col_widths[1] - 6:
+            return full
+        name = full
+        while name and p.stringWidth(name + "…", "Helvetica", 7.5) > col_widths[1] - 6:
+            name = name[:-1]
+        return name + "…"
+
     def rh_para(j):
-        if j is None:
-            return row_h
-        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 7, col_widths[1] - 6)
-        n = min(len(lineas), 3)
-        return row_h + 7 * (n - 1)
+        return row_h
 
     def dibuja_fila(j, x_start, y, rh, idx):
         x = x_start
@@ -1588,27 +1593,21 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             row_color = colors.HexColor("#f0f0f0") if idx % 2 == 0 else colors.white
             sufijo = ""
             estado_color = colors.black
-        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 7, col_widths[1] - 6)
-        if len(lineas) > 3:
-            lineas = lineas[:3]
-        n_lineas = len(lineas)
         for i, txt in enumerate(datos):
             p.setFillColor(row_color)
             p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
             if i == 1:
                 p.setFillColor(estado_color)
-                p.setFont("Helvetica", 7)
+                p.setFont("Helvetica", 7.5)
                 centre_x = x + col_widths[1] / 2
-                for k, linea in enumerate(lineas):
-                    linea_txt = linea + sufijo if k == n_lineas - 1 else linea
-                    base = y - rh + 2.5 + 7 * ((n_lineas - 1) - k)
-                    p.drawCentredString(centre_x, base, linea_txt)
-                    if sufijo == " (S)":
-                        tw = p.stringWidth(linea_txt, "Helvetica", 7)
-                        p.line(centre_x - tw / 2, base + 4, centre_x + tw / 2, base + 4)
+                linea_txt = nombre_linea(j) + sufijo
+                p.drawCentredString(centre_x, y - rh + 3, linea_txt)
+                if sufijo == " (S)":
+                    tw = p.stringWidth(linea_txt, "Helvetica", 7.5)
+                    p.line(centre_x - tw / 2, y - rh + 4.5, centre_x + tw / 2, y - rh + 4.5)
             else:
                 p.setFillColor(colors.black)
-                p.setFont("Helvetica", 7)
+                p.setFont("Helvetica", 8)
                 p.drawCentredString(x + col_widths[i] / 2, y - rh + 2.5, txt)
             p.setFillColor(colors.black)
             x += col_widths[i]
@@ -1642,20 +1641,20 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 50
-    if footer_y < 140:
-        footer_y = 140
+    footer_y = y_final - 55
+    if footer_y < 160:
+        footer_y = 160
     p.setFillColor(colors.black)
-    p.setFont("Helvetica", 9)
+    p.setFont("Helvetica", 10)
     gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
     gol_visit = str(partido.goles_visitante) if partido.estado == "FIN" else "___________________"
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
-    p.drawString(left_x, footer_y - 24, "Capitan equipo local: ___________________")
-    p.drawString(left_x, footer_y - 48, "Firma: ___________________")
+    p.drawString(left_x, footer_y - 26, "Capitan equipo local: ___________________")
+    p.drawString(left_x, footer_y - 52, "Firma: ___________________")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
-    p.drawString(right_x, footer_y - 24, "Capitan equipo visitante: ___________________")
-    p.drawString(right_x, footer_y - 48, "Firma: ___________________")
-    p.drawCentredString(w / 2, footer_y - 72, "Firma del árbitro: _____________________________________")
+    p.drawString(right_x, footer_y - 26, "Capitan equipo visitante: ___________________")
+    p.drawString(right_x, footer_y - 52, "Firma: ___________________")
+    p.drawCentredString(w / 2, footer_y - 78, "Firma del árbitro: _____________________________________")
 
     draw_footer(p, w, h, 14)
 
