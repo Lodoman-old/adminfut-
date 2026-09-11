@@ -1690,3 +1690,36 @@ class FotoJugadorTest(TestCase):
         self.assertRedirects(r, "/jugadores/")
         self.j_sin_foto.refresh_from_db()
         self.assertFalse(self.j_sin_foto.foto)
+
+
+class ImagenRolDashboardTest(TestCase):
+    """El generador de imagen 'Próximos partidos' (todas las categorías)
+    produce un PNG válido incluso sin logos."""
+
+    def _secciones(self):
+        return [{
+            "categoria": "Primera",
+            "temporada": "Torneo 2026",
+            "jornada": "Jornada 3",
+            "partidos": [{
+                "local": "Equipo Local",
+                "visitante": "Equipo Visita",
+                "campo": "Cancha Norte",
+                "fecha": "15/09 18:00",
+                "logo_local": None,
+                "logo_visitante": None,
+            }],
+            "descansan": ["Equipo Descansa"],
+        }]
+
+    def test_genera_png_valido(self):
+        from league.social_image import generar_imagen_rol_dashboard
+        buf = generar_imagen_rol_dashboard(self._secciones(), "11/09/2026 12:00")
+        data = buf.getvalue()
+        self.assertTrue(data.startswith(b"\x89PNG"))
+        self.assertGreater(len(data), 1000)
+
+    def test_sin_secciones_produce_imagen(self):
+        from league.social_image import generar_imagen_rol_dashboard
+        buf = generar_imagen_rol_dashboard([], "11/09/2026 12:00")
+        self.assertTrue(buf.getvalue().startswith(b"\x89PNG"))

@@ -3932,48 +3932,66 @@ def gestionar_indisponibilidad(request):
 
 def publicar_rol_facebook(request, temporada_id):
     from django.utils import timezone
-    temporada = get_object_or_404(Temporada, pk=temporada_id)
+    # No se usa temporada_id: se publican los próximos partidos de todas las categorías.
     ahora = timezone.localtime()
     ahora_str = ahora.strftime("%d/%m/%Y %H:%M")
-    jornadas_qs = Jornada.objects.filter(temporada=temporada).order_by("numero")
 
-    jornadas_data = []
-    for j in jornadas_qs:
-        partidos_qs = Partido.objects.filter(jornada=j).select_related(
+    from .social_image import generar_imagen_rol_dashboard, _cargar_logo
+    from .social import publicar_imagen_en_facebook
+
+    secciones = []
+    for cat in Categoria.objects.filter(activo=True).order_by("nombre"):
+        temp_activa = Temporada.objects.filter(categoria=cat, activa=True).first()
+        if not temp_activa:
+            continue
+        jornada = (
+            Jornada.objects.filter(temporada=temp_activa, partidos__estado="PEND")
+            .distinct()
+            .order_by("numero")
+            .first()
+        )
+        if not jornada:
+            continue
+        partidos_qs = Partido.objects.filter(
+            temporada=temp_activa, jornada=jornada, estado="PEND"
+        ).select_related(
             "equipo_local", "equipo_visitante", "campo"
         ).order_by("fecha_hora")
         if not partidos_qs:
             continue
+
+        ids_juegan = set(partidos_qs.values_list("equipo_local_id", flat=True)) | set(
+            partidos_qs.values_list("equipo_visitante_id", flat=True)
+        )
+        todos_ids = set(
+            Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
+        )
+        descansan_ids = todos_ids - ids_juegan
+        descansan = (
+            list(Equipo.objects.filter(id__in=descansan_ids).order_by("nombre").values_list("nombre", flat=True))
+            if descansan_ids else []
+        )
+
         partidos_data = []
         for p in partidos_qs:
-            d = {
+            partidos_data.append({
                 "local": p.equipo_local.nombre,
                 "visitante": p.equipo_visitante.nombre,
                 "campo": p.campo.nombre if p.campo else "",
                 "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m %H:%M") if p.fecha_hora else "Pendiente",
-                "is_fin": p.estado == "FIN",
-                "susp": p.estado == "SUSP",
-            }
-            if p.estado == "FIN":
-                gl, gv = p.goles_local, p.goles_visitante
-                d["marcador"] = f"{gl}\u2013{gv}"
-                d["local_win"] = gl > gv
-                d["vis_win"] = gv > gl
-            else:
-                d["marcador"] = "vs"
-                d["local_win"] = False
-                d["vis_win"] = False
-            partidos_data.append(d)
-        jornadas_data.append({
-            "nombre": j.nombre,
+                "logo_local": _cargar_logo(p.equipo_local.logo),
+                "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
+            })
+        secciones.append({
+            "categoria": cat.nombre,
+            "temporada": temp_activa.nombre,
+            "jornada": jornada.nombre,
             "partidos": partidos_data,
-            "descansan": [eq.nombre for eq in temporada.equipos_descansan(j)],
+            "descansan": descansan,
         })
 
-    from .social_image import generar_imagen_rol
-    from .social import publicar_imagen_en_facebook
-    imagen = generar_imagen_rol(temporada.nombre, jornadas_data, ahora_str)
-    caption = f"\U0001f4cb Rol de Juegos - {temporada.nombre}\n#FutbolLiga"
+    imagen = generar_imagen_rol_dashboard(secciones, ahora_str)
+    caption = "\U0001f4cb Próximos partidos - Todas las categorías\n#FutbolLiga"
     publicar_imagen_en_facebook(imagen, caption, request)
     return redirect(request.META.get("HTTP_REFERER", "home"))
 

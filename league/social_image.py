@@ -20,6 +20,7 @@ COLOR_ROW_ALT = "#f2f7f1"
 COLOR_BORDER = "#d0d0d0"
 COLOR_TEXT = "#222222"
 COLOR_TEXT_LIGHT = "#666666"
+COLOR_EQUIPO_SIN_LOGO = "#b8b8b8"
 
 WIDTH = 600
 MARGIN = 24
@@ -393,6 +394,149 @@ def generar_imagen_rol(
     if y > max_h:
         ratio = max_h / y
         new_w = int(ROL_WIDTH * ratio)
+        img = img.resize((new_w, max_h), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True, compress_level=9)
+    buf.seek(0)
+    return buf
+
+
+def _cargar_logo(filefield):
+    """Devuelve una imagen PIL RGBA del logo (archivo local o Cloudinary) o None."""
+    if not filefield:
+        return None
+    try:
+        path = filefield.path
+        if os.path.exists(path):
+            return Image.open(path).convert("RGBA")
+    except NotImplementedError:
+        pass
+    try:
+        import requests
+        r = requests.get(filefield.url, timeout=10)
+        if r.status_code == 200 and r.content:
+            return Image.open(io.BytesIO(r.content)).convert("RGBA")
+    except Exception:
+        pass
+    return None
+
+
+def generar_imagen_rol_dashboard(secciones, ahora_str):
+    """Imagen 'Próximos partidos' estilo dashboard con todas las categorías."""
+    W = 900
+    M = 20
+    ops = []
+    y = 20
+
+    def T(x, y, txt, fill, font):
+        ops.append(("text", x, y, txt, fill, font))
+
+    def R(x1, y1, x2, y2, fill, r=4):
+        ops.append(("rect", x1, y1, x2, y2, fill, r))
+
+    fnt_title = _font(24, bold=True)
+    T(M, y, "\U0001f4cb  PRÓXIMOS PARTIDOS", COLOR_GREEN, fnt_title)
+    y += _th(fnt_title) + 2
+    fnt_sub = _font(13)
+    T(M, y, "Todas las categorías  ·  Jornadas en curso", COLOR_TEXT_LIGHT, fnt_sub)
+    y += _th(fnt_sub) + 16
+
+    if not secciones:
+        fnt_none = _font(14)
+        T(M, y, "No hay partidos programados.", COLOR_TEXT_LIGHT, fnt_none)
+        y += _th(fnt_none) + 10
+
+    fnt_sec = _font(15, bold=True)
+    fnt_eq = _font(12, bold=True)
+    fnt_centro = _font(10)
+    fnt_vs = _font(14, bold=True)
+    row_h = 68
+    col_w = 300
+
+    for sec in secciones:
+        cab = f"\u26bd  {sec['categoria'].upper()}  ·  {sec['temporada'].upper()}  ·  {sec['jornada']}"
+        R(M, y, W - M, y + 30, COLOR_GREEN, 6)
+        T(M + 12, y + 6, cab, "#ffffff", fnt_sec)
+        y += 30 + 8
+
+        for idx, p in enumerate(sec["partidos"]):
+            bg = COLOR_ROW_ALT if idx % 2 == 1 else COLOR_WHITE
+            R(M, y, W - M, y + row_h, bg)
+            # Equipo local
+            if p.get("logo_local"):
+                logo = p["logo_local"].copy()
+                logo.thumbnail((26, 26), Image.LANCZOS)
+                ops.append(("image", M + 10, y + (row_h - logo.size[1]) // 2, logo))
+                name_x = M + 44
+            else:
+                R(M + 10, y + 21, M + 36, y + 47, COLOR_EQUIPO_SIN_LOGO, 6)
+                T(M + 16, y + 26,      "?", "#ffffff", fnt_eq)
+                name_x = M + 44
+            T(name_x, y + 27, p["local"][:24], COLOR_TEXT, fnt_eq)
+            # Centro
+            cx = W // 2
+            T(cx - _tw(p["fecha"], fnt_centro) // 2, y + 6, p["fecha"], COLOR_TEXT_LIGHT, fnt_centro)
+            T(cx - _tw("VS", fnt_vs) // 2, y + 22, "VS", COLOR_GREEN, fnt_vs)
+            T(cx - _tw(p["campo"], fnt_centro) // 2, y + 48, p["campo"], COLOR_TEXT_LIGHT, fnt_centro)
+            # Equipo visitante
+            if p.get("logo_visitante"):
+                logo = p["logo_visitante"].copy()
+                logo.thumbnail((26, 26), Image.LANCZOS)
+                ops.append(("image", W - M - 10 - logo.size[0], y + (row_h - logo.size[1]) // 2, logo))
+                name_x = W - M - 38 - _tw(p["visitante"][:24], fnt_eq)
+            else:
+                R(W - M - 36, y + 21, W - M - 10, y + 47, COLOR_EQUIPO_SIN_LOGO, 6)
+                T(W - M - 22 - _tw("?", fnt_eq) // 2, y + 26, "?", "#ffffff", fnt_eq)
+                name_x = W - M - 44 - _tw(p["visitante"][:24], fnt_eq)
+            T(name_x, y + 27, p["visitante"][:24], COLOR_TEXT, fnt_eq)
+            y += row_h + 2
+
+        descansan = sec.get("descansan") or []
+        if descansan:
+            fnt_d = _font(10)
+            fnt_estado = _font(10, bold=True)
+            fnt_chip = _font(9, bold=True)
+            T(M, y + 2, "Descansan:", COLOR_TEXT_LIGHT, fnt_d)
+            xs = M + _tw("Descansan:", fnt_d) + 12
+            chip_y = y
+            for eq in descansan:
+                nombre = eq[:20]
+                tw = _tw(nombre, fnt_chip) + 16
+                if xs + tw > W - M:
+                    xs = M
+                    chip_y += 18
+                R(xs, chip_y, xs + tw, chip_y + 18, "#6c757d", 9)
+                T(xs + 8, chip_y + 4, nombre, "#ffffff", fnt_chip)
+                xs += tw + 6
+            y = chip_y + 18 + 6
+        else:
+            y += 8
+
+    y += 6
+    fnt_f = _font(11)
+    T(M, y, f"\U0001f550  Generado el {ahora_str}", COLOR_TEXT_LIGHT, fnt_f)
+    y += _th(fnt_f) + 20
+
+    img = Image.new("RGB", (W, y), COLOR_BG)
+    draw = ImageDraw.Draw(img)
+    for op in ops:
+        if op[0] == "text":
+            _, x, yt, txt, fill, font = op
+            draw.text((x, yt), txt, fill=fill, font=font)
+        elif op[0] == "rect":
+            _, x1, y1, x2, y2, fill, r = op
+            draw.rounded_rectangle((x1, y1, x2, y2), radius=r, fill=fill)
+        elif op[0] == "line":
+            _, x1, y1, x2, y2, fill, w = op
+            draw.line((x1, y1, x2, y2), fill=fill, width=w)
+        elif op[0] == "image":
+            _, x, yt, logo_img = op
+            img.paste(logo_img, (x, yt), logo_img)
+
+    max_h = 2400
+    if y > max_h:
+        ratio = max_h / y
+        new_w = int(W * ratio)
         img = img.resize((new_w, max_h), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True, compress_level=9)
