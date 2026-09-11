@@ -5,7 +5,7 @@
     <span><i class="bi bi-clipboard-data"></i> Cédula Arbitral</span>
     <span class="d-flex gap-2">
         <button type="button" class="btn btn-warning btn-sm text-dark fw-bold" onclick="confirmarGuardar()"><i class="bi bi-save"></i> Guardar</button>
-        <a href="{% url 'reporte_cedula_arbitral_pdf' partido.id %}" class="btn btn-primary btn-sm" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
+        <a href="{% url 'reporte_cedula_arbitral_pdf' partido.id %}?v={% now 'U' %}" class="btn btn-primary btn-sm" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
         <a href="{% url 'partido_list' %}" class="btn btn-secondary btn-sm">Volver</a>
     </span>
 </h3>
@@ -196,7 +196,7 @@
     </div>
     <div class="text-center mb-4">
         <button type="button" class="btn btn-warning btn-lg text-dark fw-bold" onclick="confirmarGuardar()"><i class="bi bi-save"></i> Guardar Cédula</button>
-        <a href="{% url 'reporte_cedula_arbitral_pdf' partido.id %}" class="btn btn-primary btn-lg" target="_blank"><i class="bi bi-filetype-pdf"></i> Descargar PDF</a>
+        <a href="{% url 'reporte_cedula_arbitral_pdf' partido.id %}?v={% now 'U' %}" class="btn btn-primary btn-lg" target="_blank"><i class="bi bi-filetype-pdf"></i> Descargar PDF</a>
         <a href="{% url 'partido_list' %}" class="btn btn-secondary btn-lg">Volver</a>
     </div>
 
