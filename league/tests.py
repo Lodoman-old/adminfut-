@@ -719,6 +719,10 @@ class ArbitroOpcionalTest(TestCase):
             campo=self.campo, estado="PEND",
             fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
         )
+        for eq, prefijo in ((self.eqs[0], "LOC"), (self.eqs[1], "VIS")):
+            Jugador.objects.create(equipo=eq, nombre=f"{prefijo} Cristóbal de los",
+                                   apellido="Santos Hernández Gutiérrez de la Cruz",
+                                   activo=True)
         u = get_user_model().objects.create_superuser(username="pdfadmin", password="p")
         self.client.force_login(u)
         resp = self.client.get(reverse("reporte_cedula_arbitral_pdf", args=[partido.id]))

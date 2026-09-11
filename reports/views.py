@@ -6,6 +6,7 @@ from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
+from reportlab.lib.utils import simpleSplit
 from django.db.models import Sum, Q, Count
 from collections import Counter
 import openpyxl
@@ -1547,28 +1548,44 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 row_color = colors.HexColor("#ffe0e0")
             elif j.id in no_elegibles_set:
                 row_color = colors.HexColor("#fff8e0")
+            nombre_completo = f"{j.nombre} {j.apellido}"
+            if j.id in suspendidos_set:
+                sufijo = " (S)"
+                estado_color = colors.HexColor("#999")
+            elif j.id in no_elegibles_set:
+                sufijo = " (NE)"
+                estado_color = colors.HexColor("#bbb")
+            else:
+                sufijo = ""
+                estado_color = colors.black
+            lineas_nombre = simpleSplit(nombre_completo, "Helvetica", 8, col_widths[1] - 4)
+            if len(lineas_nombre) > 2:
+                lineas_nombre = lineas_nombre[:2]
+            rh = row_h + 9 if len(lineas_nombre) > 1 else row_h
             for i, txt in enumerate(datos):
                 p.setFillColor(row_color)
-                p.rect(x, y - row_h, col_widths[i], row_h, fill=1, stroke=1)
-                p.setFillColor(colors.black)
+                p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
                 if i == 1:
-                    # Agregar marcador al nombre
-                    if j.id in suspendidos_set:
-                        txt = f"{txt} (S)"
-                        p.setFillColor(colors.HexColor("#999"))
-                        p.drawString(x + 2, y - row_h + 3, txt)
-                        text_width = p.stringWidth(txt, "Helvetica", 8)
-                        p.line(x + 2, y - row_h + 7, x + 2 + text_width, y - row_h + 7)
-                    elif j.id in no_elegibles_set:
-                        txt = f"{txt} (NE)"
-                        p.setFillColor(colors.HexColor("#bbb"))
-                        p.drawString(x + 2, y - row_h + 3, txt)
+                    p.setFillColor(estado_color)
+                    if len(lineas_nombre) == 1:
+                        linea = lineas_nombre[0] + sufijo
+                        p.drawString(x + 2, y - rh + 3, linea)
+                        if sufijo == " (S)":
+                            tw = p.stringWidth(linea, "Helvetica", 8)
+                            p.line(x + 2, y - rh + 7, x + 2 + tw, y - rh + 7)
                     else:
-                        p.drawString(x + 2, y - row_h + 3, txt)
+                        p.drawString(x + 2, y - rh + 10, lineas_nombre[0])
+                        linea = lineas_nombre[1] + sufijo
+                        p.drawString(x + 2, y - rh + 1, linea)
+                        if sufijo == " (S)":
+                            tw = p.stringWidth(linea, "Helvetica", 8)
+                            p.line(x + 2, y - rh + 5, x + 2 + tw, y - rh + 5)
                 else:
-                    p.drawCentredString(x + col_widths[i] / 2, y - row_h + 3, txt)
+                    p.setFillColor(colors.black)
+                    p.drawCentredString(x + col_widths[i] / 2, y - rh + 3, txt)
+                p.setFillColor(colors.black)
                 x += col_widths[i]
-            y -= row_h
+            y -= rh
         return y
 
     table_top = info_y - 20
