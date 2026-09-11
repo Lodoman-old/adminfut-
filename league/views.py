@@ -3978,7 +3978,7 @@ def publicar_rol_facebook(request, temporada_id):
                 "local": p.equipo_local.nombre,
                 "visitante": p.equipo_visitante.nombre,
                 "campo": p.campo.nombre if p.campo else "",
-                "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m %H:%M") if p.fecha_hora else "Pendiente",
+                "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m/%Y %H:%M") if p.fecha_hora else "Pendiente",
                 "logo_local": _cargar_logo(p.equipo_local.logo),
                 "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
             })

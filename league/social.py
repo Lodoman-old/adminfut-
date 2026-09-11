@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v25.0"
 
+FALLBACK_SITE_URL = "https://www.juventinorosasliga.com"
+
+
+def _site_url(request=None):
+    """Devuelve la URL pública del sitio (dominio clicable) para el post."""
+    # En producción siempre usamos el dominio canonical.
+    return "https://www.juventinorosasliga.com"
+
 
 def _get_config():
     cfg = ConfiguracionLiga.obtener()
@@ -147,9 +155,13 @@ def publicar_imagen_en_facebook(imagen_bytes, caption, request=None):
     if not page_token:
         return False
 
+    site = _site_url(request)
+    caption_text = (caption or "").rstrip()
+    caption_text = f"{caption_text}\n\n\U0001f310 {site}" if caption_text else f"\U0001f310 {site}"
+
     url = f"{FACEBOOK_GRAPH_URL}/{cfg.facebook_page_id}/photos"
     files = {"source": ("resumen.png", imagen_bytes, "image/png")}
-    data = {"message": caption, "access_token": page_token}
+    data = {"message": caption_text, "link": site, "access_token": page_token}
     resp = requests.post(url, files=files, data=data, timeout=30)
 
     if resp.status_code != 200:

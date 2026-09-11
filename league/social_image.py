@@ -448,10 +448,10 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
 
     fnt_sec = _font(15, bold=True)
     fnt_eq = _font(12, bold=True)
-    fnt_centro = _font(10)
+    fnt_fecha = _font(11, bold=True)
+    fnt_lugar = _font(9, bold=True)
     fnt_vs = _font(14, bold=True)
     row_h = 68
-    col_w = 300
 
     for sec in secciones:
         cab = f"\u26bd  {sec['categoria'].upper()}  ·  {sec['temporada'].upper()}  ·  {sec['jornada']}"
@@ -475,9 +475,16 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             T(name_x, y + 27, p["local"][:24], COLOR_TEXT, fnt_eq)
             # Centro
             cx = W // 2
-            T(cx - _tw(p["fecha"], fnt_centro) // 2, y + 6, p["fecha"], COLOR_TEXT_LIGHT, fnt_centro)
+            fecha_txt = p["fecha"]
+            fw = _tw(fecha_txt, fnt_fecha)
+            R(cx - fw // 2 - 9, y + 3, cx + fw // 2 + 9, y + 21, COLOR_GREEN_LIGHT, 9)
+            T(cx - fw // 2, y + 6, fecha_txt, COLOR_GREEN, fnt_fecha)
             T(cx - _tw("VS", fnt_vs) // 2, y + 22, "VS", COLOR_GREEN, fnt_vs)
-            T(cx - _tw(p["campo"], fnt_centro) // 2, y + 48, p["campo"], COLOR_TEXT_LIGHT, fnt_centro)
+            if p["campo"]:
+                lugar_txt = f"Lugar: {p['campo'][:26]}"
+                lw = _tw(lugar_txt, fnt_lugar)
+                R(cx - lw // 2 - 9, y + 42, cx + lw // 2 + 9, y + 60, "#eaf1e6", 9)
+                T(cx - lw // 2, y + 45, lugar_txt, COLOR_TEXT, fnt_lugar)
             # Equipo visitante
             if p.get("logo_visitante"):
                 logo = p["logo_visitante"].copy()
