@@ -1480,21 +1480,23 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     left_x = margin
     right_x = margin + half_w
 
-    y_start = draw_header(p, w, h, "CÉDULA ARBITRAL")
-    p.setFont("Helvetica", 10)
-    p.drawCentredString(w / 2, y_start - 6, f"{partido.equipo_local.nombre} vs {partido.equipo_visitante.nombre}")
-    p.setFont("Helvetica", 8)
-    info_y = y_start - 20
-    p.drawString(margin, info_y, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
-    p.drawCentredString(w / 2, info_y, f"Campo: {partido.campo.nombre}")
-    if partido.arbitro:
-        p.drawRightString(w - margin, info_y, f"Árbitro: {partido.arbitro.nombre_completo()}")
-    else:
-        p.drawRightString(w - margin, info_y, "Árbitro: __________________________")
+    def cabecera_pagina():
+        y_cab = draw_header(p, w, h, "CÉDULA ARBITRAL")
+        p.setFont("Helvetica", 10)
+        p.drawCentredString(w / 2, y_cab - 6, f"{partido.equipo_local.nombre} vs {partido.equipo_visitante.nombre}")
+        p.setFont("Helvetica", 8)
+        iy = y_cab - 20
+        p.drawString(margin, iy, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
+        p.drawCentredString(w / 2, iy, f"Campo: {partido.campo.nombre}")
+        if partido.arbitro:
+            p.drawRightString(w - margin, iy, f"Árbitro: {partido.arbitro.nombre_completo()}")
+        else:
+            p.drawRightString(w - margin, iy, "Árbitro: __________________________")
+        return iy - 20
 
-    def draw_team_table(jugadores, x_start, y_start, header_color, titulo, equipo, suspendidos_set, no_elegibles_set):
-        y = y_start
-        # Team name header (logo junto al nombre)
+    table_top = cabecera_pagina()
+
+    def dibuja_franja(x_start, y, header_color, titulo, equipo):
         p.setFillColor(header_color)
         p.setStrokeColor(colors.black)
         p.rect(x_start, y - row_h, table_w, row_h, fill=1, stroke=1)
@@ -1513,9 +1515,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.setFillColor(colors.white)
         p.setFont("Helvetica-Bold", 9)
         p.drawCentredString(x_start + (table_w + 14) / 2, y - row_h + 4, f"{titulo} - {equipo.nombre}")
-        y -= row_h
 
-        # Column headers
+    def dibuja_cabecera_columnas(x_start, y):
         p.setFont("Helvetica-Bold", 7)
         x = x_start
         for i, txt in enumerate(hdr):
@@ -1524,78 +1525,104 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             p.setFillColor(colors.white)
             p.drawCentredString(x + col_widths[i] / 2, y - row_h + 4, txt)
             x += col_widths[i]
-        y -= row_h
 
-        p.setFont("Helvetica", 8)
-        for idx, j in enumerate(jugadores):
-            x = x_start
-            card = tarjetas_dict.get(j.id, {"amarillas": 0, "roja": False})
-            g = goles_count.get(j.id, 0)
-            part = participaciones.get(j.id)
-            datos = [
-                str(j.dorsal or "-"),
-                f"{j.nombre} {j.apellido}",
-                "[X]" if part and part.titular else "[ ]",
-                "[X]" if part and not part.titular else "[ ]",
-                str(g) if g > 0 else "",
-                "[X]" if card["amarillas"] >= 1 else "",
-                "[X]" if card["amarillas"] >= 2 else "",
-                "[X]" if card["roja"] else "",
-            ]
-            row_color = colors.HexColor("#f5f5f5") if idx % 2 == 0 else colors.white
-            # Marcar filas de suspendidos / no elegibles
-            if j.id in suspendidos_set:
-                row_color = colors.HexColor("#ffe0e0")
-            elif j.id in no_elegibles_set:
-                row_color = colors.HexColor("#fff8e0")
-            nombre_completo = f"{j.nombre} {j.apellido}"
-            if j.id in suspendidos_set:
-                sufijo = " (S)"
-                estado_color = colors.HexColor("#999")
-            elif j.id in no_elegibles_set:
-                sufijo = " (NE)"
-                estado_color = colors.HexColor("#bbb")
-            else:
-                sufijo = ""
-                estado_color = colors.black
-            lineas_nombre = simpleSplit(nombre_completo, "Helvetica", 8, col_widths[1] - 4)
-            if len(lineas_nombre) > 2:
-                lineas_nombre = lineas_nombre[:2]
-            rh = row_h + 9 if len(lineas_nombre) > 1 else row_h
-            for i, txt in enumerate(datos):
-                p.setFillColor(row_color)
+    def rh_para(j):
+        if j is None:
+            return row_h
+        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 4)
+        return row_h + 9 if len(lineas) > 1 else row_h
+
+    def dibuja_fila(j, x_start, y, rh, idx):
+        x = x_start
+        if j is None:
+            for i in range(len(col_widths)):
+                p.setFillColor(colors.white)
                 p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
-                if i == 1:
-                    p.setFillColor(estado_color)
-                    if len(lineas_nombre) == 1:
-                        linea = lineas_nombre[0] + sufijo
-                        p.drawString(x + 2, y - rh + 3, linea)
-                        if sufijo == " (S)":
-                            tw = p.stringWidth(linea, "Helvetica", 8)
-                            p.line(x + 2, y - rh + 7, x + 2 + tw, y - rh + 7)
-                    else:
-                        p.drawString(x + 2, y - rh + 10, lineas_nombre[0])
-                        linea = lineas_nombre[1] + sufijo
-                        p.drawString(x + 2, y - rh + 1, linea)
-                        if sufijo == " (S)":
-                            tw = p.stringWidth(linea, "Helvetica", 8)
-                            p.line(x + 2, y - rh + 5, x + 2 + tw, y - rh + 5)
-                else:
-                    p.setFillColor(colors.black)
-                    p.drawCentredString(x + col_widths[i] / 2, y - rh + 3, txt)
-                p.setFillColor(colors.black)
                 x += col_widths[i]
+            return
+        card = tarjetas_dict.get(j.id, {"amarillas": 0, "roja": False})
+        g = goles_count.get(j.id, 0)
+        part = participaciones.get(j.id)
+        datos = [
+            str(j.dorsal or "-"),
+            f"{j.nombre} {j.apellido}",
+            "[X]" if part and part.titular else "[ ]",
+            "[X]" if part and not part.titular else "[ ]",
+            str(g) if g > 0 else "",
+            "[X]" if card["amarillas"] >= 1 else "",
+            "[X]" if card["amarillas"] >= 2 else "",
+            "[X]" if card["roja"] else "",
+        ]
+        if j.id in suspendidos:
+            row_color = colors.HexColor("#ffe0e0")
+            sufijo = " (S)"
+            estado_color = colors.HexColor("#999")
+        elif j.id in no_elegibles:
+            row_color = colors.HexColor("#fff8e0")
+            sufijo = " (NE)"
+            estado_color = colors.HexColor("#bbb")
+        else:
+            row_color = colors.HexColor("#f5f5f5") if idx % 2 == 0 else colors.white
+            sufijo = ""
+            estado_color = colors.black
+        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 4)
+        if len(lineas) > 2:
+            lineas = lineas[:2]
+        centre_x = x + col_widths[1] / 2
+        for i, txt in enumerate(datos):
+            p.setFillColor(row_color)
+            p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
+            if i == 1:
+                p.setFillColor(estado_color)
+                if len(lineas) == 1:
+                    linea = lineas[0] + sufijo
+                    p.drawCentredString(centre_x, y - rh + 3, linea)
+                    if sufijo == " (S)":
+                        tw = p.stringWidth(linea, "Helvetica", 8)
+                        p.line(centre_x - tw / 2, y - rh + 7, centre_x + tw / 2, y - rh + 7)
+                else:
+                    p.drawCentredString(centre_x, y - rh + 10, lineas[0])
+                    linea = lineas[1] + sufijo
+                    p.drawCentredString(centre_x, y - rh + 1, linea)
+                    if sufijo == " (S)":
+                        tw = p.stringWidth(linea, "Helvetica", 8)
+                        p.line(centre_x - tw / 2, y - rh + 5, centre_x + tw / 2, y - rh + 5)
+            else:
+                p.setFillColor(colors.black)
+                p.drawCentredString(x + col_widths[i] / 2, y - rh + 3, txt)
+            p.setFillColor(colors.black)
+            x += col_widths[i]
+
+    def dibuja_cedula(y_top):
+        y = y_top
+        dibuja_franja(left_x, y, colors.HexColor("#2d6b2e"), "LOCAL", partido.equipo_local)
+        dibuja_franja(right_x, y, colors.HexColor("#1a5276"), "VISITANTE", partido.equipo_visitante)
+        y -= row_h
+        dibuja_cabecera_columnas(left_x, y)
+        dibuja_cabecera_columnas(right_x, y)
+        y -= row_h
+        p.setFont("Helvetica", 8)
+        y_min = 170
+        n = max(len(jugadores_local), len(jugadores_visit))
+        for idx in range(n):
+            jl = jugadores_local[idx] if idx < len(jugadores_local) else None
+            jv = jugadores_visit[idx] if idx < len(jugadores_visit) else None
+            rh = max(rh_para(jl), rh_para(jv))
+            if y - rh < y_min:
+                p.showPage()
+                draw_footer(p, w, h, 14)
+                y = cabecera_pagina()
+                dibuja_cabecera_columnas(left_x, y)
+                dibuja_cabecera_columnas(right_x, y)
+                y -= row_h
+            dibuja_fila(jl, left_x, y, rh, idx)
+            dibuja_fila(jv, right_x, y, rh, idx)
             y -= rh
         return y
 
-    table_top = info_y - 20
-    max_rows = max(len(jugadores_local), len(jugadores_visit))
-    needed_height = (2 + max_rows) * row_h + 20
+    y_final = dibuja_cedula(table_top)
 
-    y_local = draw_team_table(jugadores_local, left_x, table_top, colors.HexColor("#2d6b2e"), "LOCAL", partido.equipo_local, suspendidos, no_elegibles)
-    y_visit = draw_team_table(jugadores_visit, right_x, table_top, colors.HexColor("#1a5276"), "VISITANTES", partido.equipo_visitante, suspendidos, no_elegibles)
-
-    footer_y = min(y_local, y_visit) - 50
+    footer_y = y_final - 50
     if footer_y < 110:
         footer_y = 110
     p.setFont("Helvetica", 9)
