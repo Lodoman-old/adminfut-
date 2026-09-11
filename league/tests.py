@@ -759,6 +759,71 @@ class ArbitroOpcionalTest(TestCase):
         self.assertIn("Goles local", texto)
         self.assertIn("Firma del", texto)
 
+    def test_pdf_cedula_firmas_y_goles_en_negro_aunque_haya_filas_vacias(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbBlanco", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        for eq, prefijo, n in ((self.eqs[0], "LOC", 30), (self.eqs[1], "VIS", 28)):
+            for k in range(n):
+                Jugador.objects.create(equipo=eq, nombre=f"{prefijo}{k} Cristóbal de los",
+                                       apellido="Santos Hernández Gutiérrez de la Cruz",
+                                       dorsal=k + 1, activo=True)
+        u = get_user_model().objects.create_superuser(username="pdfnegro", password="p")
+        self.client.force_login(u)
+        resp = self.client.get(reverse("reporte_cedula_arbitral_pdf", args=[partido.id]))
+        self.assertEqual(resp.status_code, 200)
+        import fitz
+        doc = fitz.open(stream=resp.content, filetype="pdf")
+        blancos = []
+        for page in doc:
+            for b in page.get_text("dict")["blocks"]:
+                if b.get("type") != 0:
+                    continue
+                for l in b.get("lines", []):
+                    for s in l["spans"]:
+                        if any(k in s["text"] for k in ("Goles", "Capitan", "Firma")):
+                            if s["color"] == 16777215:
+                                blancos.append(s["text"])
+        self.assertFalse(blancos, f"Líneas invisibles (color blanco): {blancos}")
+        texto = "".join(p.get_text() for p in doc)
+        self.assertIn("Goles local:", texto)
+        self.assertIn("Firma del", texto)
+
+    def test_pdf_cedula_muestra_marcador_cuando_finalizado(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbMarcador", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=self.campo, estado="FIN", goles_local=2, goles_visitante=1,
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        for eq, prefijo in ((self.eqs[0], "LOC"), (self.eqs[1], "VIS")):
+            for k in range(30):
+                Jugador.objects.create(equipo=eq, nombre=f"{prefijo}{k} Cristóbal de los",
+                                       apellido="Santos Hernández Gutiérrez de la Cruz",
+                                       dorsal=k + 1, activo=True)
+        u = get_user_model().objects.create_superuser(username="pdfmarcador", password="p")
+        self.client.force_login(u)
+        resp = self.client.get(reverse("reporte_cedula_arbitral_pdf", args=[partido.id]))
+        self.assertEqual(resp.status_code, 200)
+        import fitz
+        doc = fitz.open(stream=resp.content, filetype="pdf")
+        texto = "".join(p.get_text() for p in doc)
+        self.assertIn("Goles local: 2", texto)
+        self.assertIn("Goles visitante: 1", texto)
+
     def test_xlsx_cedula_genera_sin_arbitro(self):
         from django.contrib.auth import get_user_model
         from django.urls import reverse

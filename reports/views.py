@@ -1540,6 +1540,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 p.setFillColor(colors.white)
                 p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
                 x += col_widths[i]
+            p.setFillColor(colors.black)
             return
         card = tarjetas_dict.get(j.id, {"amarillas": 0, "roja": False})
         g = goles_count.get(j.id, 0)
@@ -1621,11 +1622,14 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     footer_y = y_final - 50
     if footer_y < 110:
         footer_y = 110
+    p.setFillColor(colors.black)
     p.setFont("Helvetica", 9)
-    p.drawString(left_x, footer_y, "Goles local: ___________________")
+    gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
+    gol_visit = str(partido.goles_visitante) if partido.estado == "FIN" else "___________________"
+    p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(left_x, footer_y - 24, "Capitan equipo local: ___________________")
     p.drawString(left_x, footer_y - 48, "Firma: ___________________")
-    p.drawString(right_x, footer_y, "Goles visitante: ___________________")
+    p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
     p.drawString(right_x, footer_y - 24, "Capitan equipo visitante: ___________________")
     p.drawString(right_x, footer_y - 48, "Firma: ___________________")
     p.drawCentredString(w / 2, footer_y - 72, "Firma del árbitro: _____________________________________")
