@@ -1471,7 +1471,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     response["Content-Disposition"] = f"attachment; filename=cedula_arbitral_{partido_id}.pdf"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
-    col_widths = [12, 165, 20, 20, 20, 16, 16, 22]
+    col_widths = [10, 180, 18, 18, 18, 15, 15, 20]
     hdr = ["#", "Jugador", "Tit", "Camb", "Gol", "A1", "A2", "Roja"]
     row_h = 12
     franja_h = 18
@@ -1547,14 +1547,17 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             p.drawCentredString(x + col_widths[i] / 2, y - row_h + 3, txt)
             x += col_widths[i]
 
-    def nombre_linea(j):
+    def nombre_linea(j, sufijo=""):
         full = f"{j.nombre} {j.apellido}"
-        if p.stringWidth(full, "Helvetica", 7.5) <= col_widths[1] - 6:
-            return full
-        name = full
-        while name and p.stringWidth(name + "…", "Helvetica", 7.5) > col_widths[1] - 6:
-            name = name[:-1]
-        return name + "…"
+        base_size = 7.5
+        usable = col_widths[1] - 6
+        tam = base_size
+        txt = full + sufijo
+        if p.stringWidth(txt, "Helvetica", base_size) > usable:
+            tam = max(5.0, usable * base_size / p.stringWidth(txt, "Helvetica", base_size))
+            if p.stringWidth(txt, "Helvetica", tam) > usable:
+                tam = 4.5
+        return tam, txt
 
     def rh_para(j):
         return row_h
@@ -1597,14 +1600,15 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             p.setFillColor(row_color)
             p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
             if i == 1:
+                tam, nombre_txt = nombre_linea(j, sufijo)
                 p.setFillColor(estado_color)
-                p.setFont("Helvetica", 7.5)
+                p.setFont("Helvetica", tam)
                 centre_x = x + col_widths[1] / 2
-                linea_txt = nombre_linea(j) + sufijo
-                p.drawCentredString(centre_x, y - rh + 3, linea_txt)
+                base = y - rh + 3 + (7.5 - tam) / 2
+                p.drawCentredString(centre_x, base, nombre_txt)
                 if sufijo == " (S)":
-                    tw = p.stringWidth(linea_txt, "Helvetica", 7.5)
-                    p.line(centre_x - tw / 2, y - rh + 4.5, centre_x + tw / 2, y - rh + 4.5)
+                    tw = p.stringWidth(nombre_txt, "Helvetica", tam)
+                    p.line(centre_x - tw / 2, base + 2, centre_x + tw / 2, base + 2)
             else:
                 p.setFillColor(colors.black)
                 p.setFont("Helvetica", 8)
