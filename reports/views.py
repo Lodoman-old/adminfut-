@@ -1471,10 +1471,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     response["Content-Disposition"] = f"attachment; filename=cedula_arbitral_{partido_id}.pdf"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
-    col_widths = [10, 180, 18, 18, 18, 15, 15, 20]
+    col_widths = [9, 180, 17, 17, 17, 14, 14, 19]
     hdr = ["#", "Jugador", "Tit", "Camb", "Gol", "A1", "A2", "Roja"]
     row_h = 12
     franja_h = 18
+    top_margin = 40
     table_w = sum(col_widths)
     gap = 7
     left_x = (w - (2 * table_w + gap)) // 2
@@ -1492,11 +1493,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
             try:
-                p.drawImage(logo_src, x0, h - 50, width=34, height=34, preserveAspectRatio=True)
+                p.drawImage(logo_src, x0, h - top_margin - 34, width=34, height=34, preserveAspectRatio=True)
             except Exception:
                 logo_src = None
         x_text = x0 + (42 if logo_src else 0)
-        y0 = h - 22
+        y0 = h - top_margin - 6
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 10)
         p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
