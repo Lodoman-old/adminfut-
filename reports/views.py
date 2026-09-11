@@ -1487,7 +1487,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.setFont("Helvetica", 8)
         iy = y_cab - 20
         p.drawString(margin, iy, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
-        p.drawCentredString(w / 2, iy, f"Campo: {partido.campo.nombre}")
+        p.drawCentredString(w / 2, iy, f"Campo: {partido.campo.nombre if partido.campo else 'Por definir'}")
         if partido.arbitro:
             p.drawRightString(w - margin, iy, f"Árbitro: {partido.arbitro.nombre_completo()}")
         else:

@@ -731,6 +731,34 @@ class ArbitroOpcionalTest(TestCase):
         self.assertEqual(resp["Content-Type"], "application/pdf")
         self.assertGreater(len(resp.content), 500)
 
+    def test_pdf_cedula_sin_campo_no_revienta(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        temp = Temporada.objects.create(
+            categoria=self.cat, nombre="ArbSinCampo", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        partido = Partido.objects.create(
+            temporada=temp, equipo_local=self.eqs[0], equipo_visitante=self.eqs[1],
+            campo=None, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        for eq, prefijo in ((self.eqs[0], "LOC"), (self.eqs[1], "VIS")):
+            for k in range(30):
+                Jugador.objects.create(equipo=eq, nombre=f"{prefijo}{k} Cristóbal de los",
+                                       apellido="Santos Hernández Gutiérrez de la Cruz",
+                                       dorsal=k + 1, activo=True)
+        u = get_user_model().objects.create_superuser(username="pdfsincampo", password="p")
+        self.client.force_login(u)
+        resp = self.client.get(reverse("reporte_cedula_arbitral_pdf", args=[partido.id]))
+        self.assertEqual(resp.status_code, 200)
+        import fitz
+        doc = fitz.open(stream=resp.content, filetype="pdf")
+        texto = "".join(p.get_text() for p in doc)
+        self.assertIn("Por definir", texto)
+        self.assertIn("Goles local", texto)
+        self.assertIn("Firma del", texto)
+
     def test_xlsx_cedula_genera_sin_arbitro(self):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
