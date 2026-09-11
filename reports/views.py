@@ -1529,8 +1529,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     def rh_para(j):
         if j is None:
             return row_h
-        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 4)
-        return row_h + 9 if len(lineas) > 1 else row_h
+        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 8)
+        n = min(len(lineas), 4)
+        return row_h + 9 * (n - 1)
 
     def dibuja_fila(j, x_start, y, rh, idx):
         x = x_start
@@ -1565,28 +1566,23 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             row_color = colors.HexColor("#f5f5f5") if idx % 2 == 0 else colors.white
             sufijo = ""
             estado_color = colors.black
-        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 4)
-        if len(lineas) > 2:
-            lineas = lineas[:2]
-        centre_x = x + col_widths[1] / 2
+        lineas = simpleSplit(f"{j.nombre} {j.apellido}", "Helvetica", 8, col_widths[1] - 8)
+        if len(lineas) > 4:
+            lineas = lineas[:4]
+        n_lineas = len(lineas)
         for i, txt in enumerate(datos):
             p.setFillColor(row_color)
             p.rect(x, y - rh, col_widths[i], rh, fill=1, stroke=1)
             if i == 1:
                 p.setFillColor(estado_color)
-                if len(lineas) == 1:
-                    linea = lineas[0] + sufijo
-                    p.drawCentredString(centre_x, y - rh + 3, linea)
+                centre_x = x + col_widths[1] / 2
+                for k, linea in enumerate(lineas):
+                    linea_txt = linea + sufijo if k == n_lineas - 1 else linea
+                    base = y - rh + 3 + 9 * ((n_lineas - 1) - k)
+                    p.drawCentredString(centre_x, base, linea_txt)
                     if sufijo == " (S)":
-                        tw = p.stringWidth(linea, "Helvetica", 8)
-                        p.line(centre_x - tw / 2, y - rh + 7, centre_x + tw / 2, y - rh + 7)
-                else:
-                    p.drawCentredString(centre_x, y - rh + 10, lineas[0])
-                    linea = lineas[1] + sufijo
-                    p.drawCentredString(centre_x, y - rh + 1, linea)
-                    if sufijo == " (S)":
-                        tw = p.stringWidth(linea, "Helvetica", 8)
-                        p.line(centre_x - tw / 2, y - rh + 5, centre_x + tw / 2, y - rh + 5)
+                        tw = p.stringWidth(linea_txt, "Helvetica", 8)
+                        p.line(centre_x - tw / 2, base + 4, centre_x + tw / 2, base + 4)
             else:
                 p.setFillColor(colors.black)
                 p.drawCentredString(x + col_widths[i] / 2, y - rh + 3, txt)
