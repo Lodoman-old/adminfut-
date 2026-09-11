@@ -773,8 +773,8 @@ class ArbitroOpcionalTest(TestCase):
         )
         for eq, prefijo, n in ((self.eqs[0], "LOC", 30), (self.eqs[1], "VIS", 28)):
             for k in range(n):
-                Jugador.objects.create(equipo=eq, nombre=f"{prefijo}{k} Cristóbal de los",
-                                       apellido="Santos Hernández Gutiérrez de la Cruz",
+                Jugador.objects.create(equipo=eq, nombre=f"{prefijo} LEOPOLDO ONITSED",
+                                       apellido="SALDIVAR FLORES",
                                        dorsal=k + 1, activo=True)
         u = get_user_model().objects.create_superuser(username="pdfnegro", password="p")
         self.client.force_login(u)
@@ -782,17 +782,19 @@ class ArbitroOpcionalTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         import fitz
         doc = fitz.open(stream=resp.content, filetype="pdf")
+        self.assertEqual(len(doc), 1, "La cédula debe caber en una sola hoja")
         blancos = []
+        claves = ("Goles", "Capitan", "Firma", "Jugador", "Tit", "Camb", "A1", "A2", "Roja", "LOCAL", "VISITANTE")
         for page in doc:
             for b in page.get_text("dict")["blocks"]:
                 if b.get("type") != 0:
                     continue
                 for l in b.get("lines", []):
                     for s in l["spans"]:
-                        if any(k in s["text"] for k in ("Goles", "Capitan", "Firma")):
+                        if any(k in s["text"] for k in claves):
                             if s["color"] == 16777215:
                                 blancos.append(s["text"])
-        self.assertFalse(blancos, f"Líneas invisibles (color blanco): {blancos}")
+        self.assertFalse(blancos, f"Texto invisible (color blanco): {blancos}")
         texto = "".join(p.get_text() for p in doc)
         self.assertIn("Goles local:", texto)
         self.assertIn("Firma del", texto)
