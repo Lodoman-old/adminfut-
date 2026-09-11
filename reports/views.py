@@ -1579,14 +1579,15 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     y_visit = draw_team_table(jugadores_visit, right_x, table_top, colors.HexColor("#1a5276"), "VISITANTES", partido.equipo_visitante, suspendidos, no_elegibles)
 
     footer_y = min(y_local, y_visit) - 50
-    if footer_y < 120:
-        footer_y = 120
+    if footer_y < 110:
+        footer_y = 110
     p.setFont("Helvetica", 9)
-    p.drawString(left_x, footer_y, "Capitan equipo local: ___________________")
-    p.drawString(left_x, footer_y - 24, "Firma: ___________________")
-    p.drawString(right_x, footer_y, "Capitan equipo visitante: ___________________")
-    p.drawString(right_x, footer_y - 24, "Firma: ___________________")
-    p.drawCentredString(w / 2, footer_y - 48, "Árbitro: _____________________________________")
+    p.drawString(left_x, footer_y, "Goles local: ___________________")
+    p.drawString(left_x, footer_y - 24, "Capitan equipo local: ___________________")
+    p.drawString(left_x, footer_y - 48, "Firma: ___________________")
+    p.drawString(right_x, footer_y, "Goles visitante: ___________________")
+    p.drawString(right_x, footer_y - 24, "Capitan equipo visitante: ___________________")
+    p.drawString(right_x, footer_y - 48, "Firma: ___________________")
     p.drawCentredString(w / 2, footer_y - 72, "Firma del árbitro: _____________________________________")
 
     draw_footer(p, w, h, 14)
