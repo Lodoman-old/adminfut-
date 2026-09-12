@@ -245,6 +245,20 @@ def home(request):
             ),
         }
 
+    # Jornadas suspendidas cuyo DÍA PROGRAMADO ORIGINAL es HOY (aviso dashboard)
+    from league.models import Jornada as _Jornada
+    suspensiones_hoy = {}
+    hoy_local = timezone.localdate()
+    for _j in _Jornada.objects.filter(
+        estado="SUSPENDIDA",
+        fecha_original=hoy_local,
+    ).select_related("temporada__categoria").order_by(
+        "temporada__categoria__nombre", "numero"
+    ):
+        _cat = _j.temporada.categoria
+        _n = _cat.nombre if _cat else "Sin categoría"
+        suspensiones_hoy.setdefault(_n, []).append(_j)
+
     return render(request, "home.html", {
         "proximos": proximos,
         "resultados": resultados,
@@ -259,6 +273,7 @@ def home(request):
         "finanzas_visible": finanzas_visible,
         "ingresos_data": ingresos_data,
         "equipo_descansa": equipo_descansa,
+        "suspensiones_hoy": suspensiones_hoy,
     })
 
 def change_server(request):

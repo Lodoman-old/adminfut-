@@ -796,11 +796,23 @@ def suspender_jornada(request, jornada_id):
 
     delta = datetime.timedelta(weeks=semanas)
 
+    # Capturar el día original programado ANTES de recorrer el calendario.
+    # (el corrimiento +N semanas reprograma los partidos; sin esto perderíamos
+    #  qué día era para el aviso del dashboard.)
+    primer_pend = (
+        Partido.objects.filter(jornada=jornada, temporada=jornada.temporada)
+        .exclude(estado="FIN")
+        .order_by("fecha_hora")
+        .first()
+    )
+    if primer_pend and primer_pend.fecha_hora:
+        jornada.fecha_original = timezone.localdate(primer_pend.fecha_hora)
+
     # Mark jornada as suspended
     jornada.estado = "SUSPENDIDA"
     jornada.motivo_suspension = motivo
     jornada.semanas_suspension = semanas
-    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension"])
+    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension", "fecha_original"])
 
     # Shift ALL future (non-finalized) matches in jornadas >= this numero by `delta`
     qs = Partido.objects.filter(
@@ -844,7 +856,8 @@ def reactivar_jornada(request, jornada_id):
     jornada.estado = "ACTIVA"
     jornada.motivo_suspension = ""
     jornada.semanas_suspension = None
-    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension"])
+    jornada.fecha_original = None
+    jornada.save(update_fields=["estado", "motivo_suspension", "semanas_suspension", "fecha_original"])
 
     messages.success(request, f"Jornada {jornada.numero} reactivada.")
     return redirect("jornada_list")

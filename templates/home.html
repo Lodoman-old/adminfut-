@@ -890,4 +890,48 @@ body {
 })();
 </script>
 {% endif %}
+{% if suspensiones_hoy %}
+<div class="modal fade" id="modalJornadasSuspendidas" tabindex="-1" aria-labelledby="modalJornadasSuspendidasLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalJornadasSuspendidasLabel">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          Jornada{{ suspensiones_hoy|length|pluralize }} suspendida{{ suspensiones_hoy|length|pluralize }} hoy
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">Se suspendi&oacute; la jornada de la(s) siguiente(s) categor&iacute;a(s) que ten&iacute;a(n) juego programado para HOY:</p>
+        <ul class="list-group list-group-flush">
+          {% for categoria, jornadas in suspensiones_hoy.items %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{{ categoria }}</strong>
+              <div class="small text-muted">
+                Jornada{{ jornadas|length|pluralize }}:
+                {% for j in jornadas %}{{ j.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              </div>
+            </div>
+            <span class="badge bg-danger">Suspendida</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+          <i class="bi bi-check-lg me-1"></i> Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var el = document.getElementById('modalJornadasSuspendidas');
+    if (!el) { return; }
+    new bootstrap.Modal(el).show();
+  })();
+</script>
+{% endif %}
 {% endblock %}

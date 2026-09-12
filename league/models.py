@@ -1770,6 +1770,15 @@ class Jornada(models.Model):
     estado = models.CharField(max_length=10, choices=ESTADOS, default="ACTIVA")
     motivo_suspension = models.TextField(blank=True)
     semanas_suspension = models.PositiveIntegerField(null=True, blank=True)
+    fecha_original = models.DateField(
+        null=True, blank=True,
+        verbose_name="Día programado original",
+        help_text=(
+            "Fecha en que estaba programada la jornada ANTES de suspenderla. "
+            "Se conserva aunque el calendario se recorra, para que el aviso del "
+            "dashboard se muestre TODO el día que era el programado."
+        ),
+    )
 
     class Meta:
         verbose_name = "Jornada"
