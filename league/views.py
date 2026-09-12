@@ -705,10 +705,68 @@ def finalizar_temporada(request, pk):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
-    from .models import DeviceToken
+    from .models import DeviceToken, Visita
+    from datetime import timedelta
+    from django.db.models import Count, Case, When, F, Value, CharField
+    from django.db.models.functions import TruncDate, Cast
+    from django.utils import timezone
+
     logs = get_push_logs(limit=200)
     tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
-    return render(request, "admin/push_logs.html", {"logs": logs, "tokens": tokens})
+
+    ahora = timezone.now()
+    inicio_hoy = timezone.make_aware(timezone.datetime(ahora.year, ahora.month, ahora.day))
+    hace_7dias = ahora - timedelta(days=7)
+    hace_30dias = ahora - timedelta(days=30)
+
+    def unicos(qs):
+        k = Case(
+            When(sesion__gt='', then=F('sesion')),
+            default=Case(When(ip__isnull=False, then=Cast('ip', output_field=CharField())), default=Value('')),
+            output_field=CharField(),
+        )
+        return qs.annotate(k=k).values('k').distinct().count()
+
+    visitas_total = Visita.objects.count()
+    visitas_hoy = Visita.objects.filter(fecha__gte=inicio_hoy).count()
+    visitas_semana = Visita.objects.filter(fecha__gte=hace_7dias).count()
+    visitas_mes = Visita.objects.filter(fecha__gte=hace_30dias).count()
+    unicos_hoy = unicos(Visita.objects.filter(fecha__gte=inicio_hoy))
+    unicos_mes = unicos(Visita.objects.filter(fecha__gte=hace_30dias))
+
+    top_paginas = list(
+        Visita.objects.filter(fecha__gte=hace_30dias)
+        .values("path")
+        .annotate(c=Count("id"))
+        .order_by("-c")[:12]
+    )
+
+    desde_serie = inicio_hoy - timedelta(days=13)
+    por_dia = {}
+    for r in Visita.objects.filter(fecha__gte=desde_serie).annotate(d=TruncDate("fecha")).values("d").annotate(c=Count("id")):
+        por_dia[r["d"]] = r["c"]
+    serie_diaria = []
+    for i in range(14):
+        d = (desde_serie + timedelta(days=i)).date()
+        serie_diaria.append({"fecha": d.strftime("%d/%m"), "c": por_dia.get(d, 0)})
+    serie_max = max([s["c"] for s in serie_diaria] or [1])
+
+    recientes = Visita.objects.select_related("usuario").order_by("-fecha")[:60]
+
+    return render(request, "admin/push_logs.html", {
+        "logs": logs,
+        "tokens": tokens,
+        "visitas_total": visitas_total,
+        "visitas_hoy": visitas_hoy,
+        "visitas_semana": visitas_semana,
+        "visitas_mes": visitas_mes,
+        "unicos_hoy": unicos_hoy,
+        "unicos_mes": unicos_mes,
+        "top_paginas": top_paginas,
+        "serie_diaria": serie_diaria,
+        "serie_max": serie_max,
+        "recientes": recientes,
+    })
 
 
 @login_required

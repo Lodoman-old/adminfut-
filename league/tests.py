@@ -1818,3 +1818,42 @@ class ImagenRolDashboardTest(TestCase):
         from league.social_image import generar_imagen_rol_dashboard
         buf = generar_imagen_rol_dashboard([], "11/09/2026 12:00")
         self.assertTrue(buf.getvalue().startswith(b"\x89PNG"))
+
+
+class ContadorVisitasTest(TestCase):
+    """El contador de visitas registra páginas públicas y no cuenta al staff."""
+
+    def test_visita_publica_se_registra(self):
+        from .models import Visita
+        antes = Visita.objects.count()
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(Visita.objects.count(), antes)
+        self.assertGreater(Visita.objects.filter(path="/").count(), 0)
+
+    def test_staff_no_se_registra(self):
+        from .models import Visita
+        from django.contrib.auth import get_user_model
+        staff = get_user_model().objects.create_user(username="staffvis", password="p", is_staff=True)
+        self.client.force_login(staff)
+        self.client.get("/")
+        self.assertEqual(Visita.objects.count(), 0)
+
+    def test_bot_no_se_registra(self):
+        from .models import Visita
+        self.client.get("/", HTTP_USER_AGENT="Googlebot/2.1 (+http://www.google.com/bot.html)")
+        self.assertEqual(Visita.objects.count(), 0)
+
+    def test_pagina_push_logs_muestra_pestana_visitas(self):
+        from django.contrib.auth import get_user_model
+        from .models import Visita
+        Visita.objects.create(path="/", ip="127.0.0.1")
+        admin = get_user_model().objects.create_user(
+            username="adminvis", password="p", is_staff=True, is_superuser=True
+        )
+        self.client.force_login(admin)
+        r = self.client.get("/push-logs/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'id="visitas-tab"')
+        self.assertContains(r, "Total de visitas")
+        self.assertContains(r, "Páginas más visitadas")

@@ -2622,3 +2622,26 @@ class OfflineToken(models.Model):
 
     def __str__(self):
         return f"OfflineToken {self.usuario_id} ({self.expira:%d/%m/%Y})"
+
+
+class Visita(models.Model):
+    """Registro de una visitas a una página pública del sitio (contador de visitas)."""
+    path = models.CharField(max_length=255, db_index=True, verbose_name="Ruta")
+    consulta = models.CharField(max_length=255, blank=True, default="", verbose_name="Consulta")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    user_agent = models.CharField(max_length=255, blank=True, default="", verbose_name="Agente")
+    referer = models.CharField(max_length=255, blank=True, default="", verbose_name="Origen")
+    sesion = models.CharField(max_length=64, db_index=True, blank=True, default="", verbose_name="Sesión")
+    usuario = models.ForeignKey(
+        "accounts.Usuario", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="visitas",
+    )
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
+
+    class Meta:
+        verbose_name = "Visita"
+        verbose_name_plural = "Visitas"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.path} ({self.fecha:%d/%m/%Y %H:%M})"

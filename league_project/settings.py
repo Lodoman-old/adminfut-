@@ -38,6 +38,7 @@ MIDDLEWARE = [
     'league_project.middleware.LoginPermisoMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'league_project.middleware.ContadorVisitasMiddleware',
 ]
 
 if DEBUG:
