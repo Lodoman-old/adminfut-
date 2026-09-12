@@ -481,7 +481,7 @@ def reporte_castigados_pdf(request):
             data.append([
                 len(data),
                 Paragraph(f"{env.jugador.nombre} {env.jugador.apellido}", ps),
-                Paragraph(env.equipo.nombre, ps),
+                Paragraph(env.equipo.nombre if env.equipo else "Expulsado de la liga", ps),
                 susp_col,
                 Paragraph("Suspensión manual", ps),
                 Paragraph(pend_text, ps),
@@ -876,9 +876,12 @@ def reporte_castigados_xlsx(request):
             else:
                 prox = Partido.objects.filter(
                     temporada=temp, estado__in=("PRO", "PROG"),
-                ).filter(
-                    Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
-                ).order_by("jornada__numero", "fecha_hora", "id")[:rst]
+                )
+                if m.equipo_id:
+                    prox = prox.filter(
+                        Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
+                    )
+                prox = prox.order_by("jornada__numero", "fecha_hora", "id")[:rst]
                 pend_list = list(prox)
                 if pend_list:
                     pend_str = "; ".join(
@@ -892,7 +895,7 @@ def reporte_castigados_xlsx(request):
             ws.append([
                 num_fila - 1,
                 f"{m.jugador.nombre} {m.jugador.apellido}",
-                m.equipo.nombre,
+                m.equipo.nombre if m.equipo else "Expulsado de la liga",
                 susp_col,
                 "Suspensión manual",
                 pend_str,

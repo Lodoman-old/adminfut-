@@ -1146,6 +1146,39 @@ class SuspensionJugadorTest(TestCase):
         self.assertContains(r, "Juan Perez")
         self.assertContains(r, "Expulsado de la liga")
 
+    def test_exportar_castigados_con_suspension_sin_equipo(self):
+        # Suspensión manual sin equipo (expulsado de la liga): PDF y Excel no deben fallar
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            temporada=self.temporada, jornadas=2, fecha_inicio=date.today(),
+        )
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        User.objects.create_superuser(username="adminc", password="p")
+        client = Client()
+        client.force_login(User.objects.get(username="adminc"))
+        for fmt in ("pdf", "xlsx"):
+            with self.subTest(fmt=fmt):
+                r = client.get(f"/reportes/castigados/{fmt}/?temporada={self.temporada.id}")
+                self.assertEqual(r.status_code, 200)
+                self.assertGreater(len(r.content), 1000)
+
+    def test_exportar_castigados_con_suspension_vitalicia_sin_equipo(self):
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            vitalicia=True, fecha_inicio=date.today(),
+        )
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        User.objects.create_superuser(username="admincv", password="p")
+        client = Client()
+        client.force_login(User.objects.get(username="admincv"))
+        for fmt in ("pdf", "xlsx"):
+            with self.subTest(fmt=fmt):
+                r = client.get(f"/reportes/castigados/{fmt}/?temporada={self.temporada.id}")
+                self.assertEqual(r.status_code, 200)
+                self.assertGreater(len(r.content), 1000)
+
     def test_tabla_castigados_usa_categoria_preferida_del_usuario(self):
         from django.contrib.auth import get_user_model
         cat_principal = Categoria.objects.create(
