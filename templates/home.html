@@ -930,7 +930,10 @@ body {
   (function () {
     var el = document.getElementById('modalJornadasSuspendidas');
     if (!el) { return; }
-    new bootstrap.Modal(el).show();
+    // bootstrap se carga al final del body (base.html); esperamos a q está listo
+    function mostrar() { new bootstrap.Modal(el).show(); }
+    if (window.bootstrap) { mostrar(); }
+    else { window.addEventListener('load', mostrar); }
   })();
 </script>
 {% endif %}
