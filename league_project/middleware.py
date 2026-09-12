@@ -236,15 +236,20 @@ class ContadorVisitasMiddleware:
     """Registra las visitas a páginas públicas del sitio (GET con respuesta 200).
 
     No cuenta al personal (staff), ni /admin/, /media/, /static/, /api/,
-    ni peticiones de bots/descargadores. Guarda una fila por vista en la
-    tabla league_visita para alimentar el contador de la sección
-    "Notificaciones Push & Dispositivos"."""
+    ni peticiones de bots/descargadores.
+
+    Agrupa la navegación de un mismo visitante (por IP, o sesión si no hay IP):
+    si no hubo otra página del mismo visitante en la última hora, la página se
+    marca como inicio de una nueva visita (campo `inicio=True`); si sigue
+    navegando antes de esa hora, se considera parte de la misma visita.
+    """
     NOS_CONTAR = ('/admin/', '/media/', '/static/', '/api/', '/health/',
                   '/sw.js', '/manifest.webmanifest', '/pwa-icon/')
     BOTS = re.compile(
         r'(bot|spider|crawl|slurp|bingpreview|facebookexternalhit|whatsapp|'
         r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
         r'semrush|google-inspectiontool|pingdom|uptime|monitor)', re.I)
+    VENTANA_MINUTOS = 60
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -261,11 +266,29 @@ class ContadorVisitasMiddleware:
             if user is not None and getattr(user, 'is_staff', False):
                 return response
             from league.models import Visita
+            from datetime import timedelta
+            from django.utils import timezone
             ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
-            gu = user if (user is not None and user.is_authenticated and not user.is_staff) else None
             sesion = ''
             if getattr(request, 'session', None):
                 sesion = request.session.get('_session_key') or ''
+            # ¿Es el inicio de una visita? (sin otra página del mismo
+            # visitante en la última hora)
+            clave_q = None
+            if ip:
+                clave_q = {'ip': ip}
+            elif sesion:
+                clave_q = {'sesion': sesion}
+            inicio = True
+            if clave_q:
+                ultima = (Visita.objects
+                          .filter(**clave_q)
+                          .order_by('-fecha')
+                          .values_list('fecha', flat=True)
+                          .first())
+                if ultima is not None and (timezone.now() - ultima) < timedelta(minutes=self.VENTANA_MINUTOS):
+                    inicio = False
+            gu = user if (user is not None and user.is_authenticated and not user.is_staff) else None
             Visita.objects.create(
                 path=path[:255],
                 consulta=request.GET.urlencode()[:255],
@@ -274,6 +297,7 @@ class ContadorVisitasMiddleware:
                 referer=request.META.get('HTTP_REFERER', '')[:255],
                 sesion=sesion[:64],
                 usuario=gu,
+                inicio=inicio,
             )
         except Exception:
             pass

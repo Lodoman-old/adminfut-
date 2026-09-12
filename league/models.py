@@ -2637,6 +2637,11 @@ class Visita(models.Model):
         related_name="visitas",
     )
     fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
+    inicio = models.BooleanField(
+        default=False, verbose_name="Inicio de visita",
+        help_text="True si esta página abre una nueva visita (sin otra actividad "
+                  "del mismo visitante en la última hora).",
+    )
 
     class Meta:
         verbose_name = "Visita"

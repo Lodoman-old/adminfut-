@@ -45,7 +45,7 @@
     <div class="card-body">
       <ul class="nav nav-tabs mb-3" id="pushTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="visitas-tab" data-bs-toggle="tab" data-bs-target="#visitas" type="button">Visitas <span class="badge bg-info">{{ visitas_total }}</span></button>
+          <button class="nav-link active" id="visitas-tab" data-bs-toggle="tab" data-bs-target="#visitas" type="button">Visitas <span class="badge bg-info">{{ visitas_unicas }}</span></button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="dispositivos-tab" data-bs-toggle="tab" data-bs-target="#dispositivos" type="button">Dispositivos Registrados <span class="badge bg-info">{{ tokens|length }}</span></button>
@@ -57,12 +57,12 @@
 
       <div class="tab-content">
         <div class="tab-pane fade show active" id="visitas">
-          <p class="text-muted">Visitas a páginas públicas del sitio. No se cuentan accesos del personal (admin) ni bots.</p>
+          <p class="text-muted">Visitas a páginas públicas del sitio. No se cuentan accesos del personal (admin) ni bots. Navegar por varias páginas dentro de 1 hora cuenta como una sola visita; si el mismo visitante vuelve más de 1 hora después, se cuenta como otra visita. <i class="bi bi-play-circle-fill text-success"></i> marca el inicio de cada visita en el listado.</p>
 
           <div class="row g-2 mb-3">
             <div class="col-6 col-md-3 col-lg-2">
               <div class="card text-center p-2">
-                <h5 class="mb-0 text-primary">{{ visitas_total }}</h5>
+                <h5 class="mb-0 text-primary">{{ visitas_unicas }}</h5>
                 <small class="text-muted">Total de visitas</small>
               </div>
             </div>
@@ -92,8 +92,8 @@
             </div>
             <div class="col-6 col-md-3 col-lg-2">
               <div class="card text-center p-2">
-                <h5 class="mb-0 text-secondary">{{ unicos_mes }}</h5>
-                <small class="text-muted">Visitantes únicos (30 días)</small>
+                <h5 class="mb-0 text-secondary">{{ paginas_mes }}</h5>
+                <small class="text-muted">Páginas vistas (30 días)</small>
               </div>
             </div>
           </div>
@@ -114,7 +114,7 @@
               <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
                 <table class="table table-striped table-sm" style="font-size: 0.85rem;">
                   <thead class="sticky-top bg-dark text-white">
-                    <tr><th>Página</th><th>Visitas</th></tr>
+                    <tr><th>Página</th><th>Páginas vistas</th></tr>
                   </thead>
                   <tbody>
                     {% for p in top_paginas %}
@@ -141,8 +141,8 @@
                   </thead>
                   <tbody>
                     {% for v in recientes %}
-                    <tr>
-                      <td>{{ v.fecha|date:"d/m H:i" }}</td>
+                    <tr{% if v.inicio %} class="table-primary"{% endif %}>
+                      <td>{% if v.inicio %}<i class="bi bi-play-circle-fill text-success" title="Inicio de visita"></i>{% endif %}{{ v.fecha|date:"d/m H:i" }}</td>
                       <td style="font-family: monospace; font-size: 0.7rem;">{{ v.path }}{% if v.consulta %}?{{ v.consulta|truncatechars:25 }}{% endif %}</td>
                       <td>{{ v.ip|default:"-" }}</td>
                       <td style="max-width: 110px; word-break: break-word;">{{ v.referer|default:"-"|truncatechars:35 }}</td>

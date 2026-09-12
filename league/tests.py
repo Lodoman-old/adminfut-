@@ -1854,7 +1854,8 @@ class ImagenRolDashboardTest(TestCase):
 
 
 class ContadorVisitasTest(TestCase):
-    """El contador de visitas registra páginas públicas y no cuenta al staff."""
+    """El contador de visitas agrupa la navegación de un mismo visitante
+    dentro de una hora en UNA sola visita (inicio) y no cuenta al staff."""
 
     def test_visita_publica_se_registra(self):
         from .models import Visita
@@ -1863,6 +1864,7 @@ class ContadorVisitasTest(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertGreater(Visita.objects.count(), antes)
         self.assertGreater(Visita.objects.filter(path="/").count(), 0)
+        self.assertTrue(Visita.objects.filter(path="/").latest("fecha").inicio)
 
     def test_staff_no_se_registra(self):
         from .models import Visita
@@ -1877,10 +1879,46 @@ class ContadorVisitasTest(TestCase):
         self.client.get("/", HTTP_USER_AGENT="Googlebot/2.1 (+http://www.google.com/bot.html)")
         self.assertEqual(Visita.objects.count(), 0)
 
+    def test_navegacion_en_misma_hora_es_una_sola_visita(self):
+        from .models import Visita
+        self.client.get("/")
+        self.client.get("/tabla-castigados/")
+        self.client.get("/")
+        self.assertEqual(Visita.objects.filter(inicio=True).count(), 1)
+        self.assertEqual(Visita.objects.count(), 3)
+
+    def test_regreso_mas_de_una_hora_es_nueva_visita(self):
+        from .models import Visita
+        from django.utils import timezone
+        from datetime import timedelta
+        self.client.get("/")
+        primera = Visita.objects.latest("fecha")
+        primera.fecha = timezone.now() - timedelta(hours=2)
+        primera.save(update_fields=["fecha"])
+        self.client.get("/")
+        # La nueva página es inicio (pasó más de 1 hora desde la última actividad)
+        self.assertEqual(Visita.objects.filter(inicio=True).count(), 2)
+
+    def test_contador_total_cuenta_inicios(self):
+        from .models import Visita
+        from django.contrib.auth import get_user_model
+        self.client.get("/")
+        self.client.get("/tabla-castigados/")
+        Visita.objects.create(path="/", inicio=True)
+        admin = get_user_model().objects.create_user(
+            username="adminvis2", password="p", is_staff=True, is_superuser=True
+        )
+        self.client.force_login(admin)
+        r = self.client.get("/push-logs/")
+        self.assertEqual(r.status_code, 200)
+        # 1 sesión real + 1 creada directamente
+        self.assertEqual(r.context["visitas_unicas"], 2)
+        self.assertEqual(r.context["paginas_mes"], 3)
+
     def test_pagina_push_logs_muestra_pestana_visitas(self):
         from django.contrib.auth import get_user_model
         from .models import Visita
-        Visita.objects.create(path="/", ip="127.0.0.1")
+        Visita.objects.create(path="/", ip="127.0.0.1", inicio=True)
         admin = get_user_model().objects.create_user(
             username="adminvis", password="p", is_staff=True, is_superuser=True
         )
@@ -1890,3 +1928,4 @@ class ContadorVisitasTest(TestCase):
         self.assertContains(r, 'id="visitas-tab"')
         self.assertContains(r, "Total de visitas")
         self.assertContains(r, "Páginas más visitadas")
+        self.assertContains(r, "Inicio de visita")

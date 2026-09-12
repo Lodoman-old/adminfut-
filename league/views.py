@@ -727,10 +727,11 @@ def admin_push_logs(request):
         )
         return qs.annotate(k=k).values('k').distinct().count()
 
-    visitas_total = Visita.objects.count()
-    visitas_hoy = Visita.objects.filter(fecha__gte=inicio_hoy).count()
-    visitas_semana = Visita.objects.filter(fecha__gte=hace_7dias).count()
-    visitas_mes = Visita.objects.filter(fecha__gte=hace_30dias).count()
+    visitas_total = Visita.objects.filter(inicio=True).count()
+    visitas_hoy = Visita.objects.filter(inicio=True, fecha__gte=inicio_hoy).count()
+    visitas_semana = Visita.objects.filter(inicio=True, fecha__gte=hace_7dias).count()
+    visitas_mes = Visita.objects.filter(inicio=True, fecha__gte=hace_30dias).count()
+    paginas_mes = Visita.objects.filter(fecha__gte=hace_30dias).count()
     unicos_hoy = unicos(Visita.objects.filter(fecha__gte=inicio_hoy))
     unicos_mes = unicos(Visita.objects.filter(fecha__gte=hace_30dias))
 
@@ -743,7 +744,7 @@ def admin_push_logs(request):
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
-    for r in Visita.objects.filter(fecha__gte=desde_serie).annotate(d=TruncDate("fecha")).values("d").annotate(c=Count("id")):
+    for r in Visita.objects.filter(inicio=True, fecha__gte=desde_serie).annotate(d=TruncDate("fecha")).values("d").annotate(c=Count("id")):
         por_dia[r["d"]] = r["c"]
     serie_diaria = []
     for i in range(14):
@@ -756,10 +757,11 @@ def admin_push_logs(request):
     return render(request, "admin/push_logs.html", {
         "logs": logs,
         "tokens": tokens,
-        "visitas_total": visitas_total,
+        "visitas_unicas": visitas_total,
         "visitas_hoy": visitas_hoy,
         "visitas_semana": visitas_semana,
         "visitas_mes": visitas_mes,
+        "paginas_mes": paginas_mes,
         "unicos_hoy": unicos_hoy,
         "unicos_mes": unicos_mes,
         "top_paginas": top_paginas,

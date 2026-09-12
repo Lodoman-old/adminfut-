@@ -120,9 +120,30 @@ def send_push_notification(tokens, title, body, data=None):
 
     try:
         response = messaging.send_each_for_multicast(message)
-        result = {"success": response.success_count, "failure": response.failure_count}
-        _add_log({"tipo": "SEND", "detalle": f"Push enviado: {response.success_count} ok, {response.failure_count} fail", "success": response.success_count, "failure": response.failure_count})
-        return result
+        codigos_invalidos = set(filter(None, [
+            getattr(messaging.ErrorCode, "UNREGISTERED", None),
+            getattr(messaging.ErrorCode, "INVALID_ARGUMENT", None),
+        ]))
+        invalid = []
+        for resp, tok in zip(response.responses, tokens):
+            if not resp.success:
+                code = getattr(resp.exception, "code", None)
+                es_invalido = (
+                    code in codigos_invalidos
+                    or (isinstance(code, str) and code.upper() in ("UNREGISTERED", "INVALID_ARGUMENT"))
+                )
+                if es_invalido:
+                    invalid.append(tok)
+        detalle = f"Push enviado: {response.success_count} ok, {response.failure_count} fail"
+        if invalid:
+            try:
+                from .models import DeviceToken
+                DeviceToken.objects.filter(token__in=invalid).update(activo=False)
+                detalle += f", {len(invalid)} token(s) inválidos desactivados"
+            except Exception:
+                pass
+        _add_log({"tipo": "SEND", "detalle": detalle, "success": response.success_count, "failure": response.failure_count})
+        return {"success": response.success_count, "failure": response.failure_count}
     except Exception as e:
         logger.error("Push send failed: %s", e)
         _add_log({"tipo": "SEND", "detalle": f"Error al enviar push: {e}", "success": 0, "failure": 0, "error": str(e)})
