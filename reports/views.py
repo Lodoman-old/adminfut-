@@ -1477,7 +1477,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     col_widths = [9, 180, 17, 17, 17, 14, 14, 19]
     hdr = ["#", "Jugador", "Tit", "Camb", "Gol", "A1", "A2", "Roja"]
     row_h = 15
-    franja_h = 20
+    franja_h = 26
     top_margin = 40
     table_w = sum(col_widths)
     gap = 7
@@ -1496,7 +1496,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
             try:
-                p.drawImage(logo_src, x0, h - top_margin - 34, width=34, height=34, preserveAspectRatio=True)
+                p.drawImage(logo_src, x0, h - top_margin - 6 - 17, width=34, height=34, preserveAspectRatio=True)
             except Exception:
                 logo_src = None
         x_text = x0 + (42 if logo_src else 0)
@@ -1551,7 +1551,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             x += col_widths[i]
 
     def nombre_linea(j, sufijo=""):
-        full = f"{j.nombre} {j.apellido}"
+        full = f"{j.nombre} {j.apellido}".upper()
         base_size = 8.5
         usable = col_widths[1] - 6
         tam = base_size
@@ -1648,9 +1648,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 55
-    if footer_y < 160:
-        footer_y = 160
+    footer_y = y_final - 42
+    if footer_y < 165:
+        footer_y = 165
     p.setFillColor(colors.black)
     p.setFont("Helvetica", 10)
     gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
@@ -1658,11 +1658,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
 
-    # Firmas en un solo renglón (sin nombres de capitanes)
+    # Firmas en un solo renglón, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 9)
-    p.drawString(left_x, footer_y - 22, "Firma local: ______________________")
-    p.drawCentredString(w / 2, footer_y - 22, "Firma del árbitro: _____________________________________")
-    p.drawRightString(w - left_x, footer_y - 22, "Firma visitante: ______________________")
+    firma_y = footer_y - 28
+    p.drawString(left_x, firma_y, "Firma local: ____________")
+    p.drawCentredString(w / 2, firma_y, "Firma del árbitro: ____________")
+    p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     draw_footer(p, w, h, 14)
 
