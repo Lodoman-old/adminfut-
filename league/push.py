@@ -120,10 +120,13 @@ def send_push_notification(tokens, title, body, data=None):
 
     try:
         response = messaging.send_each_for_multicast(message)
-        codigos_invalidos = set(filter(None, [
-            getattr(messaging.ErrorCode, "UNREGISTERED", None),
-            getattr(messaging.ErrorCode, "INVALID_ARGUMENT", None),
-        ]))
+        try:
+            codigos_invalidos = set(filter(None, [
+                getattr(messaging.ErrorCode, "UNREGISTERED", None),
+                getattr(messaging.ErrorCode, "INVALID_ARGUMENT", None),
+            ]))
+        except AttributeError:
+            codigos_invalidos = set()
         invalid = []
         for resp, tok in zip(response.responses, tokens):
             if not resp.success:
