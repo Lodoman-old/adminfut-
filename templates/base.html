@@ -14,8 +14,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ config.segunda_linea|default:'AdminFut' }}">
-    <link rel="apple-touch-icon" href="/pwa-icon/apple-touch-icon.png?v=2">
-    <link rel="icon" type="image/png" href="/pwa-icon/icon-192.png?v=2">
+    <link rel="apple-touch-icon" href="/pwa-icon/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" href="/pwa-icon/icon-192.png?v=3">
     <style>
     body {
         background: linear-gradient(135deg, #1a3a15 0%, #2d6b2e 30%, #4a8c4a 60%, #2d6b2e 100%);
@@ -116,6 +116,50 @@
     select optgroup { color: #ffd700 !important; font-style: normal; font-weight: bold; font-size: 0.85rem; }
     select optgroup option { color: #212529; }
     .filter-select optgroup option { color: #fff; }
+    .nav-app-destacado { position: relative; color: #ffd700 !important; font-weight: 600; }
+    .nav-app-destacado i { animation: appPulse 1.8s infinite; border-radius: 8px; }
+    @keyframes appPulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.65); }
+      70% { box-shadow: 0 0 0 9px rgba(255,215,0,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,215,0,0); }
+    }
+    .aviso-app {
+      background: linear-gradient(90deg, #1a3a15, #2d6b2e);
+      border-bottom: 3px solid #ffd700;
+      color: #fff;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+    }
+    .aviso-app.aviso-app-show { max-height: 160px; }
+    .aviso-app-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.6rem 1rem;
+    }
+    .aviso-app-icon {
+      font-size: 1.6rem;
+      color: #ffd700;
+      flex-shrink: 0;
+    }
+    .aviso-app-text strong { display: block; color: #ffd700; }
+    .aviso-app-text span { font-size: 0.9rem; color: rgba(255,255,255,0.92); }
+    .aviso-app-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .aviso-app-close {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.8);
+      font-size: 1.4rem;
+      line-height: 1;
+      padding: 0 0.25rem;
+    }
+    .aviso-app-close:hover { color: #ffd700; }
+    @media (max-width: 768px) {
+      .aviso-app-inner { flex-direction: column; align-items: stretch; text-align: center; }
+      .aviso-app-actions { margin-left: 0; justify-content: center; }
+    }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -193,7 +237,11 @@
                     {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'descarga_reglamento' %}"><i class="bi bi-file-earmark-pdf"></i> Reglamento</a></li>
                     {% if config %}
-                    <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalDescargarApp"><i class="bi bi-phone"></i> Descargar App</a></li>
+                    <li class="nav-item" id="nav-item-descargar-app">
+                        <a class="nav-link nav-app-destacado" href="#" id="linkDescargarApp"
+                           data-bs-toggle="tooltip" data-bs-placement="bottom"
+                           title="Descarga la app y regístrate"><i class="bi bi-phone"></i> Descargar App</a>
+                    </li>
                     {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -233,6 +281,7 @@
                         </ul>
                     </li>
                     {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'registro_invitado' %}"><i class="bi bi-person-plus"></i> Regístrate</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Iniciar sesión</a></li>
                     {% endif %}
                 </ul>
@@ -264,6 +313,58 @@
         {% endif %}
     })();
     </script>
+
+    {% if not user.is_authenticated and config %}
+    <div class="aviso-app d-none" id="avisoApp">
+      <div class="aviso-app-inner">
+        <div class="aviso-app-icon"><i class="bi bi-phone"></i></div>
+        <div class="aviso-app-text">
+          <strong>¡Instala la app y regístrate!</strong>
+          <span>Descarga AdminFut en tu teléfono para llevar la liga en tu bolsillo: resultados, posiciones y avisos en tiempo real.</span>
+        </div>
+        <div class="aviso-app-actions">
+          <a class="btn btn-success btn-sm" href="#" id="linkAvisoDescargar"><i class="bi bi-download"></i> Descargar app</a>
+          <a class="btn btn-outline-light btn-sm" href="{% url 'registro_invitado' %}"><i class="bi bi-person-plus"></i> Registrarme</a>
+          <button type="button" class="aviso-app-close" id="btnCerrarAvisoApp" aria-label="Cerrar">&times;</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    // Aviso de descarga de app (banner deslizante) — solo se muestra si no está cerrado
+    (function() {
+        var banner = document.getElementById('avisoApp');
+        if (!banner) return;
+        var cerrado = false;
+        try { cerrado = localStorage.getItem('adminfut_aviso_app') === '1'; } catch (e) {}
+        if (cerrado) return;
+        // No mostrar dentro de la propia APK
+        var esNativa = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+        if (esNativa) return;
+        setTimeout(function() {
+            banner.classList.remove('d-none');
+            requestAnimationFrame(function() { banner.classList.add('aviso-app-show'); });
+        }, 600);
+        function cerrar() {
+            banner.classList.remove('aviso-app-show');
+            setTimeout(function() { banner.classList.add('d-none'); }, 500);
+            try { localStorage.setItem('adminfut_aviso_app', '1'); } catch (e) {}
+        }
+        var btnCerrar = document.getElementById('btnCerrarAvisoApp');
+        if (btnCerrar) btnCerrar.addEventListener('click', cerrar);
+        var linkDesc = document.getElementById('linkAvisoDescargar');
+        if (linkDesc) linkDesc.addEventListener('click', function(e) {
+            e.preventDefault();
+            var modalEl = document.getElementById('modalDescargarApp');
+            if (modalEl && window.bootstrap) {
+                new bootstrap.Modal(modalEl).show();
+            } else if (modalEl) {
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+            }
+        });
+    })();
+    </script>
+    {% endif %}
 
     <div class="container-fluid mt-3">
         {% load league_extras %}
@@ -484,6 +585,27 @@
     })();
     </script>
     {% block extra_js %}{% endblock %}
+    <script>
+    // Tooltip y apertura del modal para el botón "Descargar App" del menú
+    (function() {
+        var link = document.getElementById('linkDescargarApp');
+        if (!link) return;
+        if (window.bootstrap && bootstrap.Tooltip) {
+            new bootstrap.Tooltip(link, { placement: 'bottom' });
+        }
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var modalEl = document.getElementById('modalDescargarApp');
+            if (modalEl) {
+                if (window.bootstrap) { bootstrap.Modal.getOrCreateInstance(modalEl).show(); }
+                else {
+                    modalEl.classList.add('show');
+                    modalEl.style.display = 'block';
+                }
+            }
+        });
+    })();
+    </script>
     {% block extra_modals %}{% endblock %}
 </body>
 </html>
