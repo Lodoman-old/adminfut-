@@ -108,6 +108,11 @@ PERMISO_POR_URL = {
     'categoria_create': 'categoria_crear',
     'categoria_update': 'categoria_editar',
     'categoria_delete': 'categoria_eliminar',
+    # Gestión - Anuncios / Publicidad
+    'anuncio_list': 'gestion_publicidad',
+    'anuncio_create': 'anuncio_crear',
+    'anuncio_update': 'anuncio_editar',
+    'anuncio_delete': 'anuncio_eliminar',
     # Gestión - Equipos
     'equipo_list': 'gestion_equipos',
     'equipo_create': 'equipo_crear',

@@ -215,6 +215,8 @@
                             <li><a class="dropdown-item" href="{% url 'periodoaltas_list' %}">Período de Altas/Bajas</a></li>{% endif %}
                             {% if user|tiene_permiso:"gestion_arbitros" %}<li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'arbitro_list' %}">Árbitros</a></li>{% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'anuncio_list' %}"><i class="bi bi-megaphone"></i> Publicidad</a></li>
                         </ul>
                     </li>
                     {% if user.es_arbitro %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Eliminar Anuncio - AdminFut{% endblock %}
+{% block content %}
+<div class="card border-danger">
+    <div class="card-header text-bg-danger"><h5>Confirmar eliminación</h5></div>
+    <div class="card-body">
+        <p>¿Estás seguro de eliminar el anuncio <strong>{{ object }}</strong>?</p>
+        <form method="post">{% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+            <a href="{% url 'anuncio_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

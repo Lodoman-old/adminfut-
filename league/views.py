@@ -21,7 +21,7 @@ from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
 from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick
-from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
+from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm, AnuncioForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
 
@@ -68,6 +68,35 @@ class CategoriaDeleteView(DeleteView):
     model = Categoria
     template_name = "league/categoria_confirm_delete.html"
     success_url = reverse_lazy("categoria_list")
+
+
+class AnuncioListView(ListView):
+    model = Anuncio
+    template_name = "league/anuncio_list.html"
+    context_object_name = "anuncios"
+
+    def get_queryset(self):
+        return Anuncio.objects.select_related().order_by("-activo", "orden", "-creado")
+
+
+class AnuncioCreateView(CreateView):
+    model = Anuncio
+    form_class = AnuncioForm
+    template_name = "league/anuncio_form.html"
+    success_url = reverse_lazy("anuncio_list")
+
+
+class AnuncioUpdateView(UpdateView):
+    model = Anuncio
+    form_class = AnuncioForm
+    template_name = "league/anuncio_form.html"
+    success_url = reverse_lazy("anuncio_list")
+
+
+class AnuncioDeleteView(DeleteView):
+    model = Anuncio
+    template_name = "league/anuncio_confirm_delete.html"
+    success_url = reverse_lazy("anuncio_list")
 
 
 class EquipoListView(ListView):

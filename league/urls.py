@@ -7,6 +7,10 @@ urlpatterns = [
     path("categorias/nueva/", views.CategoriaCreateView.as_view(), name="categoria_create"),
     path("categorias/<int:pk>/editar/", views.CategoriaUpdateView.as_view(), name="categoria_update"),
     path("categorias/<int:pk>/eliminar/", views.CategoriaDeleteView.as_view(), name="categoria_delete"),
+    path("anuncios/", views.AnuncioListView.as_view(), name="anuncio_list"),
+    path("anuncios/nuevo/", views.AnuncioCreateView.as_view(), name="anuncio_create"),
+    path("anuncios/<int:pk>/editar/", views.AnuncioUpdateView.as_view(), name="anuncio_update"),
+    path("anuncios/<int:pk>/eliminar/", views.AnuncioDeleteView.as_view(), name="anuncio_delete"),
 
     path("equipos/", views.EquipoListView.as_view(), name="equipo_list"),
     path("equipos/nuevo/", views.EquipoCreateView.as_view(), name="equipo_create"),

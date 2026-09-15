@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load permisos %}
+{% block title %}Publicidad / Anuncios - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-megaphone"></i> Anuncios (Publicidad)</h3>
+    {% if user|tiene_permiso:"anuncio_crear" %}
+    <a href="{% url 'anuncio_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo anuncio</a>
+    {% endif %}
+</div>
+
+<div class="alert alert-secondary small">
+    <i class="bi bi-info-circle"></i> Los anuncios aparecen en el inicio para todos los visitantes.
+    Los tamaños determinan el lugar: <b>Premium</b> (franja grande), <b>Medio</b> (columna derecha) y
+    <b>Económico</b> (franja fina). El rendimiento (impresiones/clics) se ve en
+    <a href="{% url 'admin_push_logs' %}">Notificaciones Push & Dispositivos</a>.
+</div>
+
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+    <thead><tr><th>Imagen</th><th>Título</th><th>Tamaño</th><th>Vigencia</th><th>Impresiones</th><th>Clics</th><th>CTR</th><th>Activo</th><th>Acciones</th></tr></thead>
+    <tbody>
+        {% for a in anuncios %}
+        <tr class="{% if not a.vigente %}table-secondary{% endif %}">
+            <td>{% if a.imagen %}<img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" style="height: 40px; max-width: 80px; object-fit: contain;">{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{{ a.titulo }}</td>
+            <td>
+                {% if a.tamano == "PREMIUM" %}<span class="badge bg-warning text-dark">Premium</span>
+                {% elif a.tamano == "MEDIO" %}<span class="badge bg-primary">Medio</span>
+                {% else %}<span class="badge bg-success">Económico</span>{% endif %}
+            </td>
+            <td style="font-size: 0.8rem;">
+                {% if a.fecha_inicio and a.fecha_fin %}{{ a.fecha_inicio|date:"d/m/y" }} - {{ a.fecha_fin|date:"d/m/y" }}
+                {% elif a.fecha_inicio %}Desde {{ a.fecha_inicio|date:"d/m/y" }}
+                {% elif a.fecha_fin %}Hasta {{ a.fecha_fin|date:"d/m/y" }}
+                {% else %}<span class="text-muted">Sin límite</span>{% endif %}
+                {% if not a.vigente %}<span class="badge bg-secondary">No vigente</span>{% endif %}
+            </td>
+            <td>{{ a.impresiones }}</td>
+            <td>{{ a.clics }}</td>
+            <td>{% if a.impresiones %}{{ a.clics|floatformat:0 }}%{% else %}0%{% endif %}</td>
+            <td>{% if a.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+            <td class="text-nowrap">
+                {% if user|tiene_permiso:"anuncio_editar" %}
+                <a href="{% url 'anuncio_update' a.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if user|tiene_permiso:"anuncio_eliminar" %}
+                <a href="{% url 'anuncio_delete' a.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted">No hay anuncios. Crea el primero.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ from django import forms
 from django.utils.timezone import localtime, is_aware, make_aware
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from .models import Categoria, Temporada, Grupo, Equipo, Jugador, JugadorEquipo, Campo, Arbitro, PeriodoAltas, Partido, HorarioFijoEquipo, SuspensionJugador
+from .models import Categoria, Temporada, Grupo, Equipo, Jugador, JugadorEquipo, Campo, Arbitro, PeriodoAltas, Partido, HorarioFijoEquipo, SuspensionJugador, Anuncio
 from .reglas_movimientos import errores_movimiento_jugador
 from datetime import date
 
@@ -954,6 +954,23 @@ class CategoriaForm(forms.ModelForm):
             instance.save()
             self.save_m2m()
         return instance
+
+
+class AnuncioForm(forms.ModelForm):
+    class Meta:
+        model = Anuncio
+        fields = ["titulo", "descripcion", "imagen", "enlace", "tamano", "activo", "fecha_inicio", "fecha_fin", "orden"]
+        widgets = {
+            "titulo": forms.TextInput(attrs={"class": "form-control"}),
+            "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "imagen": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "enlace": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://..."}),
+            "tamano": forms.Select(attrs={"class": "form-select"}),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "fecha_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "orden": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+        }
 
 
 

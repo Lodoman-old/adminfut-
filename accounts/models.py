@@ -98,6 +98,14 @@ PERMISOS_MENU = {
             ("caja_corte", "Corte de Caja"),
         ],
     },
+    "Publicidad": {
+        "Anuncios": [
+            ("gestion_publicidad", "Acceso a Publicidad"),
+            ("anuncio_crear", "Crear Anuncios"),
+            ("anuncio_editar", "Editar Anuncios"),
+            ("anuncio_eliminar", "Eliminar Anuncios"),
+        ],
+    },
     "Configuración": {
         "General": [
             ("gestion_configuracion", "Configuración de Liga"),

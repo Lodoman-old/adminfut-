@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} Anuncio - AdminFut{% endblock %}
+{% block content %}
+<h3 class="page-header"><i class="bi bi-megaphone text-warning"></i> {% if object %}Editar{% else %}Nuevo{% endif %} Anuncio</h3>
+<div class="card mt-3" style="max-width:800px;margin:0 auto">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Anuncio</h5></div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<small class="text-muted">{{ field.help_text }}</small>{% endif %}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endfor %}
+            {% if object and object.imagen %}
+            <div class="mb-3">
+                <img src="{{ object.imagen.url }}" alt="{{ object.titulo }}" style="max-height: 120px; object-fit: contain;">
+            </div>
+            {% endif %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Guardar</button>
+                <a href="{% url 'anuncio_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
