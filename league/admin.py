@@ -210,3 +210,13 @@ class AnuncioAdmin(admin.ModelAdmin):
             return "0%"
         return f"{obj.clics / obj.impresiones * 100:.1f}%"
     clic_ratio.short_description = "CTR"
+
+
+@admin.register(AnuncioClick)
+class AnuncioClickAdmin(admin.ModelAdmin):
+    list_display = ["anuncio", "fecha", "ip", "sesion"]
+    list_filter = ["anuncio"]
+    readonly_fields = ["anuncio", "ip", "sesion", "fecha"]
+    has_add_permission = lambda self, request: False
+    has_change_permission = lambda self, request, obj=None: False
+    has_delete_permission = lambda self, request, obj=None: False
