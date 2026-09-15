@@ -1,6 +1,20 @@
 {% for a in anuncios %}
 {% if a.tamano == "ECONOMICO" %}
 <div class="banner-anuncio banner-economico rounded mb-3 shadow-sm" data-anuncio-id="{{ a.id }}" style="border: 1px solid #2d6b2e;">
+  {% if a.color_fondo %}
+  <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none d-flex align-items-center justify-content-between gap-2 px-3 py-2 flex-wrap"
+     style="background: {{ a.color_fondo }};">
+    <div class="d-flex align-items-center gap-2" style="min-width: 0;">
+      {% if a.imagen %}
+      <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="img-fluid rounded" style="max-height: 38px; max-width: 80px; object-fit: contain;">
+      {% endif %}
+      <span class="text-white small fw-bold truncate-title" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        {{ a.titulo }}{% if a.descripcion %} — {{ a.descripcion|truncatechars:60 }}{% endif %}
+      </span>
+    </div>
+    <span class="badge bg-light text-dark flex-shrink-0"><i class="bi bi-megaphone"></i> Anuncio</span>
+  </a>
+  {% else %}
   <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none d-flex align-items-center justify-content-between gap-2 px-3 py-2 flex-wrap"
      style="background: linear-gradient(90deg, #eaf6ea, #fff);">
     <div class="d-flex align-items-center gap-2" style="min-width: 0;">
@@ -13,6 +27,7 @@
     </div>
     <span class="badge bg-success text-white flex-shrink-0"><i class="bi bi-megaphone"></i> Anuncio</span>
   </a>
+  {% endif %}
 </div>
 {% endif %}
 {% endfor %}

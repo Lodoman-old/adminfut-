@@ -22,7 +22,7 @@
     <tbody>
         {% for a in anuncios %}
         <tr class="{% if not a.vigente %}table-secondary{% endif %}">
-            <td>{% if a.imagen %}<img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" style="height: 40px; max-width: 80px; object-fit: contain;">{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if a.imagen %}<img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" style="height: 40px; max-width: 80px; object-fit: contain;">{% elif a.color_fondo %}<span style="display:inline-block;width:50px;height:30px;background:{{ a.color_fondo }};border-radius:4px;border:1px solid #ccc;"></span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td>{{ a.titulo }}</td>
             <td>
                 {% if a.tamano == "PREMIUM" %}<span class="badge bg-warning text-dark">Premium</span>

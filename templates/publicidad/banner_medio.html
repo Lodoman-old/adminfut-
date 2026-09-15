@@ -2,6 +2,21 @@
 {% if a.tamano == "MEDIO" %}
 <div class="card banner-anuncio banner-medio mb-3 shadow-sm border-primary" data-anuncio-id="{{ a.id }}">
   <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none">
+    {% if a.color_fondo %}
+    <div class="card-body p-2" style="background: {{ a.color_fondo }};">
+      {% if a.imagen %}
+      <div class="text-center mb-2">
+        <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="img-fluid rounded" style="max-height: 70px; object-fit: contain;">
+      </div>
+      {% endif %}
+      <div class="text-center">
+        <span class="badge bg-light text-dark mb-1"><i class="bi bi-megaphone"></i> Publicidad</span>
+        <h6 class="mb-1 fw-bold text-white">{{ a.titulo }}</h6>
+        {% if a.descripcion %}<p class="mb-1 text-white opacity-75 small">{{ a.descripcion|truncatechars:90 }}</p>{% endif %}
+        {% if a.enlace %}<span class="btn btn-sm btn-anuncio" style="background:#fff;color:{{ a.color_fondo }};"><i class="bi bi-box-arrow-up-right"></i> Ver más</span>{% endif %}
+      </div>
+    </div>
+    {% else %}
     <div class="card-body p-2" style="background: linear-gradient(135deg, #eef6ff, #fff);">
       {% if a.imagen %}
       <div class="text-center mb-2">
@@ -15,6 +30,7 @@
         {% if a.enlace %}<span class="btn btn-primary btn-sm btn-anuncio"><i class="bi bi-box-arrow-up-right"></i> Ver más</span>{% endif %}
       </div>
     </div>
+    {% endif %}
   </a>
 </div>
 {% endif %}

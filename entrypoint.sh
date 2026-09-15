@@ -10,6 +10,9 @@ python manage.py collectstatic --noinput
 echo "Running seed (roles, admin, conceptos)..."
 python manage.py seed
 
+echo "Running seed_anuncios (anuncios de ejemplo)..."
+python manage.py seed_anuncios
+
 echo "Creating superuser if needed..."
 python manage.py shell -c "
 from accounts.models import Usuario

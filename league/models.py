@@ -2671,6 +2671,7 @@ class Anuncio(models.Model):
     titulo = models.CharField(max_length=200, verbose_name="Título")
     descripcion = models.TextField(blank=True, default="", verbose_name="Descripción")
     imagen = models.ImageField(upload_to="anuncios/", blank=True, null=True, verbose_name="Imagen")
+    color_fondo = models.CharField(max_length=20, blank=True, default="", verbose_name="Color de fondo (opcional, ej. #2d6b2e)")
     enlace = models.URLField(blank=True, default="", verbose_name="Enlace del anunciante")
     tamano = models.CharField(max_length=20, choices=TAMANOS, default="MEDIO", verbose_name="Tamaño")
     activo = models.BooleanField(default=True, verbose_name="Activo")
