@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ anuncio.titulo }} - Publicidad{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <div class="card border-warning shadow-lg">
+    <div class="card-header bg-warning text-dark">
+      <i class="bi bi-megaphone"></i> Publicidad / Promoción
+    </div>
+    <div class="card-body">
+      <div class="text-center mb-4">
+        <span class="badge bg-secondary">Anuncio</span>
+        {% if anuncio.tamano == "PREMIUM" %}<span class="badge bg-warning text-dark">Premium</span>
+        {% elif anuncio.tamano == "MEDIO" %}<span class="badge bg-primary">Medio</span>
+        {% else %}<span class="badge bg-success">Económico</span>{% endif %}
+      </div>
+
+      {% if anuncio.imagen %}
+      <div class="text-center mb-4">
+        <img src="{{ anuncio.imagen.url }}" class="img-fluid rounded shadow" alt="{{ anuncio.titulo }}"
+             style="max-height: 420px; object-fit: contain;">
+      </div>
+      {% endif %}
+
+      <h2 class="text-center mb-1">{{ anuncio.titulo }}</h2>
+      {% if anuncio.descripcion %}
+      <p class="lead text-center text-muted mb-4">{{ anuncio.descripcion }}</p>
+      {% endif %}
+
+      {% if anuncio.enlace %}
+      <div class="text-center">
+        <a href="{{ anuncio.enlace }}" target="_blank" rel="noopener" class="btn btn-success btn-lg">
+          <i class="bi bi-box-arrow-up-right"></i> Visitar sitio / Ver más
+        </a>
+      </div>
+      <p class="text-muted text-center small mt-2 mb-0">Se abrirá el sitio del anunciante en una pestaña nueva.</p>
+      {% endif %}
+    </div>
+    <div class="card-footer text-center">
+      <a href="{% url 'home' %}" class="btn btn-link"><i class="bi bi-arrow-left"></i> Volver al inicio</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

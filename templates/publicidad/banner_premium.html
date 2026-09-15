@@ -1,0 +1,20 @@
+{% for a in anuncios %}
+{% if a.tamano == "PREMIUM" %}
+<div class="card banner-anuncio banner-premium mb-4 border-warning shadow" data-anuncio-id="{{ a.id }}">
+  <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none d-block">
+    <div class="card-body d-flex align-items-center gap-3 flex-wrap" style="background: linear-gradient(135deg, #fffbe6, #fff);">
+      {% if a.imagen %}
+      <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="img-fluid rounded shadow-sm"
+           style="max-height: 90px; max-width: 210px; object-fit: contain; flex-shrink: 0;">
+      {% endif %}
+      <div class="flex-grow-1 text-center text-md-start" style="min-width: 160px;">
+        <span class="badge bg-warning text-dark mb-1"><i class="bi bi-stars"></i> Publicidad</span>
+        <h5 class="mb-1 fw-bold text-dark">{{ a.titulo }}</h5>
+        {% if a.descripcion %}<p class="mb-1 text-dark small">{{ a.descripcion }}</p>{% endif %}
+        {% if a.enlace %}<span class="btn btn-warning btn-sm btn-anuncio"><i class="bi bi-box-arrow-up-right"></i> Ver más</span>{% endif %}
+      </div>
+    </div>
+  </a>
+</div>
+{% endif %}
+{% endfor %}

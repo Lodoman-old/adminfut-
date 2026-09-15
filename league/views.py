@@ -16,10 +16,11 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
+from django.db import models
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
@@ -700,6 +701,39 @@ def finalizar_temporada(request, pk):
         "temporada": temporada,
         "es_anticipado": es_anticipado,
     })
+
+
+def detalle_anuncio(request, anuncio_id):
+    """Página pública: muestra el anuncio en grande y registra el clic."""
+    anuncio = get_object_or_404(Anuncio, pk=anuncio_id, activo=True)
+    # Registrar el clic (banner -> detalle)
+    anuncio.clics = (anuncio.clics or 0) + 1
+    anuncio.save(update_fields=["clics"])
+    ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
+    try:
+        AnuncioClick.objects.create(
+            anuncio=anuncio,
+            ip=ip or None,
+            sesion=(request.session.session_key or '')[:64],
+        )
+    except Exception:
+        pass
+    return render(request, "publicidad/detalle.html", {"anuncio": anuncio})
+
+
+def impresion_anuncio(request, anuncio_id):
+    """Registra una impresión del banner (se llama desde el cliente, solo
+    navegadores reales con JS; los bots no cuentan)."""
+    from django.http import JsonResponse
+    if request.method != "GET":
+        return JsonResponse({"ok": False}, status=405)
+    try:
+        nup = Anuncio.objects.filter(pk=anuncio_id, activo=True).update(
+            impresiones=models.F("impresiones") + 1
+        )
+        return JsonResponse({"ok": nup == 1})
+    except Exception:
+        return JsonResponse({"ok": False})
 
 
 @admin.site.admin_view

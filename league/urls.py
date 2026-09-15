@@ -102,6 +102,8 @@ urlpatterns = [
     path("api/categorias/", api_views.lista_categorias, name="api_categorias"),
     path("api/vapid-public-key/", api_views.vapid_public_key, name="vapid_public_key"),
     path("api/cron-notificar-arbitros/", api_views.cron_notificar_arbitros, name="cron_notificar_arbitros"),
+    path("publicidad/<int:anuncio_id>/", views.detalle_anuncio, name="detalle_anuncio"),
+    path("publicidad/<int:anuncio_id>/impresion/", views.impresion_anuncio, name="impresion_anuncio"),
 
     # PWA / Web Push (alcance raíz)
     path("sw.js", views.service_worker, name="sw_js"),

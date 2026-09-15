@@ -370,6 +370,8 @@ body {
   </p>
 </div>
 
+{% include "publicidad/banner_premium.html" %}
+
 {% if categoria_sel %}
 <!-- Stats row -->
 {% with s=stats|dictsort:0 %}
@@ -466,6 +468,7 @@ body {
 
   <!-- Fila 1 (derecha): goleadores -->
   <div class="col-lg-6 mb-4">
+    {% include "publicidad/banner_medio.html" %}
     <div class="card h-100">
       <div class="card-header bg-primary text-white">
         <i class="bi bi-trophy"></i> Máximos Goleadores - {{ categoria_sel.nombre }}
@@ -704,6 +707,7 @@ body {
 </div>
 {% endif %}
 
+{% include "publicidad/banner_economico.html" %}
 {% if finanzas_visible and ingresos_data %}
 <div class="row">
   <div class="col-md-6 mb-4">
@@ -937,4 +941,20 @@ body {
   })();
 </script>
 {% endif %}
+<script>
+// Conteo de impresiones de banners de publicidad (solo navegadores con JS).
+(function () {
+  var vistos = {};
+  function encolar(id) {
+    if (!id || vistos[id]) return;
+    vistos[id] = true;
+    var url = '/publicidad/' + id + '/impresion/';
+    fetch(url, { method: 'GET', credentials: 'same-origin' }).catch(function () {});
+  }
+  var banners = document.querySelectorAll('.banner-anuncio');
+  for (var i = 0; i < banners.length; i++) {
+    encolar(banners[i].getAttribute('data-anuncio-id'));
+  }
+})();
+</script>
 {% endblock %}

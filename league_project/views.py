@@ -3,7 +3,7 @@ from django.db.models import Sum, Count
 from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone
-from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta, SuspensionJugador
+from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta, SuspensionJugador, Anuncio
 from league.storage import url_para_nombre
 from django.db.models import Q
 from finance.models import Ingreso
@@ -274,6 +274,7 @@ def home(request):
         "ingresos_data": ingresos_data,
         "equipo_descansa": equipo_descansa,
         "suspensiones_hoy": suspensiones_hoy,
+        "anuncios": Anuncio.activos(),
     })
 
 def change_server(request):

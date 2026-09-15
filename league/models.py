@@ -2659,3 +2659,70 @@ class Visita(models.Model):
 
     def __str__(self):
         return f"{self.path} ({self.fecha:%d/%m/%Y %H:%M})"
+
+
+class Anuncio(models.Model):
+    """Anuncio publicitario para vender espacios en el sitio (banners)."""
+    TAMANOS = [
+        ("PREMIUM", "Premium (franja grande)"),
+        ("MEDIO", "Medio (columna)"),
+        ("ECONOMICO", "Económico (franja fina)"),
+    ]
+    titulo = models.CharField(max_length=200, verbose_name="Título")
+    descripcion = models.TextField(blank=True, default="", verbose_name="Descripción")
+    imagen = models.ImageField(upload_to="anuncios/", blank=True, null=True, verbose_name="Imagen")
+    enlace = models.URLField(blank=True, default="", verbose_name="Enlace del anunciante")
+    tamano = models.CharField(max_length=20, choices=TAMANOS, default="MEDIO", verbose_name="Tamaño")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    fecha_inicio = models.DateField(null=True, blank=True, verbose_name="Inicio de vigencia")
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fin de vigencia")
+    orden = models.IntegerField(default=0, verbose_name="Orden")
+    impresiones = models.PositiveIntegerField(default=0, verbose_name="Impresiones")
+    clics = models.PositiveIntegerField(default=0, verbose_name="Clics")
+    creado = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
+    actualizado = models.DateTimeField(auto_now=True, verbose_name="Actualizado")
+
+    class Meta:
+        verbose_name = "Anuncio"
+        verbose_name_plural = "Anuncios"
+        ordering = ["orden", "-creado"]
+
+    def __str__(self):
+        return self.titulo
+
+    def vigente(self):
+        from django.utils import timezone
+        hoy = timezone.localdate()
+        if self.fecha_inicio and hoy < self.fecha_inicio:
+            return False
+        if self.fecha_fin and hoy > self.fecha_fin:
+            return False
+        return True
+
+    @classmethod
+    def activos(cls):
+        from django.utils import timezone
+        from django.db.models import Q
+        hoy = timezone.localdate()
+        hoy_str = hoy.isoformat()
+        return cls.objects.filter(activo=True).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy_str)
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy_str)
+        )
+
+
+class AnuncioClick(models.Model):
+    """Registro de cada clic a un anuncio (para métricas por día)."""
+    anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name="registros_click")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    sesion = models.CharField(max_length=64, blank=True, default="", verbose_name="Sesión")
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
+
+    class Meta:
+        verbose_name = "Clic de anuncio"
+        verbose_name_plural = "Clics de anuncios"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.anuncio} ({self.fecha:%d/%m/%Y %H:%M})"

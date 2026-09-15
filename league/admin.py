@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick
 
 
 @admin.register(ConfiguracionLiga)
@@ -185,3 +185,28 @@ class PushLogAdmin(admin.ModelAdmin):
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(Anuncio)
+class AnuncioAdmin(admin.ModelAdmin):
+    list_display = ["titulo", "tamano", "activo", "vigencia", "impresiones", "clics", "clic_ratio", "orden"]
+    list_filter = ["tamano", "activo"]
+    search_fields = ["titulo", "descripcion"]
+    list_editable = ["tamano", "activo", "orden"]
+    readonly_fields = ["impresiones", "clics"]
+
+    def vigencia(self, obj):
+        if obj.fecha_inicio and obj.fecha_fin:
+            return f"{obj.fecha_inicio:%d/%m/%Y} - {obj.fecha_fin:%d/%m/%Y}"
+        if obj.fecha_inicio:
+            return f"Desde {obj.fecha_inicio:%d/%m/%Y}"
+        if obj.fecha_fin:
+            return f"Hasta {obj.fecha_fin:%d/%m/%Y}"
+        return "Sin límite"
+    vigencia.short_description = "Vigencia"
+
+    def clic_ratio(self, obj):
+        if not obj.impresiones:
+            return "0%"
+        return f"{obj.clics / obj.impresiones * 100:.1f}%"
+    clic_ratio.short_description = "CTR"
