@@ -942,19 +942,34 @@ body {
 </script>
 {% endif %}
 <script>
-// Conteo de impresiones de banners de publicidad (solo navegadores con JS).
+// Rotación de banners de publicidad y conteo de impresiones (solo navegadores con JS).
+// Si hay varios anuncios del mismo tamaño se rotan: se muestra uno a la vez y cada
+// INTERVALO ms pasa al siguiente. La impresión se cuenta solo del banner visible.
 (function () {
+  var INTERVALO = 30000; // ms (30s; 1 min = 60000). Cambia aquí la duración.
   var vistos = {};
   function encolar(id) {
-    if (!id || vistos[id]) return;
+    if (!id || vistos[id]) { return; }
     vistos[id] = true;
-    var url = '/publicidad/' + id + '/impresion/';
-    fetch(url, { method: 'GET', credentials: 'same-origin' }).catch(function () {});
+    fetch('/publicidad/' + id + '/impresion/', { method: 'GET', credentials: 'same-origin' }).catch(function () {});
   }
-  var banners = document.querySelectorAll('.banner-anuncio');
-  for (var i = 0; i < banners.length; i++) {
-    encolar(banners[i].getAttribute('data-anuncio-id'));
+  function arrancar(grupo) {
+    var banners = document.querySelectorAll('.banner-anuncio.banner-' + grupo);
+    if (!banners.length) { return; }
+    var idx = 0;
+    for (var i = 0; i < banners.length; i++) {
+      banners[i].style.display = (i === 0) ? '' : 'none';
+    }
+    encolar(banners[0].getAttribute('data-anuncio-id'));
+    if (banners.length < 2) { return; }
+    setInterval(function () {
+      banners[idx].style.display = 'none';
+      idx = (idx + 1) % banners.length;
+      banners[idx].style.display = '';
+      encolar(banners[idx].getAttribute('data-anuncio-id'));
+    }, INTERVALO);
   }
+  ['premium', 'medio', 'economico'].forEach(arrancar);
 })();
 </script>
 {% endblock %}

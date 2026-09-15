@@ -24,6 +24,20 @@ ANUNCIOS_EJEMPLO = [
         "enlace": "https://example.com/nutricion",
         "tamano": "ECONOMICO",
     },
+    {
+        "titulo": "Liga del Café — Torneo relámpago",
+        "descripcion": "Inscripciones abiertas para la copa de fin de año. Forma tu equipo y participa.",
+        "color_fondo": "#5b2d8e",
+        "enlace": "https://example.com/copa",
+        "tamano": "PREMIUM",
+    },
+    {
+        "titulo": "Ferretería La Cancha — Filial",
+        "descripcion": "Materiales para tus arcos, mallas y pintura de cancha con envío.",
+        "color_fondo": "#b05b1a",
+        "enlace": "https://example.com/ferreteria",
+        "tamano": "ECONOMICO",
+    },
 ]
 
 
