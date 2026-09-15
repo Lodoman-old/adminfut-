@@ -775,6 +775,22 @@ def admin_push_logs(request):
         .annotate(c=Count("id"))
         .order_by("-c")[:12]
     )
+    _tot_pag = (paginas_mes or 1)
+    for p in top_paginas:
+        p["pct"] = p["c"] / _tot_pag * 100
+
+    import re as _re
+    _movil_re = _re.compile(r'Android|iPhone|iPad|iPod|Mobile|Windows Phone|BlackBerry|Opera Mini|IEMobile', _re.I)
+    moviles_mes = sum(1 for ua in Visita.objects.filter(fecha__gte=hace_30dias).values_list("user_agent", flat=True).iterator() if _movil_re.search(ua or ""))
+    web_mes = max(paginas_mes - moviles_mes, 0)
+    _tot = (moviles_mes + web_mes) or 1
+    moviles_pct = round(moviles_mes / _tot * 100)
+    web_pct = 100 - moviles_pct
+
+    anuncios = list(Anuncio.objects.all().order_by("-activo", "orden", "-creado"))
+    for a in anuncios:
+        a.ctr = (a.clics / a.impresiones * 100) if a.impresiones else 0
+        a.clics_mes = AnuncioClick.objects.filter(anuncio=a, fecha__gte=hace_30dias).count()
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
@@ -799,6 +815,11 @@ def admin_push_logs(request):
         "unicos_hoy": unicos_hoy,
         "unicos_mes": unicos_mes,
         "top_paginas": top_paginas,
+        "moviles_mes": moviles_mes,
+        "web_mes": web_mes,
+        "moviles_pct": moviles_pct,
+        "web_pct": web_pct,
+        "anuncios": anuncios,
         "serie_diaria": serie_diaria,
         "serie_max": serie_max,
         "recientes": recientes,
