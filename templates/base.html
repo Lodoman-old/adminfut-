@@ -319,12 +319,16 @@
       <div class="aviso-app-inner">
         <div class="aviso-app-icon"><i class="bi bi-phone"></i></div>
         <div class="aviso-app-text">
-          <strong>¡Instala la app y regístrate!</strong>
-          <span>Descarga AdminFut en tu teléfono para llevar la liga en tu bolsillo: resultados, posiciones y avisos en tiempo real.</span>
+          <strong>¡Instala la app!</strong>
+          <span>Descarga la app de AdminFut en tu teléfono para llevar la liga en tu bolsillo: resultados, posiciones y avisos en tiempo real.</span>
         </div>
         <div class="aviso-app-actions">
-          <a class="btn btn-success btn-sm" href="#" id="linkAvisoDescargar"><i class="bi bi-download"></i> Descargar app</a>
-          <a class="btn btn-outline-light btn-sm" href="{% url 'registro_invitado' %}"><i class="bi bi-person-plus"></i> Registrarme</a>
+          {% if apk_disponible %}
+          <a class="btn btn-success btn-sm" href="{% url 'descarga_apk' %}"><i class="bi bi-android2"></i> Android</a>
+          {% else %}
+          <a class="btn btn-success btn-sm" href="#" id="linkAvisoAndroid"><i class="bi bi-android2"></i> Android</a>
+          {% endif %}
+          <a class="btn btn-outline-light btn-sm" href="#" id="linkAvisoIphone"><i class="bi bi-apple"></i> iPhone</a>
           <button type="button" class="aviso-app-close" id="btnCerrarAvisoApp" aria-label="Cerrar">&times;</button>
         </div>
       </div>
@@ -351,8 +355,7 @@
         }
         var btnCerrar = document.getElementById('btnCerrarAvisoApp');
         if (btnCerrar) btnCerrar.addEventListener('click', cerrar);
-        var linkDesc = document.getElementById('linkAvisoDescargar');
-        if (linkDesc) linkDesc.addEventListener('click', function(e) {
+        function abrirModal(e) {
             e.preventDefault();
             var modalEl = document.getElementById('modalDescargarApp');
             if (modalEl && window.bootstrap) {
@@ -361,7 +364,11 @@
                 modalEl.classList.add('show');
                 modalEl.style.display = 'block';
             }
-        });
+        }
+        var linkAndroid = document.getElementById('linkAvisoAndroid');
+        if (linkAndroid) linkAndroid.addEventListener('click', abrirModal);
+        var linkIphone = document.getElementById('linkAvisoIphone');
+        if (linkIphone) linkIphone.addEventListener('click', abrirModal);
     })();
     </script>
     {% endif %}
