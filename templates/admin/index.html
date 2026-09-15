@@ -18,6 +18,20 @@
       </caption>
     </table>
   </div>
+  <div class="app-pushlogs module" style="margin-bottom: 20px;">
+    <table style="width:100%">
+      <caption>
+        <a href="{% url 'admin:league_anuncio_changelist' %}" class="section" style="font-size: 1rem;">📢 Gestión de Anuncios (Publicidad)</a>
+      </caption>
+      <tbody>
+        <tr>
+          <td>
+            <a href="{% url 'admin:league_anuncio_add' %}" class="addlink">Crear nuevo anuncio</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
   {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
 {% endblock %}
