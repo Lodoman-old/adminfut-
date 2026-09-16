@@ -32,7 +32,9 @@
   </div>
   {% endif %}
 
-  {% for p in partidos %}
+  {% if pendientes %}
+  <h5 class="text-warning mt-3"><i class="bi bi-pencil-square"></i> En juego — pronostica ahora</h5>
+  {% for p in pendientes %}
   <div class="card mb-3 shadow-sm quiniela-row">
     <div class="card-body">
       <div class="row align-items-center text-center g-2">
@@ -45,7 +47,7 @@
           <form method="post" action="{% url 'quiniela' %}{% if categoria %}?categoria={{ categoria.pk }}{% endif %}">
             {% csrf_token %}
             <input type="hidden" name="partido_id" value="{{ p.pk }}">
-            <input type="hidden" name="guardar" value="1">
+            <input type="hidden" name="accion" value="guardar">
             <div class="d-flex justify-content-center gap-2">
               <input type="number" min="0" max="20" name="goles_local"
                      value="{% if pronosticos|get_item:p.pk %}{{ pronosticos|get_item:p.pk.goles_local }}{% endif %}"
@@ -78,8 +80,50 @@
       </div>
     </div>
   </div>
-  {% empty %}
-  <div class="alert alert-dark text-center"><i class="bi bi-info-circle"></i> No hay partidos para pronosticar en esta categoría.</div>
   {% endfor %}
+  {% endif %}
+
+  {% if finalizados %}
+  <h5 class="text-warning mt-4"><i class="bi bi-check2-circle"></i> Finalizados — comparativa de tu pronóstico</h5>
+  {% for p in finalizados %}
+  <div class="card mb-3 shadow-sm quiniela-row">
+    <div class="card-body">
+      <div class="row align-items-center text-center g-2">
+        <div class="col-4">
+          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          <strong class="small">{{ p.equipo_local.nombre }}</strong>
+        </div>
+        <div class="col-4">
+          <div class="fw-bold fs-5"><span class="text-warning">{{ p.goles_local|default:"-" }}</span>:<span class="text-warning">{{ p.goles_visitante|default:"-" }}</span></div>
+          {% with pr=pronosticos|get_item:p.pk %}
+          {% if pr %}
+          <div class="mt-1">
+            <span class="small text-muted"><i class="bi bi-pencil"></i> Pronosticaste</span><br>
+            <span class="small fw-bold">{{ pr.goles_local }}-{{ pr.goles_visitante }}</span>
+            <span class="badge {% if pr.puntos == 2 %}bg-warning text-dark{% elif pr.puntos == 1 %}bg-info text-dark{% else %}bg-danger{% endif %} ms-1">+{{ pr.puntos }}</span>
+          </div>
+          {% else %}
+          <span class="small text-muted"><i class="bi bi-x-circle"></i> No pronosticaste</span>
+          {% endif %}
+          {% endwith %}
+          {% if p.estado == "FIN" %}<span class="badge bg-success fs-6 mt-1">FIN</span>{% else %}<span class="badge bg-secondary fs-6 mt-1">{{ p.estado }}</span>{% endif %}
+        </div>
+        <div class="col-4">
+          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          <strong class="small">{{ p.equipo_visitante.nombre }}</strong>
+        </div>
+      </div>
+      <div class="text-center mt-2 small text-muted">
+        {% if p.jornada %}<span class="badge bg-dark me-1">{{ p.jornada.nombre }}</span>{% endif %}
+        <i class="bi bi-calendar2-event"></i> {{ p.fecha_hora|date:"d/m/Y H:i" }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if not pendientes and not finalizados %}
+  <div class="alert alert-dark text-center"><i class="bi bi-info-circle"></i> No hay partidos para esta categoría.</div>
+  {% endif %}
 </div>
 {% endblock %}

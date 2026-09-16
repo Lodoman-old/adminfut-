@@ -4570,11 +4570,15 @@ def quiniela(request):
             PronosticoQuiniela.objects.filter(usuario=request.user, partido=partido).delete()
             messages.success(request, "Pronóstico eliminado.")
 
+    pendientes = [p for p in partidos if p.estado == "PEND"]
+    finalizados = [p for p in partidos if p.estado != "PEND"]
+
     context = {
         "categorias": categorias,
         "categoria": categoria,
         "temporada": temporada,
-        "partidos": partidos,
+        "pendientes": pendientes,
+        "finalizados": finalizados,
         "pronosticos": pronosticos,
     }
     return render(request, "league/quiniela.html", context)
