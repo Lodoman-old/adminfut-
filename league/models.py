@@ -2729,3 +2729,55 @@ class AnuncioClick(models.Model):
 
     def __str__(self):
         return f"{self.anuncio} ({self.fecha:%d/%m/%Y %H:%M})"
+
+
+class PronosticoQuiniela(models.Model):
+    """Pronóstico de un usuario para un partido (quiniela por categoría).
+
+    Se guarda UNO por usuario + partido (si repite, se actualiza).
+    Puntos: 2 = marcador exacto, 1 = solo signo, 0 = falló / pendiente.
+    """
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="pronosticos_quiniela", verbose_name="Usuario"
+    )
+    partido = models.ForeignKey(
+        "Partido", on_delete=models.CASCADE, related_name="pronosticos_quiniela",
+        verbose_name="Partido"
+    )
+    goles_local = models.PositiveIntegerField(default=0, verbose_name="Goles local (pronóstico)")
+    goles_visitante = models.PositiveIntegerField(default=0, verbose_name="Goles visitante (pronóstico)")
+    creado = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
+    actualizado = models.DateTimeField(auto_now=True, verbose_name="Actualizado")
+
+    class Meta:
+        verbose_name = "Pronóstico de Quiniela"
+        verbose_name_plural = "Pronósticos de Quiniela"
+        unique_together = ["usuario", "partido"]
+        ordering = ["partido__fecha_hora"]
+
+    def __str__(self):
+        return f"{self.usuario.username} → {self.partido}"
+
+    @property
+    def estado(self):
+        """Estado del PARTIDO pronosticado (para saber si ya se contabilizó)."""
+        return self.partido.estado
+
+    @property
+    def puntos(self):
+        """2 pts si marcador exacto; 1 pt si solo acertó el signo; 0 si falló o no está FIN."""
+        p = self.partido
+        if p.estado != "FIN":
+            return 0
+        if p.goles_local == self.goles_local and p.goles_visitante == self.goles_visitante:
+            return 2
+        signo_real = (
+            1 if p.goles_local > p.goles_visitante else
+            -1 if p.goles_local < p.goles_visitante else 0
+        )
+        signo_mio = (
+            1 if self.goles_local > self.goles_visitante else
+            -1 if self.goles_local < self.goles_visitante else 0
+        )
+        return 1 if signo_real == signo_mio else 0

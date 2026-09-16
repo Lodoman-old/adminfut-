@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela
 
 
 @admin.register(ConfiguracionLiga)
@@ -220,3 +220,17 @@ class AnuncioClickAdmin(admin.ModelAdmin):
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(PronosticoQuiniela)
+class PronosticoQuinielaAdmin(admin.ModelAdmin):
+    list_display = ["usuario", "partido", "goles_local", "goles_visitante", "puntos", "creado", "actualizado"]
+    list_filter = ["partido__temporada__categoria"]
+    search_fields = ["usuario__username", "partido__equipo_local__nombre", "partido__equipo_visitante__nombre"]
+    readonly_fields = ["goles_local", "goles_visitante", "puntos"]
+    date_hierarchy = "creado"
+    list_per_page = 25
+
+    @admin.display(description="Puntos")
+    def puntos(self, obj):
+        return obj.puntos

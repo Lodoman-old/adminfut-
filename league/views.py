@@ -20,7 +20,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm, AnuncioForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
@@ -4505,3 +4505,107 @@ def api_offline_cedula(request):
     if result["warnings"]:
         resp["warnings"] = result["warnings"]
     return JsonResponse(resp)
+
+def quiniela(request):
+    """Página de quiniela por categoría: pronósticos de marcador por partido,
+    tabs por categoría (estilo home con escuditos) + ranking público."""
+
+    from django.db.models import Q
+    from django.contrib import messages
+    from django.utils import timezone
+    from django.utils.html import format_html
+
+    categorias = Categoria.objects.filter(activo=True).order_by("orden", "nombre")
+    cat_sel_id = request.GET.get("categoria")
+    categoria = None
+    if cat_sel_id:
+        categoria = Categoria.objects.filter(pk=cat_sel_id, activo=True).first()
+    if not categoria:
+        categoria = categorias.first()
+
+    partidos = []
+    temporada = None
+    if categoria:
+        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-anio_inicio").first()
+        if temporada:
+            partidos = (
+                Partido.objects.filter(temporada=temporada)
+                .select_related("equipo_local", "equipo_visitante", "jornada")
+                .exclude(estado="SUSP")
+                .order_by("jornada__numero", "fecha_hora")
+            )
+
+    pronosticos = {}
+    if request.user.is_authenticated:
+        for pr in PronosticoQuiniela.objects.filter(usuario=request.user, partido_id__in=partidos.values_list("id", flat=True)):
+            pronosticos[pr.partido_id] = pr
+
+    if request.method == "POST" and request.user.is_authenticated:
+        partido_id = request.POST.get("partido_id")
+        goles_local = request.POST.get("goles_local", "").strip()
+        goles_visitante = request.POST.get("goles_visitante", "").strip()
+        guardar = request.POST.get("guardar") == "1"
+        partido = partidos.filter(pk=partido_id).first() if guardar else None
+        accion = request.POST.get("accion")
+
+        if accion == "guardar" and partido:
+            if not (goles_local.isdigit() or goles_local == ""):
+                messages.error(request, "Marca inválida para el gol local.")
+            elif not (goles_visitante.isdigit() or goles_visitante == ""):
+                messages.error(request, "Marca inválida para el gol visitante.")
+            elif partido.estado != "PEND":
+                messages.error(request, "Este partido ya no puede pronosticarse (iniciado o finalizado).")
+            else:
+                local = int(goles_local) if goles_local != "" else None
+                visitante = int(goles_visitante) if goles_visitante != "" else None
+                if local is None or visitante is None:
+                    messages.error(request, "Debes indicar un marcador en ambos equipos.")
+                else:
+                    PronosticoQuiniela.objects.update_or_create(
+                        usuario=request.user, partido=partido,
+                        defaults={"goles_local": local, "goles_visitante": visitante},
+                    )
+                    messages.success(request, "Pronóstico guardado. ¡2 pts marcador exacto, 1 pt solo signo!")
+        elif accion == "borrar" and partido:
+            PronosticoQuiniela.objects.filter(usuario=request.user, partido=partido).delete()
+            messages.success(request, "Pronóstico eliminado.")
+
+    context = {
+        "categorias": categorias,
+        "categoria": categoria,
+        "temporada": temporada,
+        "partidos": partidos,
+        "pronosticos": pronosticos,
+    }
+    return render(request, "league/quiniela.html", context)
+
+
+def ranking_quiniela(request):
+    from django.db.models import Count, Sum
+    ranking = []
+    cat_sel = request.GET.get("categoria")
+    categorias = Categoria.objects.filter(activo=True).order_by("orden", "nombre")
+    categoria = categorias.filter(pk=cat_sel).first() if cat_sel else categorias.first()
+
+    if categoria:
+        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-anio_inicio").first()
+        if temporada:
+            rows = (
+                PronosticoQuiniela.objects
+                .filter(partido__temporada=temporada)
+                .values("usuario__id", "usuario__username", "usuario__first_name", "usuario__last_name")
+                .annotate(total_puntos=Sum("puntos"), total_pronosticos=Count("id"))
+                .order_by("-total_puntos", "usuario__username")
+            )
+            for i, r in enumerate(rows, 1):
+                nombre = (r["usuario__first_name"] or "") + (" " + r["usuario__last_name"] if r["usuario__last_name"] else "")
+                ranking.append({
+                    "posicion": i,
+                    "usuario": r["usuario__username"],
+                    "nombre": nombre.strip() or r["usuario__username"],
+                    "puntos": r["total_puntos"] or 0,
+                    "pronosticos": r["total_pronosticos"] or 0,
+                })
+
+    context = {"ranking": ranking, "categorias": categorias, "categoria": categoria}
+    return render(request, "league/ranking_quiniela.html", context)

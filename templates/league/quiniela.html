@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load league_extras %}
+{% block title %}QUINIELA · AdminFut{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0 text-warning"><i class="bi bi-trophy-fill"></i> Quiniela</h2>
+    <a href="{% url 'ranking_quiniela' %}{% if categoria %}?categoria={{ categoria.pk }}{% endif %}" class="btn btn-warning text-dark fw-bold"><i class="bi bi-bar-chart"></i> Ranking</a>
+  </div>
+
+  <p class="text-muted small mb-3">
+    Pronostica el marcador exacto de cada partido: <span class="badge bg-warning text-dark">2 pts</span> marcador exacto,
+    <span class="badge bg-secondary">1 pt</span> solo signo. Solo antes de que inicie el partido.
+  </p>
+
+  <ul class="nav nav-pills justify-content-center mb-4 flex-wrap">
+    {% for c in categorias %}
+    <li class="nav-item m-1">
+      <a class="nav-link {% if c.pk == categoria.pk %}active bg-warning text-dark fw-bold{% else %}text-white{% endif %}"
+         href="{% url 'quiniela' %}?categoria={{ c.pk }}">
+        {% if c.escudo %}<img src="{{ c.escudo.url }}" alt="" style="width:14px;height:14px;object-fit:contain;" class="me-1">{% endif %}{{ c.nombre }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if temporada %}
+  <div class="text-center mb-4">
+    <span class="badge bg-dark text-warning border border-warning fs-6">{{ temporada.nombre }}</span>
+  </div>
+  {% endif %}
+
+  {% for p in partidos %}
+  <div class="card mb-3 shadow-sm quiniela-row">
+    <div class="card-body">
+      <div class="row align-items-center text-center g-2">
+        <div class="col-4">
+          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          <strong class="small">{{ p.equipo_local.nombre }}</strong>
+        </div>
+        <div class="col-4">
+          {% if p.estado == "PEND" %}
+          <form method="post" action="{% url 'quiniela' %}{% if categoria %}?categoria={{ categoria.pk }}{% endif %}">
+            {% csrf_token %}
+            <input type="hidden" name="partido_id" value="{{ p.pk }}">
+            <input type="hidden" name="guardar" value="1">
+            <div class="d-flex justify-content-center gap-2">
+              <input type="number" min="0" max="20" name="goles_local"
+                     value="{% if pronosticos|get_item:p.pk %}{{ pronosticos|get_item:p.pk.goles_local }}{% endif %}"
+                     class="form-control text-center fw-bold w-25" inputmode="numeric" placeholder="L" required>
+              <span class="fs-5 text-muted">:</span>
+              <input type="number" min="0" max="20" name="goles_visitante"
+                     value="{% if pronosticos|get_item:p.pk %}{{ pronosticos|get_item:p.pk.goles_visitante }}{% endif %}"
+                     class="form-control text-center fw-bold w-25" inputmode="numeric" placeholder="V" required>
+            </div>
+            <div class="mt-2">
+              <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold"><i class="bi bi-check2-circle"></i> Guardar pronóstico</button>
+            </div>
+            {% with pr=pronosticos|get_item:p.pk %}{% if pr %}<div class="mt-2"><span class="badge bg-success"><i class="bi bi-patch-check"></i> {{ pr.goles_local }}-{{ pr.goles_visitante }} · {{ pr.puntos }} pts</span></div>{% endif %}{% endwith %}
+            {% if p.estado != "PEND" %}<span class="badge bg-secondary fs-6">{{ p.estado }}</span>{% endif %}
+          </form>
+          {% else %}
+          <span class="badge {% if p.estado == 'FIN' %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+            {{ p.estado }} · {{ p.goles_local|default:"-" }}-{{ p.goles_visitante|default:"-" }}
+          </span>
+          {% endif %}
+        </div>
+        <div class="col-4">
+          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          <strong class="small">{{ p.equipo_visitante.nombre }}</strong>
+        </div>
+      </div>
+      <div class="text-center mt-2 small text-muted">
+        {% if p.jornada %}<span class="badge bg-dark me-1">{{ p.jornada.nombre }}</span>{% endif %}
+        <i class="bi bi-calendar2-event"></i> {{ p.fecha_hora|date:"d/m/Y H:i" }}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-dark text-center"><i class="bi bi-info-circle"></i> No hay partidos para pronosticar en esta categoría.</div>
+  {% endfor %}
+</div>
+{% endblock %}

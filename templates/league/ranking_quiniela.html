@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Ranking Quiniela · AdminFut{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:760px;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0 text-warning"><i class="bi bi-bar-chart-fill"></i> Ranking Quiniela</h2>
+    <a href="{% url 'quiniela' %}{% if categoria %}?categoria={{ categoria.pk }}{% endif %}" class="btn btn-warning text-dark fw-bold"><i class="bi bi-trophy"></i> Pronosticar</a>
+  </div>
+
+  <ul class="nav nav-pills justify-content-center mb-4 flex-wrap">
+    {% for c in categorias %}
+    <li class="nav-item m-1">
+      <a class="nav-link {% if c.pk == categoria.pk %}active bg-warning text-dark fw-bold{% else %}text-white{% endif %}"
+         href="{% url 'ranking_quiniela' %}?categoria={{ c.pk }}">
+        {% if c.escudo %}<img src="{{ c.escudo.url }}" alt="" style="width:14px;height:14px;object-fit:contain;" class="me-1">{% endif %}{{ c.nombre }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if ranking %}
+  <div class="list-group shadow-sm">
+    {% for r in ranking %}
+    <div class="list-group-item d-flex align-items-center gap-3 py-3 {% if r.posicion == 1 %}bg-warning bg-opacity-25 border-warning{% elif r.posicion == 2 %}bg-secondary bg-opacity-25 border-secondary{% elif r.posicion == 3 %}table-danger{% endif %}">
+      {% if r.posicion == 1 %}
+      <i class="bi bi-trophy-fill text-warning fs-2"></i>
+      {% elif r.posicion == 2 %}
+      <i class="bi bi-trophy text-secondary fs-2"></i>
+      {% elif r.posicion == 3 %}
+      <i class="bi bi-trophy text-danger fs-2"></i>
+      {% else %}
+      <span class="badge bg-dark fs-5 rounded-pill" style="min-width:40px;">{{ r.posicion }}</span>
+      {% endif %}
+      <div class="flex-grow-1">
+        <strong>{{ r.nombre }}</strong>
+        <div class="text-muted small">@{{ r.usuario }} · {{ r.pronosticos }} pronóstico{{ r.pronosticos|pluralize }}</div>
+      </div>
+      <div class="text-end">
+        <span class="badge bg-dark fs-6">{{ r.puntos }} <small>pts</small></span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-dark text-center"><i class="bi bi-info-circle"></i> No hay pronósticos todavía en esta categoría. Sé el primero en la <a href="{% url 'quiniela' %}" class="alert-link">quiniela</a>.</div>
+  {% endif %}
+</div>
+{% endblock %}

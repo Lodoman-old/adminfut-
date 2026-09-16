@@ -113,4 +113,8 @@ urlpatterns = [
     path("sw.js", views.service_worker, name="sw_js"),
     path("manifest.webmanifest", views.manifest_webmanifest, name="manifest_webmanifest"),
     path("pwa-icon/<str:nombre>", views.pwa_icon, name="pwa_icon"),
+
+    # Quiniela
+    path("quiniela/", views.quiniela, name="quiniela"),
+    path("quiniela/ranking/", views.ranking_quiniela, name="ranking_quiniela"),
 ]
