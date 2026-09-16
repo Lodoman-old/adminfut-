@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Quiniela · AdminFut{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="card shadow-sm text-center">
+        <div class="card-body p-4">
+          <i class="bi bi-trophy-fill text-warning" style="font-size:3rem;"></i>
+          <h3 class="mt-2 text-warning"><i class="bi bi-trophy-fill"></i> QuiniFut</h3>
+          <p class="text-muted">
+            Pronostica el marcador exacto de los partidos y gana puntos:
+            <span class="badge bg-warning text-dark">2 <small>pts</small> marcador exacto</span> ·
+            <span class="badge bg-info text-dark">1 <small>pt</small> solo signo</span>.
+          </p>
+          <p class="small text-muted mb-4">
+            Para participar necesitas una cuenta de usuario.
+          </p>
+          <div class="d-grid gap-2">
+            <a href="{% url 'login' %}" class="btn btn-warning text-dark fw-bold">
+              <i class="bi bi-person-plus"></i> Registrarme desde la web
+            </a>
+            <a href="{% url 'descarga_apk' %}" class="btn btn-outline-secondary">
+              <i class="bi bi-phone"></i> Descargar la app
+            </a>
+          </div>
+          <p class="small text-muted mt-3 mb-0">
+            <i class="bi bi-info-circle"></i> En la app puedes jugar la quiniela, ver el ranking y recibir notificaciones de tus partidos.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

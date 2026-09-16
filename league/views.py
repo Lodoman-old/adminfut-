@@ -12,6 +12,7 @@ from django.http import FileResponse, HttpResponse, Http404
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
@@ -4510,6 +4511,12 @@ def quiniela(request):
     """Página de quiniela por categoría: pronósticos de marcador por partido,
     tabs por categoría (estilo home con escuditos) + ranking público."""
 
+    # El contenido de quiniela (pronosticar + ranking) es exclusivo de usuarios
+    # registrados. Un anónimo ve una pantalla con 2 salidas: descargar la app
+    # o registrarse desde la web (que lo lleva al login).
+    if not request.user.is_authenticated:
+        return render(request, "league/quiniela_acceso.html", {})
+
     from django.db.models import Q
     from django.contrib import messages
     from django.utils import timezone
@@ -4544,9 +4551,8 @@ def quiniela(request):
         partido_id = request.POST.get("partido_id")
         goles_local = request.POST.get("goles_local", "").strip()
         goles_visitante = request.POST.get("goles_visitante", "").strip()
-        guardar = request.POST.get("guardar") == "1"
-        partido = partidos.filter(pk=partido_id).first() if guardar else None
         accion = request.POST.get("accion")
+        partido = partidos.filter(pk=partido_id).first() if accion == "guardar" else None
 
         if accion == "guardar" and partido:
             if not (goles_local.isdigit() or goles_local == ""):
@@ -4606,6 +4612,7 @@ def ranking_quiniela(request):
                     puntos_por_usuario[uid] = puntos_por_usuario.get(uid, 0) + pr.puntos
                     conteo_por_usuario[uid] = conteo_por_usuario.get(uid, 0) + 1
                 ids = list(puntos_por_usuario.keys())
+                User = get_user_model()
                 usuarios = (
                     User.objects.filter(pk__in=ids)
                     .values("id", "username", "first_name", "last_name")
