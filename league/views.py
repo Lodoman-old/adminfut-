@@ -4515,7 +4515,7 @@ def quiniela(request):
     from django.utils import timezone
     from django.utils.html import format_html
 
-    categorias = Categoria.objects.filter(activo=True).order_by("orden", "nombre")
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
     cat_sel_id = request.GET.get("categoria")
     categoria = None
     if cat_sel_id:
@@ -4523,10 +4523,10 @@ def quiniela(request):
     if not categoria:
         categoria = categorias.first()
 
-    partidos = []
+    partidos = Partido.objects.none()
     temporada = None
     if categoria:
-        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-anio_inicio").first()
+        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
         if temporada:
             partidos = (
                 Partido.objects.filter(temporada=temporada)
@@ -4584,11 +4584,11 @@ def ranking_quiniela(request):
     from django.db.models import Count, Sum
     ranking = []
     cat_sel = request.GET.get("categoria")
-    categorias = Categoria.objects.filter(activo=True).order_by("orden", "nombre")
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
     categoria = categorias.filter(pk=cat_sel).first() if cat_sel else categorias.first()
 
     if categoria:
-        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-anio_inicio").first()
+        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
         if temporada:
             rows = (
                 PronosticoQuiniela.objects
