@@ -8,9 +8,11 @@
     <a href="{% url 'ranking_quiniela' %}{% if categoria %}?categoria={{ categoria.pk }}{% endif %}" class="btn btn-warning text-dark fw-bold"><i class="bi bi-bar-chart"></i> Ranking</a>
   </div>
 
-  <p class="text-muted small mb-3">
-    Pronostica el marcador exacto de cada partido: <span class="badge bg-warning text-dark">2 pts</span> marcador exacto,
-    <span class="badge bg-secondary">1 pt</span> solo signo. Solo antes de que inicie el partido.
+  <p class="mb-4 p-3 rounded-3 text-dark fw-semibold" style="background:linear-gradient(135deg,#ffe259,#ffd54d 45%,#ffa751);box-shadow:0 6px 18px rgba(255,205,60,.35),inset 0 1px 1px rgba(255,255,255,.7);">
+    <i class="bi bi-trophy-fill me-1"></i> Pronostica el marcador exacto de cada partido:
+    <span class="badge bg-dark text-warning ms-1">2 <small>pts</small></span> <span class="small">marcador exacto</span> ·
+    <span class="badge bg-dark text-warning ms-1">1 <small>pt</small></span> <span class="small">solo signo</span>
+    <span class="d-block small mt-1 fw-normal text-dark-emphasis"><i class="bi bi-hourglass-split"></i> Solo antes de que inicie el partido.</span>
   </p>
 
   <ul class="nav nav-pills justify-content-center mb-4 flex-wrap">

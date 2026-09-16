@@ -156,6 +156,23 @@
       padding: 0 0.25rem;
     }
     .aviso-app-close:hover { color: #ffd700; }
+    .btn-quiniela-nav {
+      background: linear-gradient(135deg, #ffe259 0%, #ffa751 55%, #cc7a00 100%);
+      color: #1a1205 !important;
+      font-weight: 800 !important;
+      border-radius: 999px;
+      padding: .45rem 1.15rem;
+      border: 2px solid #fff6d8;
+      box-shadow: 0 0 10px rgba(255, 205, 60, .9), 0 4px 14px rgba(0,0,0,.5);
+      text-shadow: 0 1px 1px rgba(255,255,255,.55);
+      animation: quinielaGlow 1.8s ease-in-out infinite;
+      display: inline-block;
+    }
+    @keyframes quinielaGlow {
+      0%,100% { box-shadow: 0 0 8px rgba(255,205,60,.8), 0 4px 14px rgba(0,0,0,.5); }
+      50% { box-shadow: 0 0 22px rgba(255,214,90,1), 0 0 34px rgba(255,160,40,.65), 0 4px 14px rgba(0,0,0,.5); }
+    }
+    .btn-quiniela-nav i { margin-right: .3rem; }
     @media (max-width: 768px) {
       .aviso-app-inner { flex-direction: column; align-items: stretch; text-align: center; }
       .aviso-app-actions { margin-left: 0; justify-content: center; }
@@ -195,7 +212,6 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'tabla_goleo' %}">Goleo</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'tabla_tarjetas' %}">Tarjetas</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'tabla_castigados' %}">Castigados</a></li>
-                    <li class="nav-item"><a class="nav-link btn-quiniela-nav" href="{% url 'quiniela' %}"><i class="bi bi-trophy-fill"></i> QUINIELA</a></li>
                     {% if user.is_authenticated %}
                     {% load permisos %}
                     <li class="nav-item dropdown">
@@ -267,6 +283,7 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
+                    <li class="nav-item m-1"><a class="nav-link btn-quiniela-nav" href="{% url 'quiniela' %}"><i class="bi bi-trophy-fill"></i> QUINIELA</a></li>
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
