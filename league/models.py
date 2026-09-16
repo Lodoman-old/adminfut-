@@ -2413,6 +2413,8 @@ class ConfiguracionLiga(models.Model):
         help_text="Clave privada VAPID para notificaciones Web Push (PWA). Se genera automáticamente; no compartir.")
     webpush_vapid_public_key = models.TextField(blank=True, default="", verbose_name="Clave pública VAPID (Web Push)",
         help_text="Clave pública VAPID (applicationServerKey) que usan los navegadores al suscribirse a notificaciones Web Push. Se genera automáticamente.")
+    rotacion_banners_segundos = models.PositiveIntegerField(default=30, verbose_name="Segundos de rotación de banners",
+        help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar al siguiente. Mínimo 5.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"

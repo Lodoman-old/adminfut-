@@ -29,6 +29,9 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="infra-tab" data-bs-toggle="tab" data-bs-target="#infra" type="button" role="tab"><i class="bi bi-cloud"></i> Infraestructura</button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="publicidad-tab" data-bs-toggle="tab" data-bs-target="#publicidad" type="button" role="tab"><i class="bi bi-megaphone"></i> Publicidad</button>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -352,6 +355,19 @@
           </div>
           <div class="mb-3">
             <small class="text-muted">Estado: {% if config.firebase_service_account_json %}<span class="text-success"><i class="bi bi-check-circle"></i> Configurado</span>{% else %}<span class="text-warning"><i class="bi bi-exclamation-circle"></i> No configurado (usando variable de entorno o archivo local)</span>{% endif %}</small>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="publicidad" role="tabpanel">
+          <h6 class="text-primary"><i class="bi bi-megaphone"></i> Banners de Publicidad</h6>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle"></i>
+            Los anuncios se gestionan en <a href="{% url 'anuncio_list' %}">Gestión → Publicidad</a>.
+            Si hay varios anuncios del mismo tamaño, se rotan en el inicio mostrando uno a la vez.
+          </div>
+          <div class="mb-3" style="max-width: 300px;">
+            <label class="form-label">Segundos que dura cada banner visible</label>
+            {{ form.rotacion_banners_segundos }}
+            <div class="form-text">Mínimo 5 segundos. Ej: 30 = medio minuto, 60 = un minuto.</div>
           </div>
         </div>
       </div>

@@ -969,6 +969,12 @@ from django import forms as djforms
 
 
 class ConfiguracionLigaForm(djforms.ModelForm):
+    rotacion_banners_segundos = djforms.IntegerField(
+        min_value=5, max_value=3600, initial=30,
+        widget=djforms.NumberInput(attrs={"class": "form-control", "min": 5, "max": 3600}),
+        help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar. Mínimo 5.",
+    )
+
     class Meta:
         model = ConfiguracionLiga
         fields = "__all__"

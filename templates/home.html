@@ -946,7 +946,7 @@ body {
 // Si hay varios anuncios del mismo tamaño se rotan: se muestra uno a la vez y cada
 // INTERVALO ms pasa al siguiente. La impresión se cuenta solo del banner visible.
 (function () {
-  var INTERVALO = 30000; // ms (30s; 1 min = 60000). Cambia aquí la duración.
+  var INTERVALO = {{ config.rotacion_banners_segundos|default:30 }} * 1000;
   var vistos = {};
   function encolar(id) {
     if (!id || vistos[id]) { return; }
