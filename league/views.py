@@ -4590,22 +4590,32 @@ def ranking_quiniela(request):
     if categoria:
         temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
         if temporada:
-            rows = (
-                PronosticoQuiniela.objects
-                .filter(partido__temporada=temporada)
-                .values("usuario__id", "usuario__username", "usuario__first_name", "usuario__last_name")
-                .annotate(total_puntos=Sum("puntos"), total_pronosticos=Count("id"))
-                .order_by("-total_puntos", "usuario__username")
-            )
-            for i, r in enumerate(rows, 1):
-                nombre = (r["usuario__first_name"] or "") + (" " + r["usuario__last_name"] if r["usuario__last_name"] else "")
-                ranking.append({
-                    "posicion": i,
-                    "usuario": r["usuario__username"],
-                    "nombre": nombre.strip() or r["usuario__username"],
-                    "puntos": r["total_puntos"] or 0,
-                    "pronosticos": r["total_pronosticos"] or 0,
-                })
+                pronosticos = (
+                    PronosticoQuiniela.objects
+                    .filter(partido__temporada=temporada)
+                    .select_related("usuario", "partido")
+                )
+                puntos_por_usuario = {}
+                conteo_por_usuario = {}
+                for pr in pronosticos:
+                    uid = pr.usuario_id
+                    puntos_por_usuario[uid] = puntos_por_usuario.get(uid, 0) + pr.puntos
+                    conteo_por_usuario[uid] = conteo_por_usuario.get(uid, 0) + 1
+                ids = list(puntos_por_usuario.keys())
+                usuarios = (
+                    User.objects.filter(pk__in=ids)
+                    .values("id", "username", "first_name", "last_name")
+                    if ids else User.objects.none()
+                )
+                for i, usr in enumerate(usuarios, 1):
+                    nombre = (usr["first_name"] or "") + (" " + usr["last_name"] if usr["last_name"] else "")
+                    ranking.append({
+                        "posicion": i,
+                        "usuario": usr["username"],
+                        "nombre": nombre.strip() or usr["username"],
+                        "puntos": puntos_por_usuario.get(usr["id"], 0),
+                        "pronosticos": conteo_por_usuario.get(usr["id"], 0),
+                    })
 
     context = {"ranking": ranking, "categorias": categorias, "categoria": categoria}
     return render(request, "league/ranking_quiniela.html", context)
