@@ -4532,11 +4532,13 @@ def quiniela(request):
 
     partidos = Partido.objects.none()
     temporada = None
+    jornadas_activas = Jornada.objects.none()
     if categoria:
         temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
         if temporada:
+            jornadas_activas = Jornada.objects.filter(temporada=temporada, estado="ACTIVA")
             partidos = (
-                Partido.objects.filter(temporada=temporada)
+                Partido.objects.filter(temporada=temporada, jornada__in=jornadas_activas)
                 .select_related("equipo_local", "equipo_visitante", "jornada")
                 .exclude(estado="SUSP")
                 .order_by("jornada__numero", "fecha_hora")

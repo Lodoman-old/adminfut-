@@ -48,19 +48,21 @@
             {% csrf_token %}
             <input type="hidden" name="partido_id" value="{{ p.pk }}">
             <input type="hidden" name="accion" value="guardar">
+            {% with pr=pronosticos|get_item:p.pk %}
             <div class="d-flex justify-content-center gap-2">
               <input type="number" min="0" max="20" name="goles_local"
-                     value="{% if pronosticos|get_item:p.pk %}{{ pronosticos|get_item:p.pk.goles_local }}{% endif %}"
+                     value="{% if pr %}{{ pr.goles_local }}{% endif %}"
                      class="form-control text-center fw-bold w-25" inputmode="numeric" placeholder="L" required>
               <span class="fs-5 text-muted">:</span>
               <input type="number" min="0" max="20" name="goles_visitante"
-                     value="{% if pronosticos|get_item:p.pk %}{{ pronosticos|get_item:p.pk.goles_visitante }}{% endif %}"
+                     value="{% if pr %}{{ pr.goles_visitante }}{% endif %}"
                      class="form-control text-center fw-bold w-25" inputmode="numeric" placeholder="V" required>
             </div>
             <div class="mt-2">
               <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold"><i class="bi bi-check2-circle"></i> Guardar pronóstico</button>
             </div>
-            {% with pr=pronosticos|get_item:p.pk %}{% if pr %}<div class="mt-2"><span class="badge bg-success"><i class="bi bi-patch-check"></i> {{ pr.goles_local }}-{{ pr.goles_visitante }} · {{ pr.puntos }} pts</span></div>{% endif %}{% endwith %}
+            {% if pr %}<div class="mt-2"><span class="badge bg-success"><i class="bi bi-patch-check"></i> {{ pr.goles_local }}-{{ pr.goles_visitante }} · {{ pr.puntos }} pts</span></div>{% endif %}
+            {% endwith %}
             {% if p.estado != "PEND" %}<span class="badge bg-secondary fs-6">{{ p.estado }}</span>{% endif %}
           </form>
           {% else %}
