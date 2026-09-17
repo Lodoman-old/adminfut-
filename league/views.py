@@ -22,7 +22,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, PronosticoQuiniela, Descarga
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm, AnuncioForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
@@ -734,6 +734,16 @@ def finalizar_temporada(request, pk):
     })
 
 
+def _anuncio_dia_bump(anuncio_id, campo):
+    """Incrementa el contador diario del anuncio (campo: 'impresiones' o 'clics')."""
+    try:
+        hoy = timezone.localdate()
+        obj, _ = AnuncioDia.objects.get_or_create(anuncio_id=anuncio_id, fecha=hoy)
+        AnuncioDia.objects.filter(pk=obj.pk).update(**{campo: models.F(campo) + 1})
+    except Exception:
+        pass
+
+
 def detalle_anuncio(request, anuncio_id):
     """Página pública: muestra el anuncio en grande y registra el clic."""
     anuncio = get_object_or_404(Anuncio, pk=anuncio_id, activo=True)
@@ -742,6 +752,7 @@ def detalle_anuncio(request, anuncio_id):
     if not ConfiguracionLiga.es_ip_excluida(ip):
         anuncio.clics = (anuncio.clics or 0) + 1
         anuncio.save(update_fields=["clics"])
+        _anuncio_dia_bump(anuncio_id, "clics")
         try:
             AnuncioClick.objects.create(
                 anuncio=anuncio,
@@ -767,6 +778,7 @@ def impresion_anuncio(request, anuncio_id):
             impresiones=models.F("impresiones") + 1
         )
         if nup == 1:
+            _anuncio_dia_bump(anuncio_id, "impresiones")
             # Impresión única (1 por anuncio + día + visitante) para reportar alcance
             clave = (request.session.session_key or ip or "anon")[:64]
             try:
@@ -778,6 +790,67 @@ def impresion_anuncio(request, anuncio_id):
         return JsonResponse({"ok": nup == 1})
     except Exception:
         return JsonResponse({"ok": False})
+
+
+def _mes_rango(mes_param, hoy):
+    """Devuelve (year, month, desde, hasta) a partir de 'YYYY-MM' (o mes actual)."""
+    try:
+        y, m = [int(x) for x in mes_param.split("-")]
+        if not (1 <= m <= 12):
+            raise ValueError
+    except Exception:
+        y, m = hoy.year, hoy.month
+    desde = datetime.date(y, m, 1)
+    hasta = datetime.date(y + 1, 1, 1) if m == 12 else datetime.date(y, m + 1, 1)
+    return y, m, desde, hasta
+
+
+@admin.site.admin_view
+def reporte_anuncio(request, anuncio_id):
+    """Reporte imprimible de un anuncio para un mes (para enviar al anunciante)."""
+    from .models import Visita, DeviceToken, SuscripcionEmail
+    anuncio = get_object_or_404(Anuncio, pk=anuncio_id)
+    hoy = timezone.localdate()
+    y, m, desde, hasta = _mes_rango(request.GET.get("mes", ""), hoy)
+
+    dias = list(AnuncioDia.objects.filter(anuncio=anuncio, fecha__gte=desde, fecha__lt=hasta).order_by("fecha"))
+    imp_mes = sum(d.impresiones for d in dias)
+    clics_mes = sum(d.clics for d in dias)
+    unicas_mes = AnuncioImpresion.objects.filter(anuncio=anuncio, fecha__gte=desde, fecha__lt=hasta).count()
+    ctr_mes = (clics_mes / imp_mes * 100) if imp_mes else 0
+    ctr_unicas = (clics_mes / unicas_mes * 100) if unicas_mes else 0
+    dias_max = max([d.impresiones for d in dias] + [1])
+
+    acum_imp = anuncio.impresiones
+    acum_clics = anuncio.clics
+    acum_unicas = AnuncioImpresion.objects.filter(anuncio=anuncio).count()
+    acum_ctr = (acum_clics / acum_imp * 100) if acum_imp else 0
+
+    MESES = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    prev = desde - datetime.timedelta(days=1)
+    prox = hasta
+
+    # Audiencia del sitio (contexto para el anunciante)
+    hace_30 = timezone.localtime() - datetime.timedelta(days=30)
+    visitas_mes = Visita.objects.filter(inicio=True, fecha__gte=hace_30).count()
+    paginas_mes = Visita.objects.filter(fecha__gte=hace_30).count()
+    dispositivos = DeviceToken.objects.filter(activo=True).count()
+    suscriptores = SuscripcionEmail.objects.filter(activo=True).count()
+
+    return render(request, "publicidad/reporte.html", {
+        "anuncio": anuncio,
+        "mes_nombre": MESES[m], "anio": y, "mes_param": "%04d-%02d" % (y, m),
+        "prev_mes": "%04d-%02d" % (prev.year, prev.month),
+        "prox_mes": "%04d-%02d" % (prox.year, prox.month),
+        "dias": dias, "dias_max": dias_max,
+        "imp_mes": imp_mes, "clics_mes": clics_mes, "unicas_mes": unicas_mes,
+        "ctr_mes": ctr_mes, "ctr_unicas": ctr_unicas,
+        "acum_imp": acum_imp, "acum_clics": acum_clics, "acum_unicas": acum_unicas, "acum_ctr": acum_ctr,
+        "visitas_mes": visitas_mes, "paginas_mes": paginas_mes,
+        "dispositivos": dispositivos, "suscriptores": suscriptores,
+        "hoy": hoy, "config": ConfiguracionLiga.obtener(),
+    })
 
 
 @admin.site.admin_view

@@ -373,6 +373,7 @@
                   <th>CTR</th>
                   <th>Clics últimos 30 días</th>
                   <th>Vigencia</th>
+                  <th>Reporte</th>
                 </tr>
               </thead>
               <tbody>
@@ -401,9 +402,10 @@
                     {% elif a.fecha_fin %}Hasta {{ a.fecha_fin|date:"d/m/y" }}
                     {% else %}<span class="text-muted">Sin límite</span>{% endif %}
                   </td>
+                  <td><a href="{% url 'reporte_anuncio' a.id %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-printer"></i></a></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="9" class="text-center text-muted">Aún no hay anuncios. Créalos desde el panel de administración.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted">Aún no hay anuncios. Créalos desde el panel de administración.</td></tr>
                 {% endfor %}
               </tbody>
             </table>

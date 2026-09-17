@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, PronosticoQuiniela, Descarga
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga
 
 
 @admin.register(ConfiguracionLiga)
@@ -231,6 +231,16 @@ class AnuncioImpresionAdmin(admin.ModelAdmin):
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(AnuncioDia)
+class AnuncioDiaAdmin(admin.ModelAdmin):
+    list_display = ["anuncio", "fecha", "impresiones", "clics"]
+    list_filter = ["anuncio"]
+    readonly_fields = ["anuncio", "fecha", "impresiones", "clics"]
+    date_hierarchy = "fecha"
+    has_add_permission = lambda self, request: False
+    has_change_permission = lambda self, request, obj=None: False
 
 
 @admin.register(Descarga)

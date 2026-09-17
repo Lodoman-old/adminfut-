@@ -2788,6 +2788,23 @@ class AnuncioImpresion(models.Model):
         return f"{self.anuncio} · {self.fecha:%d/%m/%Y}"
 
 
+class AnuncioDia(models.Model):
+    """Totales diarios por anuncio (impresiones y clics) para reportes."""
+    anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name="dias")
+    fecha = models.DateField(db_index=True, verbose_name="Fecha")
+    impresiones = models.PositiveIntegerField(default=0, verbose_name="Impresiones")
+    clics = models.PositiveIntegerField(default=0, verbose_name="Clics")
+
+    class Meta:
+        verbose_name = "Métrica diaria de anuncio"
+        verbose_name_plural = "Métricas diarias de anuncios"
+        unique_together = ["anuncio", "fecha"]
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.anuncio} · {self.fecha:%d/%m/%Y}"
+
+
 class Descarga(models.Model):
     """Registro de cada descarga de archivo del sitio (APK, reglamento).
 

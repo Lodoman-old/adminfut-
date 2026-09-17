@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporte de publicidad · {{ anuncio.titulo }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #212529; margin: 0; background: #f1f3f5; }
+  .hoja { max-width: 820px; margin: 20px auto; background: #fff; padding: 32px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 24px 0 8px; border-bottom: 2px solid #6f42c1; padding-bottom: 4px; color: #4b2a86; }
+  .muted { color: #6c757d; }
+  .top { display: flex; align-items: center; gap: 14px; border-bottom: 3px solid #6f42c1; padding-bottom: 12px; }
+  .top img { max-height: 60px; max-width: 90px; object-fit: contain; }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+  .kpi { flex: 1 1 140px; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; text-align: center; }
+  .kpi .n { font-size: 1.5rem; font-weight: 700; color: #6f42c1; }
+  .kpi .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: #6c757d; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .82rem; }
+  th, td { border: 1px solid #dee2e6; padding: 6px 8px; text-align: left; }
+  th { background: #f8f9fa; }
+  td.num, th.num { text-align: right; }
+  .bar { background: #6f42c1; height: 8px; border-radius: 4px; min-width: 2px; }
+  .no-print { }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 16px; }
+  .nav a, .btn { text-decoration: none; border: 1px solid #6f42c1; color: #6f42c1; padding: 6px 12px; border-radius: 6px; font-size: .85rem; }
+  .btn { background: #6f42c1; color: #fff; border: none; cursor: pointer; }
+  .foot { margin-top: 28px; font-size: .72rem; color: #adb5bd; text-align: center; }
+  @media print {
+    body { background: #fff; }
+    .hoja { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+    .no-print { display: none !important; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="hoja">
+  <div class="top">
+    {% if config.logo %}<img src="{{ config.logo.url }}" alt="">{% endif %}
+    <div>
+      <h1>{{ config.nombre_liga }}</h1>
+      <div class="muted">Reporte de publicidad · {{ mes_nombre|capfirst }} {{ anio }}</div>
+    </div>
+  </div>
+
+  <div class="nav no-print">
+    <a href="?mes={{ prev_mes }}">&laquo; {{ prev_mes }}</a>
+    <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <a href="?mes={{ prox_mes }}">{{ prox_mes }} &raquo;</a>
+  </div>
+
+  <h2>Anuncio</h2>
+  <table>
+    <tr><th style="width:170px;">Título</th><td>{{ anuncio.titulo }}</td></tr>
+    <tr><th>Tamaño</th><td>{{ anuncio.get_tamano_display }}</td></tr>
+    <tr><th>Vigencia</th><td>
+      {% if anuncio.fecha_inicio and anuncio.fecha_fin %}{{ anuncio.fecha_inicio|date:"d/m/Y" }} - {{ anuncio.fecha_fin|date:"d/m/Y" }}
+      {% elif anuncio.fecha_inicio %}Desde {{ anuncio.fecha_inicio|date:"d/m/Y" }}
+      {% elif anuncio.fecha_fin %}Hasta {{ anuncio.fecha_fin|date:"d/m/Y" }}
+      {% else %}Sin límite{% endif %}
+    </td></tr>
+  </table>
+
+  <h2>Rendimiento de {{ mes_nombre|capfirst }} {{ anio }}</h2>
+  <div class="grid">
+    <div class="kpi"><div class="n">{{ imp_mes }}</div><div class="l">Impresiones</div></div>
+    <div class="kpi"><div class="n">{{ unicas_mes }}</div><div class="l">Personas alcanzadas</div></div>
+    <div class="kpi"><div class="n">{{ clics_mes }}</div><div class="l">Clics</div></div>
+    <div class="kpi"><div class="n">{{ ctr_mes|floatformat:1 }}%</div><div class="l">CTR</div></div>
+    <div class="kpi"><div class="n">{{ ctr_unicas|floatformat:1 }}%</div><div class="l">CTR sobre alcance</div></div>
+  </div>
+
+  <h2>Detalle por día</h2>
+  {% if dias %}
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th class="num">Impresiones</th><th style="width:35%;">Distribución</th><th class="num">Clics</th><th class="num">CTR</th></tr>
+    </thead>
+    <tbody>
+      {% for d in dias %}
+      <tr>
+        <td>{{ d.fecha|date:"d/m/Y" }}</td>
+        <td class="num">{{ d.impresiones }}</td>
+        <td><div class="bar" style="width: {% widthratio d.impresiones dias_max 100 %}%;"></div></td>
+        <td class="num">{{ d.clics }}</td>
+        <td class="num">{% if d.impresiones %}{% widthratio d.clics d.impresiones 100 %}%{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Sin actividad registrada en este mes.</p>
+  {% endif %}
+
+  <h2>Acumulado histórico</h2>
+  <div class="grid">
+    <div class="kpi"><div class="n">{{ acum_imp }}</div><div class="l">Impresiones</div></div>
+    <div class="kpi"><div class="n">{{ acum_unicas }}</div><div class="l">Personas alcanzadas</div></div>
+    <div class="kpi"><div class="n">{{ acum_clics }}</div><div class="l">Clics</div></div>
+    <div class="kpi"><div class="n">{{ acum_ctr|floatformat:1 }}%</div><div class="l">CTR</div></div>
+  </div>
+
+  <h2>Audiencia del sitio (últimos 30 días)</h2>
+  <table>
+    <tr><th style="width:60%;">Visitas al sitio</th><td class="num">{{ visitas_mes }}</td></tr>
+    <tr><th>Páginas vistas</th><td class="num">{{ paginas_mes }}</td></tr>
+    <tr><th>Dispositivos con notificaciones push</th><td class="num">{{ dispositivos }}</td></tr>
+    <tr><th>Suscriptores de correo</th><td class="num">{{ suscriptores }}</td></tr>
+  </table>
+  <p class="muted" style="font-size:.78rem;">
+    Impresiones = veces que se mostró el banner. Personas alcanzadas = visitantes únicos que lo vieron
+    (una por día y visitante). CTR = clics / impresiones. No se cuentan accesos del personal ni bots.
+  </p>
+
+  <div class="foot">
+    Reporte generado el {{ hoy|date:"d/m/Y" }} · {{ config.nombre_liga }}
+  </div>
+</div>
+</body>
+</html>
