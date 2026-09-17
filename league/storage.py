@@ -11,8 +11,13 @@ import os
 import threading
 import urllib.request
 
-from cloudinary_storage.storage import MediaCloudinaryStorage
 from django.conf import settings
+from django.core.files.storage import FileSystemStorage
+
+try:
+    from cloudinary_storage.storage import MediaCloudinaryStorage as _MediaCloudinaryStorageBase
+except Exception:
+    _MediaCloudinaryStorageBase = FileSystemStorage
 
 _cache = {}
 _lock = threading.Lock()
@@ -29,7 +34,7 @@ def _existe(url, timeout=6):
         return False
 
 
-class MediaCloudinaryStorageConFallback(MediaCloudinaryStorage):
+class MediaCloudinaryStorageConFallback(_MediaCloudinaryStorageBase):
     def url(self, name):
         if not name:
             return ""
