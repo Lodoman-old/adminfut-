@@ -22,7 +22,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela, Descarga
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, PronosticoQuiniela, Descarga
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm, AnuncioForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
@@ -766,6 +766,15 @@ def impresion_anuncio(request, anuncio_id):
         nup = Anuncio.objects.filter(pk=anuncio_id, activo=True).update(
             impresiones=models.F("impresiones") + 1
         )
+        if nup == 1:
+            # Impresión única (1 por anuncio + día + visitante) para reportar alcance
+            clave = (request.session.session_key or ip or "anon")[:64]
+            try:
+                AnuncioImpresion.objects.get_or_create(
+                    anuncio_id=anuncio_id, fecha=timezone.localdate(), clave=clave,
+                )
+            except Exception:
+                pass
         return JsonResponse({"ok": nup == 1})
     except Exception:
         return JsonResponse({"ok": False})
@@ -774,7 +783,7 @@ def impresion_anuncio(request, anuncio_id):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
-    from .models import DeviceToken, Visita, Descarga
+    from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail
     from datetime import timedelta
     from django.db.models import Count, Case, When, F, Value, CharField
     from django.db.models.functions import TruncDate, Cast
@@ -782,6 +791,8 @@ def admin_push_logs(request):
 
     logs = get_push_logs(limit=200)
     tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
+    dispositivos_activos = DeviceToken.objects.filter(activo=True).count()
+    suscriptores_email = SuscripcionEmail.objects.filter(activo=True).count()
 
     ahora = timezone.localtime()
     inicio_hoy = timezone.make_aware(timezone.datetime(ahora.year, ahora.month, ahora.day))
@@ -825,9 +836,12 @@ def admin_push_logs(request):
     web_pct = 100 - moviles_pct
 
     anuncios = list(Anuncio.objects.all().order_by("-activo", "orden", "-creado"))
+    hace_30dias_date = timezone.localdate() - timedelta(days=30)
     for a in anuncios:
         a.ctr = (a.clics / a.impresiones * 100) if a.impresiones else 0
         a.clics_mes = AnuncioClick.objects.filter(anuncio=a, fecha__gte=hace_30dias).count()
+        a.impresiones_unicas = AnuncioImpresion.objects.filter(anuncio=a).count()
+        a.impresiones_unicas_mes = AnuncioImpresion.objects.filter(anuncio=a, fecha__gte=hace_30dias_date).count()
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
@@ -922,6 +936,26 @@ def admin_push_logs(request):
     top_origenes = [{"fuente": f, "c": c, "pct": c / _tot_ref * 100}
                     for f, c in sorted(ref_conteo.items(), key=lambda kv: -kv[1])[:10]]
 
+    # Mapa de calor: visitas por día de la semana y hora (últimos 30 días, hora local)
+    heat = [[0] * 24 for _ in range(7)]
+    for f in Visita.objects.filter(fecha__gte=hace_30dias).values_list("fecha", flat=True).iterator():
+        loc = timezone.localtime(f)
+        heat[loc.weekday()][loc.hour] += 1
+    heat_max = max([max(r) for r in heat] + [1])
+    dias_semana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    heat_rows = []
+    for i, nombre in enumerate(dias_semana):
+        fila = [{"h": h, "c": heat[i][h], "a": round(heat[i][h] / heat_max, 2)} for h in range(24)]
+        heat_rows.append({"dia": nombre, "horas": fila, "total": sum(heat[i])})
+    horas_tot = [sum(heat[i][h] for i in range(7)) for h in range(24)]
+    heat_total = sum(horas_tot)
+    if heat_total:
+        mejor_dia = dias_semana[max(range(7), key=lambda i: sum(heat[i]))]
+        mejor_hora = max(range(24), key=lambda h: horas_tot[h])
+    else:
+        mejor_dia = "-"
+        mejor_hora = 0
+
     recientes = Visita.objects.select_related("usuario").order_by("-fecha")[:60]
 
     return render(request, "admin/push_logs.html", {
@@ -958,6 +992,13 @@ def admin_push_logs(request):
         "dau_max": dau_max,
         "dau_promedio": dau_promedio,
         "top_origenes": top_origenes,
+        "dispositivos_activos": dispositivos_activos,
+        "suscriptores_email": suscriptores_email,
+        "heat_rows": heat_rows,
+        "heat_horas": list(range(24)),
+        "heat_total": heat_total,
+        "mejor_dia": mejor_dia,
+        "mejor_hora": mejor_hora,
     })
 
 

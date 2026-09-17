@@ -2768,6 +2768,26 @@ class AnuncioClick(models.Model):
         return f"{self.anuncio} ({self.fecha:%d/%m/%Y %H:%M})"
 
 
+class AnuncioImpresion(models.Model):
+    """Impresión única de un anuncio: una fila por anuncio + día + visitante.
+
+    Permite reportar "personas alcanzadas" (sin inflar por recargas).
+    """
+    anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name="impresiones_unicas")
+    fecha = models.DateField(db_index=True, verbose_name="Fecha")
+    clave = models.CharField(max_length=64, db_index=True, default="", verbose_name="Clave visitante")
+    creado = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
+
+    class Meta:
+        verbose_name = "Impresión única de anuncio"
+        verbose_name_plural = "Impresiones únicas de anuncios"
+        unique_together = ["anuncio", "fecha", "clave"]
+        ordering = ["-creado"]
+
+    def __str__(self):
+        return f"{self.anuncio} · {self.fecha:%d/%m/%Y}"
+
+
 class Descarga(models.Model):
     """Registro de cada descarga de archivo del sitio (APK, reglamento).
 
