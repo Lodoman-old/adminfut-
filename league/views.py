@@ -840,8 +840,8 @@ def admin_push_logs(request):
     for a in anuncios:
         a.ctr = (a.clics / a.impresiones * 100) if a.impresiones else 0
         a.clics_mes = AnuncioClick.objects.filter(anuncio=a, fecha__gte=hace_30dias).count()
-        a.impresiones_unicas = AnuncioImpresion.objects.filter(anuncio=a).count()
-        a.impresiones_unicas_mes = AnuncioImpresion.objects.filter(anuncio=a, fecha__gte=hace_30dias_date).count()
+        a.unicas_total = AnuncioImpresion.objects.filter(anuncio=a).count()
+        a.unicas_mes = AnuncioImpresion.objects.filter(anuncio=a, fecha__gte=hace_30dias_date).count()
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
