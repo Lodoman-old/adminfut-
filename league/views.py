@@ -778,7 +778,7 @@ def admin_push_logs(request):
     logs = get_push_logs(limit=200)
     tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
 
-    ahora = timezone.now()
+    ahora = timezone.localtime()
     inicio_hoy = timezone.make_aware(timezone.datetime(ahora.year, ahora.month, ahora.day))
     hace_7dias = ahora - timedelta(days=7)
     hace_30dias = ahora - timedelta(days=30)
