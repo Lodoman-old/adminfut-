@@ -4606,6 +4606,74 @@ def quiniela(request):
     return render(request, "league/quiniela.html", context)
 
 
+def historico_quiniela(request):
+    """Histórico de la quiniela: partidos ya finalizados de la temporada, con el
+    resultado real, el pronóstico del usuario (si lo hubo) y los puntos por jornada."""
+
+    if not request.user.is_authenticated:
+        return render(request, "league/quiniela_acceso.html", {})
+
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
+    cat_sel_id = request.GET.get("categoria")
+    categoria = None
+    if cat_sel_id:
+        categoria = Categoria.objects.filter(pk=cat_sel_id, activo=True).first()
+    if not categoria:
+        categoria = categorias.first()
+
+    solo_mios = request.GET.get("solo_mios") in ("1", "on", "true")
+
+    temporada = None
+    jornadas = []
+    total_puntos = 0
+    total_aciertos = 0
+    total_jugados = 0
+    if categoria:
+        temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
+        if temporada:
+            partidos = (
+                Partido.objects.filter(temporada=temporada, estado="FIN")
+                .select_related("equipo_local", "equipo_visitante", "jornada")
+                .order_by("-jornada__numero", "fecha_hora")
+            )
+            pronosticos = {
+                pr.partido_id: pr
+                for pr in PronosticoQuiniela.objects.filter(usuario=request.user, partido__in=partidos)
+            }
+            grupos = {}
+            for p in partidos:
+                pr = pronosticos.get(p.pk)
+                if solo_mios and pr is None:
+                    continue
+                g = grupos.get(p.jornada_id)
+                if g is None:
+                    g = {"jornada": p.jornada, "items": [], "puntos": 0, "aciertos": 0, "jugados": 0}
+                    grupos[p.jornada_id] = g
+                g["items"].append({"partido": p, "pronostico": pr})
+                if pr:
+                    pts = pr.puntos
+                    g["puntos"] += pts
+                    g["jugados"] += 1
+                    total_puntos += pts
+                    total_jugados += 1
+                    if pts > 0:
+                        g["aciertos"] += 1
+                        total_aciertos += 1
+            jornadas = list(grupos.values())
+
+    context = {
+        "categorias": categorias,
+        "categoria": categoria,
+        "temporada": temporada,
+        "jornadas": jornadas,
+        "solo_mios": solo_mios,
+        "total_puntos": total_puntos,
+        "total_aciertos": total_aciertos,
+        "total_jugados": total_jugados,
+    }
+    return render(request, "league/quiniela_historico.html", context)
+
+
 def ranking_quiniela(request):
     from django.db.models import Count, Sum
     ranking = []

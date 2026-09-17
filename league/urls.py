@@ -116,5 +116,6 @@ urlpatterns = [
 
     # Quiniela
     path("quiniela/", views.quiniela, name="quiniela"),
+    path("quiniela/historico/", views.historico_quiniela, name="historico_quiniela"),
     path("quiniela/ranking/", views.ranking_quiniela, name="ranking_quiniela"),
 ]
