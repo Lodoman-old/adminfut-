@@ -71,6 +71,7 @@ RUTAS_PUBLICAS = {
     '/suscripcion/',
     '/accounts/login/',
     '/accounts/invitado/registro/',
+    '/quiniela/',  # gate anónimo: descargar app / registrarse (la vista decide)
     '/reporte-semanal/',
     '/reportes/jornadas/',
     '/reportes/jornadas/pdf/',

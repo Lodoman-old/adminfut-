@@ -4578,6 +4578,11 @@ def quiniela(request):
             PronosticoQuiniela.objects.filter(usuario=request.user, partido=partido).delete()
             messages.success(request, "Pronóstico eliminado.")
 
+        url_destino = reverse("quiniela")
+        if categoria:
+            url_destino = f"{url_destino}?categoria={categoria.pk}"
+        return redirect(url_destino)
+
     pendientes = [p for p in partidos if p.estado == "PEND"]
     finalizados = [p for p in partidos if p.estado != "PEND"]
 
