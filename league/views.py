@@ -2,6 +2,7 @@ import datetime
 from datetime import date
 import json
 import logging
+import re
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, Min, Max, OuterRef, Subquery, F, Case, When, Value, IntegerField, DateTimeField
 from django import forms
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, Arbitro, ConfiguracionLiga, SuscripcionEmail, CampoIndisponibilidad, JugadorPartido, Grupo, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela, Descarga
 from .forms import CategoriaForm, TemporadaForm, EquipoForm, JugadorForm, CampoForm, ArbitroForm, PeriodoAltasForm, PartidoForm, AnuncioForm
 from finance.models import ConceptoIngreso, Ingreso
 from .storage import url_para_nombre
@@ -769,7 +770,7 @@ def impresion_anuncio(request, anuncio_id):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
-    from .models import DeviceToken, Visita
+    from .models import DeviceToken, Visita, Descarga
     from datetime import timedelta
     from django.db.models import Count, Case, When, F, Value, CharField
     from django.db.models.functions import TruncDate, Cast
@@ -832,6 +833,45 @@ def admin_push_logs(request):
         serie_diaria.append({"fecha": d.strftime("%d/%m"), "c": por_dia.get(d, 0)})
     serie_max = max([s["c"] for s in serie_diaria] or [1])
 
+    # --- Descargas de archivos (APK / reglamento) ---
+    def _dcount(tipo, desde=None):
+        qs = Descarga.objects.filter(tipo=tipo)
+        if desde is not None:
+            qs = qs.filter(fecha__gte=desde)
+        return qs.count()
+
+    descargas_apk = {
+        "total": _dcount("APK"),
+        "hoy": _dcount("APK", inicio_hoy),
+        "semana": _dcount("APK", hace_7dias),
+        "mes": _dcount("APK", hace_30dias),
+    }
+    descargas_reglamento = {
+        "total": _dcount("REGLAMENTO"),
+        "hoy": _dcount("REGLAMENTO", inicio_hoy),
+        "semana": _dcount("REGLAMENTO", hace_7dias),
+        "mes": _dcount("REGLAMENTO", hace_30dias),
+    }
+    descargas_total = Descarga.objects.count()
+    descargas_mes_qs = Descarga.objects.filter(fecha__gte=hace_30dias)
+    descargas_mes = descargas_mes_qs.count()
+    descargas_movil_mes = sum(1 for ua in descargas_mes_qs.values_list("user_agent", flat=True).iterator() if _movil_re.search(ua or ""))
+    descargas_web_mes = max(descargas_mes - descargas_movil_mes, 0)
+    descargas_total_mov_web = (descargas_movil_mes + descargas_web_mes) or 1
+    descargas_movil_pct = round(descargas_movil_mes / descargas_total_mov_web * 100)
+    descargas_web_pct = 100 - descargas_movil_pct
+
+    desc_por_dia = {}
+    for r in Descarga.objects.filter(fecha__gte=desde_serie).annotate(d=TruncDate("fecha")).values("d").annotate(c=Count("id")):
+        desc_por_dia[r["d"]] = r["c"]
+    descargas_serie = []
+    for i in range(14):
+        d = (desde_serie + timedelta(days=i)).date()
+        descargas_serie.append({"fecha": d.strftime("%d/%m"), "c": desc_por_dia.get(d, 0)})
+    descargas_serie_max = max([s["c"] for s in descargas_serie] or [1])
+
+    descargas_recientes = Descarga.objects.select_related("usuario").order_by("-fecha")[:40]
+
     recientes = Visita.objects.select_related("usuario").order_by("-fecha")[:60]
 
     return render(request, "admin/push_logs.html", {
@@ -853,6 +893,17 @@ def admin_push_logs(request):
         "serie_diaria": serie_diaria,
         "serie_max": serie_max,
         "recientes": recientes,
+        "descargas_apk": descargas_apk,
+        "descargas_reglamento": descargas_reglamento,
+        "descargas_total": descargas_total,
+        "descargas_mes": descargas_mes,
+        "descargas_movil_mes": descargas_movil_mes,
+        "descargas_web_mes": descargas_web_mes,
+        "descargas_movil_pct": descargas_movil_pct,
+        "descargas_web_pct": descargas_web_pct,
+        "descargas_serie": descargas_serie,
+        "descargas_serie_max": descargas_serie_max,
+        "descargas_recientes": descargas_recientes,
     })
 
 
@@ -1044,10 +1095,43 @@ def generar_vapid_keys(request):
     return redirect("configuracion_liga")
 
 
+_BOTS_DESCARGA = re.compile(
+    r'(bot|spider|crawl|slurp|bingpreview|facebookexternalhit|whatsapp|'
+    r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
+    r'semrush|google-inspectiontool|pingdom|uptime|monitor)', re.I)
+
+
+def _registrar_descarga(request, tipo):
+    """Guarda una descarga para las métricas de /push-logs/ (ignora personal y bots)."""
+    try:
+        user = getattr(request, "user", None)
+        if user is not None and getattr(user, "is_staff", False):
+            return
+        ua = request.META.get("HTTP_USER_AGENT", "") or ""
+        if _BOTS_DESCARGA.search(ua):
+            return
+        ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
+        sesion = ""
+        if getattr(request, "session", None):
+            sesion = request.session.get("_session_key") or ""
+        gu = user if (user is not None and user.is_authenticated and not user.is_staff) else None
+        Descarga.objects.create(
+            tipo=tipo,
+            ip=ip or None,
+            user_agent=ua[:255],
+            referer=request.META.get("HTTP_REFERER", "")[:255],
+            sesion=sesion[:64],
+            usuario=gu,
+        )
+    except Exception:
+        pass
+
+
 def descarga_reglamento(request):
     config = ConfiguracionLiga.obtener()
     if not config.reglamento:
         raise Http404("No hay reglamento disponible.")
+    _registrar_descarga(request, "REGLAMENTO")
     try:
         f = config.reglamento.open("rb")
         from django.http import FileResponse
@@ -1067,6 +1151,7 @@ def descarga_apk(request):
     path = Path(dj_settings.BASE_DIR) / "static" / "apk" / "AdminFut.apk"
     if not path.exists():
         raise Http404("La aplicación no está disponible.")
+    _registrar_descarga(request, "APK")
     return FileResponse(open(path, "rb"), content_type="application/vnd.android.package-archive",
                         as_attachment=True, filename="AdminFut.apk")
 

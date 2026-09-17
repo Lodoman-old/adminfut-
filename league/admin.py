@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, PronosticoQuiniela, Descarga
 
 
 @admin.register(ConfiguracionLiga)
@@ -217,6 +217,18 @@ class AnuncioClickAdmin(admin.ModelAdmin):
     list_display = ["anuncio", "fecha", "ip", "sesion"]
     list_filter = ["anuncio"]
     readonly_fields = ["anuncio", "ip", "sesion", "fecha"]
+    has_add_permission = lambda self, request: False
+    has_change_permission = lambda self, request, obj=None: False
+    has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(Descarga)
+class DescargaAdmin(admin.ModelAdmin):
+    list_display = ["tipo", "fecha", "usuario", "ip"]
+    list_filter = ["tipo"]
+    search_fields = ["ip", "user_agent"]
+    readonly_fields = ["tipo", "ip", "user_agent", "referer", "sesion", "usuario", "fecha"]
+    date_hierarchy = "fecha"
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False

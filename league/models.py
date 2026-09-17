@@ -2733,6 +2733,36 @@ class AnuncioClick(models.Model):
         return f"{self.anuncio} ({self.fecha:%d/%m/%Y %H:%M})"
 
 
+class Descarga(models.Model):
+    """Registro de cada descarga de archivo del sitio (APK, reglamento).
+
+    Sirve para las métricas de audiencia que se muestran en /push-logs/ y
+    para poder demostrar alcance a los anunciantes.
+    """
+    TIPOS = [
+        ("APK", "App Android (APK)"),
+        ("REGLAMENTO", "Reglamento (PDF)"),
+    ]
+    tipo = models.CharField(max_length=20, choices=TIPOS, db_index=True, verbose_name="Archivo")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    user_agent = models.CharField(max_length=255, blank=True, default="", verbose_name="Agente")
+    referer = models.CharField(max_length=255, blank=True, default="", verbose_name="Origen")
+    sesion = models.CharField(max_length=64, db_index=True, blank=True, default="", verbose_name="Sesión")
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="descargas", verbose_name="Usuario",
+    )
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
+
+    class Meta:
+        verbose_name = "Descarga"
+        verbose_name_plural = "Descargas"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} ({self.fecha:%d/%m/%Y %H:%M})"
+
+
 class PronosticoQuiniela(models.Model):
     """Pronóstico de un usuario para un partido (quiniela por categoría).
 

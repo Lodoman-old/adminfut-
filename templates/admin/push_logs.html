@@ -56,6 +56,9 @@
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="publicidad-tab" data-bs-toggle="tab" data-bs-target="#publicidad" type="button">Publicidad <span class="badge bg-info">{{ anuncios|length }}</span></button>
         </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="descargas-tab" data-bs-toggle="tab" data-bs-target="#descargas" type="button">Descargas <span class="badge bg-info">{{ descargas_total }}</span></button>
+        </li>
       </ul>
 
       <div class="tab-content">
@@ -309,6 +312,80 @@
                 </tr>
                 {% empty %}
                 <tr><td colspan="8" class="text-center text-muted">Aún no hay anuncios. Créalos desde el panel de administración.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="descargas">
+          <p class="text-muted">Descargas de archivos del sitio (APK de la app y reglamento en PDF). No se cuentan accesos del personal ni bots.</p>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="card p-3 h-100">
+                <h6 class="text-success mb-2"><i class="bi bi-android2"></i> App Android (APK)</h6>
+                <div class="row text-center g-2">
+                  <div class="col-3"><h5 class="mb-0 text-success">{{ descargas_apk.total }}</h5><small class="text-muted">Total</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_apk.hoy }}</h5><small class="text-muted">Hoy</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_apk.semana }}</h5><small class="text-muted">7 días</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_apk.mes }}</h5><small class="text-muted">30 días</small></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card p-3 h-100">
+                <h6 class="text-danger mb-2"><i class="bi bi-file-earmark-pdf"></i> Reglamento (PDF)</h6>
+                <div class="row text-center g-2">
+                  <div class="col-3"><h5 class="mb-0 text-danger">{{ descargas_reglamento.total }}</h5><small class="text-muted">Total</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_reglamento.hoy }}</h5><small class="text-muted">Hoy</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_reglamento.semana }}</h5><small class="text-muted">7 días</small></div>
+                  <div class="col-3"><h5 class="mb-0">{{ descargas_reglamento.mes }}</h5><small class="text-muted">30 días</small></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h6 class="text-primary"><i class="bi bi-download"></i> Descargas por día (últimos 14 días)</h6>
+          <div class="d-flex align-items-end gap-1 mb-3" style="height: 100px;">
+            {% for s in descargas_serie %}
+            <div class="visita-bar-col flex-grow-1" title="{{ s.fecha }}: {{ s.c }} descargas">
+              {% if s.c > 0 %}<div class="visita-bar" style="height: {% widthratio s.c descargas_serie_max 100 %}%; background-color: #198754;"></div>{% else %}<div></div>{% endif %}
+              <small style="font-size: 0.5rem; color: #6c757d;">{{ s.fecha }}</small>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="card p-3 mb-3">
+            <div class="d-flex justify-content-between small">
+              <span><i class="bi bi-phone text-success"></i> Móvil/App: <strong>{{ descargas_movil_mes }}</strong> ({{ descargas_movil_pct }}%)</span>
+              <span><i class="bi bi-display text-primary"></i> Web: <strong>{{ descargas_web_mes }}</strong> ({{ descargas_web_pct }}%)</span>
+            </div>
+            <div class="progress mt-2" style="height: 22px;">
+              <div class="progress-bar bg-success" style="width: {{ descargas_movil_pct }}%;" title="Móvil: {{ descargas_movil_pct }}%">{{ descargas_movil_pct }}%</div>
+              <div class="progress-bar bg-primary" style="width: {{ descargas_web_pct }}%;" title="Web: {{ descargas_web_pct }}%">{{ descargas_web_pct }}%</div>
+            </div>
+            <small class="text-muted mt-1">Últimos 30 días, estimado por agente de usuario.</small>
+          </div>
+
+          <h6 class="text-primary"><i class="bi bi-clock-history"></i> Descargas recientes</h6>
+          <div class="table-responsive" style="max-height: 45vh; overflow-y: auto;">
+            <table class="table table-striped table-sm" style="font-size: 0.8rem;">
+              <thead class="sticky-top bg-dark text-white">
+                <tr><th>Fecha</th><th>Archivo</th><th>Usuario</th><th>IP</th><th>Origen</th><th>Agente</th></tr>
+              </thead>
+              <tbody>
+                {% for d in descargas_recientes %}
+                <tr>
+                  <td>{{ d.fecha|date:"d/m H:i" }}</td>
+                  <td>{% if d.tipo == "APK" %}<span class="badge bg-success">APK</span>{% else %}<span class="badge bg-danger">Reglamento</span>{% endif %}</td>
+                  <td>{{ d.usuario.username|default:"-" }}</td>
+                  <td>{{ d.ip|default:"-" }}</td>
+                  <td style="max-width: 110px; word-break: break-word;">{{ d.referer|default:"-"|truncatechars:30 }}</td>
+                  <td style="max-width: 130px; word-break: break-word;" title="{{ d.user_agent }}">{{ d.user_agent|truncatechars:35 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted">Sin descargas todavía.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
