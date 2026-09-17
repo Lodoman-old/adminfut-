@@ -369,6 +369,13 @@
             {{ form.rotacion_banners_segundos }}
             <div class="form-text">Mínimo 5 segundos. Ej: 30 = medio minuto, 60 = un minuto.</div>
           </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-trophy"></i> Quiniela</h6>
+          <div class="form-check form-switch">
+            {{ form.mostrar_quiniela }}
+            <label class="form-check-label" for="{{ form.mostrar_quiniela.id_for_label }}">Mostrar botón de Quiniela</label>
+            <div class="form-text">Si se desactiva, el botón QUINIELA deja de aparecer en el menú del sitio.</div>
+          </div>
         </div>
       </div>
       <div class="text-center mt-3 pt-2 border-top">

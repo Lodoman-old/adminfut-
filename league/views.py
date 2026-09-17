@@ -999,6 +999,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "email_sendgrid_password": djforms.PasswordInput(attrs={"class": "form-control"}, render_value=True),
             "email_sendgrid_use_tls": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "enviar_solo_jornada_actual": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
+            "mostrar_quiniela": djforms.CheckboxInput(attrs={"class": "form-check-input", "role": "switch"}),
             "ticket_ancho_mm": djforms.NumberInput(attrs={"class": "form-control", "min": 40, "max": 100, "step": 1}),
             "ticket_encabezado": djforms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "ticket_pie": djforms.Textarea(attrs={"class": "form-control", "rows": 3}),

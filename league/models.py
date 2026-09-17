@@ -2415,6 +2415,8 @@ class ConfiguracionLiga(models.Model):
         help_text="Clave pública VAPID (applicationServerKey) que usan los navegadores al suscribirse a notificaciones Web Push. Se genera automáticamente.")
     rotacion_banners_segundos = models.PositiveIntegerField(default=30, verbose_name="Segundos de rotación de banners",
         help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar al siguiente. Mínimo 5.")
+    mostrar_quiniela = models.BooleanField(default=True, verbose_name="Mostrar botón de Quiniela",
+        help_text="Muestra u oculta el botón QUINIELA en el menú de navegación del sitio.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"
