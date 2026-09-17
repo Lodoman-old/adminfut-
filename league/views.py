@@ -4533,17 +4533,24 @@ def quiniela(request):
 
     partidos = Partido.objects.none()
     temporada = None
-    jornadas_activas = Jornada.objects.none()
+    jornada_actual = None
     if categoria:
         temporada = Temporada.objects.filter(categoria=categoria, activa=True).order_by("-fecha_inicio", "-fecha_fin").first()
         if temporada:
-            jornadas_activas = Jornada.objects.filter(temporada=temporada, estado="ACTIVA")
-            partidos = (
-                Partido.objects.filter(temporada=temporada, jornada__in=jornadas_activas)
-                .select_related("equipo_local", "equipo_visitante", "jornada")
-                .exclude(estado="SUSP")
-                .order_by("jornada__numero", "fecha_hora")
+            proximo = (
+                Partido.objects.filter(temporada=temporada, estado="PEND")
+                .select_related("jornada")
+                .order_by("fecha_hora")
+                .first()
             )
+            jornada_actual = proximo.jornada if proximo else None
+            if jornada_actual:
+                partidos = (
+                    Partido.objects.filter(jornada=jornada_actual)
+                    .select_related("equipo_local", "equipo_visitante", "jornada")
+                    .exclude(estado="SUSP")
+                    .order_by("fecha_hora")
+                )
 
     pronosticos = {}
     if request.user.is_authenticated:
@@ -4591,6 +4598,7 @@ def quiniela(request):
         "categorias": categorias,
         "categoria": categoria,
         "temporada": temporada,
+        "jornada_actual": jornada_actual,
         "pendientes": pendientes,
         "finalizados": finalizados,
         "pronosticos": pronosticos,
