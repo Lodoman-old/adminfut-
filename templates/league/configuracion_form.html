@@ -376,6 +376,16 @@
             <label class="form-check-label" for="{{ form.mostrar_quiniela.id_for_label }}">Mostrar botón de Quiniela</label>
             <div class="form-text">Si se desactiva, el botón QUINIELA deja de aparecer en el menú del sitio.</div>
           </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-graph-up"></i> Métricas</h6>
+          <div class="mb-3" style="max-width: 480px;">
+            <label class="form-label">IPs excluidas de las métricas</label>
+            {{ form.ips_excluidas }}
+            <div class="form-text">
+              Una IP por línea o separadas por coma. No se contarán sus visitas, impresiones, clics ni descargas.
+              Admite comodín al final (ej. <code>190.12.34.*</code>). Ideal para excluir tu casa u oficina.
+            </div>
+          </div>
         </div>
       </div>
       <div class="text-center mt-3 pt-2 border-top">

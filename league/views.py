@@ -737,18 +737,19 @@ def finalizar_temporada(request, pk):
 def detalle_anuncio(request, anuncio_id):
     """Página pública: muestra el anuncio en grande y registra el clic."""
     anuncio = get_object_or_404(Anuncio, pk=anuncio_id, activo=True)
-    # Registrar el clic (banner -> detalle)
-    anuncio.clics = (anuncio.clics or 0) + 1
-    anuncio.save(update_fields=["clics"])
+    # Registrar el clic (banner -> detalle), salvo IPs excluidas de métricas
     ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
-    try:
-        AnuncioClick.objects.create(
-            anuncio=anuncio,
-            ip=ip or None,
-            sesion=(request.session.session_key or '')[:64],
-        )
-    except Exception:
-        pass
+    if not ConfiguracionLiga.es_ip_excluida(ip):
+        anuncio.clics = (anuncio.clics or 0) + 1
+        anuncio.save(update_fields=["clics"])
+        try:
+            AnuncioClick.objects.create(
+                anuncio=anuncio,
+                ip=ip or None,
+                sesion=(request.session.session_key or '')[:64],
+            )
+        except Exception:
+            pass
     return render(request, "publicidad/detalle.html", {"anuncio": anuncio})
 
 
@@ -758,6 +759,9 @@ def impresion_anuncio(request, anuncio_id):
     from django.http import JsonResponse
     if request.method != "GET":
         return JsonResponse({"ok": False}, status=405)
+    ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
+    if ConfiguracionLiga.es_ip_excluida(ip):
+        return JsonResponse({"ok": True, "excluida": True})
     try:
         nup = Anuncio.objects.filter(pk=anuncio_id, activo=True).update(
             impresiones=models.F("impresiones") + 1
@@ -784,13 +788,15 @@ def admin_push_logs(request):
     hace_7dias = ahora - timedelta(days=7)
     hace_30dias = ahora - timedelta(days=30)
 
-    def unicos(qs):
-        k = Case(
+    def clave_expr():
+        return Case(
             When(sesion__gt='', then=F('sesion')),
             default=Case(When(ip__isnull=False, then=Cast('ip', output_field=CharField())), default=Value('')),
             output_field=CharField(),
         )
-        return qs.annotate(k=k).values('k').distinct().count()
+
+    def unicos(qs):
+        return qs.annotate(k=clave_expr()).values('k').distinct().count()
 
     visitas_total = Visita.objects.filter(inicio=True).count()
     visitas_hoy = Visita.objects.filter(inicio=True, fecha__gte=inicio_hoy).count()
@@ -872,6 +878,50 @@ def admin_push_logs(request):
 
     descargas_recientes = Descarga.objects.select_related("usuario").order_by("-fecha")[:40]
 
+    # Visitantes únicos por día (últimos 14 días) y promedio diario
+    dau_por_dia = {}
+    for r in (Visita.objects.filter(fecha__gte=desde_serie)
+              .annotate(d=TruncDate("fecha"), k=clave_expr())
+              .values("d", "k").distinct()):
+        dau_por_dia[r["d"]] = dau_por_dia.get(r["d"], 0) + 1
+    dau_serie = []
+    for i in range(14):
+        d = (desde_serie + timedelta(days=i)).date()
+        dau_serie.append({"fecha": d.strftime("%d/%m"), "c": dau_por_dia.get(d, 0)})
+    dau_max = max([s["c"] for s in dau_serie] or [1])
+    dau_promedio = round(sum(s["c"] for s in dau_serie) / 14)
+
+    # Origen del tráfico (referer) últimos 30 días
+    from urllib.parse import urlparse
+    ref_conteo = {}
+    for ref in Visita.objects.filter(fecha__gte=hace_30dias).values_list("referer", flat=True).iterator():
+        ref = (ref or "").strip()
+        if not ref:
+            fuente = "Directo (sin referencia)"
+        else:
+            try:
+                host = (urlparse(ref if "://" in ref else "http://" + ref).hostname or ref).lower()
+            except Exception:
+                host = ref.lower()
+            if host.startswith("www."):
+                host = host[4:]
+            if "facebook" in host or host.endswith("fb.com"):
+                fuente = "Facebook"
+            elif "whatsapp" in host or host == "wa.me":
+                fuente = "WhatsApp"
+            elif "google" in host:
+                fuente = "Google"
+            elif "instagram" in host:
+                fuente = "Instagram"
+            elif "twitter" in host or host == "x.com" or host == "t.co":
+                fuente = "X / Twitter"
+            else:
+                fuente = host
+        ref_conteo[fuente] = ref_conteo.get(fuente, 0) + 1
+    _tot_ref = sum(ref_conteo.values()) or 1
+    top_origenes = [{"fuente": f, "c": c, "pct": c / _tot_ref * 100}
+                    for f, c in sorted(ref_conteo.items(), key=lambda kv: -kv[1])[:10]]
+
     recientes = Visita.objects.select_related("usuario").order_by("-fecha")[:60]
 
     return render(request, "admin/push_logs.html", {
@@ -904,6 +954,10 @@ def admin_push_logs(request):
         "descargas_serie": descargas_serie,
         "descargas_serie_max": descargas_serie_max,
         "descargas_recientes": descargas_recientes,
+        "dau_serie": dau_serie,
+        "dau_max": dau_max,
+        "dau_promedio": dau_promedio,
+        "top_origenes": top_origenes,
     })
 
 
@@ -1037,6 +1091,8 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             "logo": djforms.FileInput(attrs={"class": "form-control"}),
             "direccion": djforms.TextInput(attrs={"class": "form-control"}),
             "telefonos": djforms.TextInput(attrs={"class": "form-control"}),
+            "ips_excluidas": djforms.Textarea(attrs={"class": "form-control", "rows": 4,
+                                                     "placeholder": "Una IP por línea. Ej: 190.12.34.56 o 190.12.34.*"}),
             "email_provider": djforms.Select(attrs={"class": "form-select"}),
             "email_smtp_host": djforms.TextInput(attrs={"class": "form-control"}),
             "email_smtp_port": djforms.NumberInput(attrs={"class": "form-control"}),
@@ -1111,6 +1167,8 @@ def _registrar_descarga(request, tipo):
         if _BOTS_DESCARGA.search(ua):
             return
         ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
+        if ConfiguracionLiga.es_ip_excluida(ip):
+            return
         sesion = ""
         if getattr(request, "session", None):
             sesion = request.session.get("_session_key") or ""

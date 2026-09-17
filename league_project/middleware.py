@@ -273,10 +273,12 @@ class ContadorVisitasMiddleware:
             user = getattr(request, 'user', None)
             if user is not None and getattr(user, 'is_staff', False):
                 return response
-            from league.models import Visita
+            from league.models import Visita, ConfiguracionLiga
             from datetime import timedelta
             from django.utils import timezone
             ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
+            if ConfiguracionLiga.es_ip_excluida(ip):
+                return response
             sesion = ''
             if getattr(request, 'session', None):
                 sesion = request.session.get('_session_key') or ''

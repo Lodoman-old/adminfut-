@@ -2417,6 +2417,10 @@ class ConfiguracionLiga(models.Model):
         help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar al siguiente. Mínimo 5.")
     mostrar_quiniela = models.BooleanField(default=True, verbose_name="Mostrar botón de Quiniela",
         help_text="Muestra u oculta el botón QUINIELA en el menú de navegación del sitio.")
+    ips_excluidas = models.TextField(blank=True, default="", verbose_name="IPs excluidas de métricas",
+        help_text="IPs que NO se cuentan en las métricas del sitio (visitas, impresiones, clics y descargas). "
+                  "Una por línea o separadas por coma. Admite comodín al final (ej. 190.12.34.*). "
+                  "Útil para excluir tu casa u oficina.")
 
     class Meta:
         verbose_name = "Configuración de la Liga"
@@ -2424,6 +2428,37 @@ class ConfiguracionLiga(models.Model):
 
     def __str__(self):
         return self.nombre_liga
+
+    @classmethod
+    def ips_excluidas_set(cls):
+        """Conjunto de IPs/patrones a excluir de las métricas (caché de 2 minutos)."""
+        import time
+        ahora = time.time()
+        cache = getattr(cls, "_ips_excluidas_cache", None)
+        if cache and (ahora - cache[0]) < 120:
+            return cache[1]
+        try:
+            val = cls.objects.filter(pk=1).values_list("ips_excluidas", flat=True).first() or ""
+        except Exception:
+            val = ""
+        patrones = {x.strip() for x in val.replace(",", " ").replace(";", " ").split() if x.strip()}
+        cls._ips_excluidas_cache = (ahora, patrones)
+        return patrones
+
+    @classmethod
+    def es_ip_excluida(cls, ip):
+        """True si la IP debe ignorarse en las métricas (exacta o patrón terminado en *)."""
+        if not ip:
+            return False
+        patrones = cls.ips_excluidas_set()
+        if not patrones:
+            return False
+        if ip in patrones:
+            return True
+        for patron in patrones:
+            if patron.endswith("*") and ip.startswith(patron[:-1]):
+                return True
+        return False
 
     @classmethod
     def obtener(cls):
