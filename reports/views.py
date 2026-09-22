@@ -1256,19 +1256,41 @@ def reporte_jornadas_completo_pdf(request):
                 partido.arbitro.nombre_completo() if partido.arbitro else "---",
             ])
 
-        table = Table(data, colWidths=[30, 30, 120, 35, 25, 35, 120, 80, 90, 80])
-        table.setStyle(TableStyle([
+        hdr = data[0]
+        tres_rows = data[1:]
+        cols = [30, 30, 120, 35, 25, 35, 120, 80, 90, 80]
+        style = TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 7),
             ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ]))
-        table.wrapOn(p, 30, y - 20)
-        table.drawOn(p, 30, y - 20 - len(data) * 18)
+        ])
+        row_h = 18
+        per_page = max(1, int((y - 70) // row_h))
+        rows_chunk = max(1, per_page - 1)
+        idx = 0
+        first = True
+        while idx < len(tres_rows):
+            if not first:
+                p.showPage()
+                page_y2 = height - 30
+                p.setFont("Helvetica-Bold", 10)
+                p.drawString(30, page_y2 - 10, f"{extra.replace(chr(10), ' - ')} (cont.)")
+                page_y = page_y2 - 30
+            else:
+                page_y = y - 20
+            end = min(idx + rows_chunk, len(tres_rows))
+            page_data = [hdr] + tres_rows[idx:end]
+            table = Table(page_data, colWidths=cols)
+            table.setStyle(style)
+            table.wrapOn(p, 30, page_y - 10)
+            table.drawOn(p, 30, page_y - 10 - len(page_data) * row_h)
+            draw_footer(p, width, height)
+            idx = end
+            first = False
 
-    draw_footer(p, width, height)
     p.showPage()
     p.save()
     return response
