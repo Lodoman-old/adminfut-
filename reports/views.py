@@ -35,7 +35,7 @@ def draw_header(p, width, height, extra_line=""):
             logo_src = _imagen_pdf(cfg.logo)
     if logo_src:
         try:
-            p.drawImage(logo_src, 30, y - 25, width=50, height=50, preserveAspectRatio=True)
+            p.drawImage(logo_src, 30, y - 25, width=50, height=50, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
         x_text = 90
@@ -1496,7 +1496,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
             try:
-                p.drawImage(logo_src, x0, h - top_margin - 6 - 17, width=34, height=34, preserveAspectRatio=True)
+                p.drawImage(logo_src, x0, h - top_margin - 6 - 17, width=34, height=34, preserveAspectRatio=True, mask='auto')
             except Exception:
                 logo_src = None
         x_text = x0 + (42 if logo_src else 0)
@@ -1533,7 +1533,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(equipo.logo)
             if logo_src:
                 try:
-                    p.drawImage(logo_src, x_start + 4, y - franja_h + 2, width=22, height=22, preserveAspectRatio=True)
+                    p.drawImage(logo_src, x_start + 4, y - franja_h + 2, width=22, height=22, preserveAspectRatio=True, mask='auto')
                 except Exception:
                     pass
         p.setFillColor(colors.black)
