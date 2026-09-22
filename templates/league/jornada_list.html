@@ -4,6 +4,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3><i class="bi bi-list-stars"></i> Jornadas</h3>
+    {% if user|tiene_permiso:"jornada_publicar" %}
+    <button type="button" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#rolTodasModal">
+        <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categorías</span>
+    </button>
+    {% endif %}
 </div>
 <form method="get" class="row g-2 mb-3">
     <div class="col-auto">
@@ -165,7 +170,33 @@
                 <p class="mt-3 mb-0">¿Publicar el rol de juegos en Facebook?</p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" class="btn btn-primary" id="confirmarPubRolFbBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
+                <a href="#" class="btn btn-primary" id="confirmarPubRolFbBtnHolder" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Rol todas las categorías -->
+<div class="modal fade" id="rolTodasModal" tabindex="-1" aria-labelledby="rolTodasModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color:#1877F2;color:#fff">
+                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categorías</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-calendar2-week" style="font-size:3rem;color:#1877F2"></i>
+                <p class="mt-3 mb-1">Rol de la próxima jornada de todas las categorías.</p>
+                <p class="text-muted small mb-0">Descarga la imagen del rol o publícala directamente en Facebook.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-success">
+                    <i class="bi bi-download"></i> Descargar imagen
+                </a>
+                <a href="{% url 'publicar_rol_facebook_todas' %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff">
+                    <i class="bi bi-facebook"></i> Publicar en Facebook
+                </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -205,4 +236,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Modal Rol todas las categorías -->
+<div class="modal fade" id="rolTodasModal" tabindex="-1" aria-labelledby="rolTodasModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color:#1877F2;color:#fff">
+                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categorías</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-calendar2-week" style="font-size:3rem;color:#1877F2"></i>
+                <p class="mt-3 mb-0">Imagen del rol de la próxima jornada de <b>todas las categorías</b>.</p>
+                <p class="text-muted small mb-0">Elige descargarla o publicarla directamente en Facebook.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-success">
+                    <i class="bi bi-download"></i> Descargar imagen
+                </a>
+                <a href="{% url 'publicar_rol_facebook_todas' %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff">
+                    <i class="bi bi-facebook"></i> Publicar en Facebook
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

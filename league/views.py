@@ -4352,14 +4352,14 @@ def gestionar_indisponibilidad(request):
     })
 
 
-def publicar_rol_facebook(request, temporada_id):
+def _secciones_rol():
+    """Secciones del rol de la próxima jornada de TODAS las categorías activas."""
     from django.utils import timezone
-    # No se usa temporada_id: se publican los próximos partidos de todas las categorías.
+
     ahora = timezone.localtime()
     ahora_str = ahora.strftime("%d/%m/%Y %H:%M")
 
-    from .social_image import generar_imagen_rol_dashboard, _cargar_logo
-    from .social import publicar_imagen_en_facebook
+    from .social_image import _cargar_logo
 
     secciones = []
     for cat in Categoria.objects.filter(activo=True).order_by("nombre"):
@@ -4411,11 +4411,56 @@ def publicar_rol_facebook(request, temporada_id):
             "partidos": partidos_data,
             "descansan": descansan,
         })
+    return secciones, ahora_str
+
+
+def publicar_rol_facebook(request, temporada_id):
+    # No se usa temporada_id: se publican los próximos partidos de todas las categorías.
+    from .social_image import generar_imagen_rol_dashboard
+    from .social import publicar_imagen_en_facebook
+
+    secciones, ahora_str = _secciones_rol()
+    if not secciones:
+        messages.error(request, "No hay próximos partidos pendientes por publicar.")
+        return redirect(request.META.get("HTTP_REFERER", "home"))
 
     imagen = generar_imagen_rol_dashboard(secciones, ahora_str)
     caption = "\U0001f4cb Próximos partidos - Todas las categorías\n#FutbolLiga"
     publicar_imagen_en_facebook(imagen, caption, request)
     return redirect(request.META.get("HTTP_REFERER", "home"))
+
+
+def publicar_rol_facebook_todas(request):
+    """Publica en Facebook el rol de la próxima jornada de todas las categorías (botón único)."""
+    from .social_image import generar_imagen_rol_dashboard
+    from .social import publicar_imagen_en_facebook
+
+    secciones, ahora_str = _secciones_rol()
+    if not secciones:
+        messages.error(request, "No hay próximos partidos pendientes por publicar.")
+        return redirect(request.META.get("HTTP_REFERER", "home"))
+
+    imagen = generar_imagen_rol_dashboard(secciones, ahora_str)
+    caption = "\U0001f4cb Próximos partidos - Todas las categorías\n#FutbolLiga"
+    publicar_imagen_en_facebook(imagen, caption, request)
+    return redirect(request.META.get("HTTP_REFERER", "home"))
+
+
+def descargar_rol_facebook(request):
+    """Descarga la imagen del rol de la próxima jornada de todas las categorías (sin publicar)."""
+    from django.http import HttpResponse
+    from .social_image import generar_imagen_rol_dashboard
+
+    secciones, ahora_str = _secciones_rol()
+    if not secciones:
+        messages.error(request, "No hay próximos partidos pendientes por generar.")
+        return redirect(request.META.get("HTTP_REFERER", "home"))
+
+    buf = generar_imagen_rol_dashboard(secciones, ahora_str)
+    nombre = f"rol_todas_categorias_{ahora_str.replace('/', '-').replace(':', '-').replace(' ', '_')}.png"
+    response = HttpResponse(buf.getvalue(), content_type="image/png")
+    response["Content-Disposition"] = f'attachment; filename="{nombre}"'
+    return response
 
 
 def publicar_posiciones_facebook(request, temporada_id):
@@ -4476,6 +4521,16 @@ def publicar_jornada_facebook(request, jornada_id):
             d["marcador"] = "vs"
             d["local_win"] = False
             d["vis_win"] = False
+        ganador_dft = p.ganador_walkover
+        if ganador_dft:
+            if ganador_dft == p.equipo_local:
+                d["default_win"] = "local"
+                d["local_win"] = True
+            else:
+                d["default_win"] = "visitante"
+                d["vis_win"] = True
+        else:
+            d["default_win"] = None
         partidos_data.append(d)
 
     grupos_mode = temporada.tipo_rol == "GRUPOS" and temporada.clasificacion_por_grupos
