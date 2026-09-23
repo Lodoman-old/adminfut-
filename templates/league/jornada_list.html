@@ -8,8 +8,11 @@
     <button type="button" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#rolTodasModal">
         <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categor?as</span>
     </button>
-    {% if request.GET.temporada %}
-    <a href="{% url 'enviar_roles_semana' request.GET.temporada %}" class="btn btn-success"><i class="bi bi-envelope"></i> <span class="d-none d-sm-inline">Enviar rol por correo</span></a>
+    {% if user.is_staff %}
+    <form method="post" action="{% url 'enviar_rol_por_correo' %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success"><i class="bi bi-envelope"></i> <span class="d-none d-sm-inline">Enviar rol por correo</span></button>
+    </form>
     {% endif %}
     {% endif %}
 </div>
