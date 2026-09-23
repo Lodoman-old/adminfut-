@@ -523,7 +523,7 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             T(name_x, y + 27, p["visitante"][:24], COLOR_TEXT, fnt_eq)
             if p.get("default_win") == "visitante":
                 dft_txt = "Gana por default"
-                T(W - M - 10 - _tw(dft_txt, fnt_lugar), y + 45, dft_txt, "#c2410c", fnt_lugar)
+                T(name_x, y + 45, dft_txt, "#c2410c", fnt_lugar)
             y += row_h + 2
 
         descansan = sec.get("descansan") or []
