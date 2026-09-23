@@ -4646,12 +4646,12 @@ def reporte_registro(request):
 
 
 def enviar_rol_por_correo(request):
-    """Envía por correo a los suscriptores: 1 ROL general (imagen de todas las
+    """Envía por correo a los dispositivos registrados: 1 ROL general (imagen de todas las
     categorías, la misma que se publica en Facebook) + 1 correo por cada
-    categoría de interés del suscriptor con tabla de posiciones, castigados y
+    categoría de interés del dispositivo con tabla de posiciones, castigados y
     goleo de esa categoría. Solo staff (ver middleware).
     """
-    from .models import ConfiguracionLiga, SuscripcionEmail
+    from .models import ConfiguracionLiga, DeviceToken
 
     config = ConfiguracionLiga.obtener()
     smtp_host = config.get_active_smtp_config()["host"]
@@ -4677,18 +4677,34 @@ def enviar_rol_por_correo(request):
         "mimetype": "image/png",
     }
 
-    suscriptores = list(
-        SuscripcionEmail.objects.filter(activo=True).exclude(email="").prefetch_related("categorias")
+    class _DeviceEmail:
+        __slots__ = ("email", "categorias", "token", "nombre")
+        def __init__(self, device):
+            self.nombre = device.nombre or (device.usuario.get_full_name() if device.usuario else "") or device.token[:20]
+            # Email: prioriza usuario.email, luego device.email
+            self.email = device.usuario.email if device.usuario_id and device.usuario.email else device.email
+            self.categorias = device.categorias.all()
+            # token para unsubscribe (usamos device_id o token)
+            self.token = device.device_id or device.token[:32]
+
+    devices = list(
+        DeviceToken.objects.filter(activo=True)
+        .select_related("usuario")
+        .prefetch_related("categorias")
     )
-    if not suscriptores:
-        messages.warning(request, "No hay suscriptores con correo registrado.")
+    # Filtrar los que tienen email (usuario.email o device.email)
+    destinatarios = [d for d in devices if (d.usuario_id and d.usuario.email) or d.email]
+    destinatarios = [_DeviceEmail(d) for d in destinatarios]
+
+    if not destinatarios:
+        messages.warning(request, "No hay dispositivos con correo registrado.")
         return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
 
     total = 0
     from .models import Temporada, Gol, Tarjeta
     from django.db.models import Count
 
-    for sus in suscriptores:
+    for sus in destinatarios:
         # 1) ROL general (mismo para todos): imagen dashboard con todas las categorías.
         ctx_rol = {
             "ahora_str": ahora_str,
@@ -4706,7 +4722,7 @@ def enviar_rol_por_correo(request):
             pass
 
         # 2) Un correo por categoría de interés: tabla + castigados + goleo.
-        for cat in sus.categorias.all():
+        for cat in sus.categorias:
             temp = Temporada.objects.filter(categoria=cat, activa=True).first()
             if not temp:
                 continue
