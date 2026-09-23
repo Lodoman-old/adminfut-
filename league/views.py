@@ -3077,17 +3077,48 @@ def tabla_goleo(request):
             g["equipo__logo_url"] = url_para_nombre(g.get("equipo__logo"))
             g["jugador__foto_url"] = url_para_nombre(g.get("jugador__foto"))
 
-    # GOLES POR EQUIPO — solo temporada regular (excluye liguilla/finales)
+    # GOLES POR EQUIPO — solo temporada regular (excluye liguilla/finales).
+    # Se suma el MARCADOR real del partido (goles_local/goles_visitante) en vez de
+    # contar filas Gol con autor, para no perder los resultados sin goleador detallado.
     equipos = []
     if temp_id:
-        eq_qs = (
-            Gol.objects
-            .filter(partido__temporada_id=temp_id, partido__es_liguilla=False)
-            .values("equipo__id", "equipo__nombre", "equipo__logo")
-            .annotate(total_goles=Count("id"))
-            .order_by("-total_goles", "equipo__nombre")
+        partidos_fin = Partido.objects.filter(
+            temporada_id=temp_id, estado="FIN", es_liguilla=False
         )
-        equipos = list(eq_qs)
+
+        por_local = (
+            partidos_fin
+            .values("equipo_local_id", "equipo_local__nombre", "equipo_local__logo")
+            .annotate(total_goles=Sum("goles_local"))
+        )
+        por_visita = (
+            partidos_fin
+            .values("equipo_visitante_id", "equipo_visitante__nombre", "equipo_visitante__logo")
+            .annotate(total_goles=Sum("goles_visitante"))
+        )
+
+        # Combinar local + visitante por equipo
+        acc = {}
+        for fila in list(por_local) + list(por_visita):
+            eid = fila.get("equipo_local_id") or fila.get("equipo_visitante_id")
+            nombre = fila.get("equipo_local__nombre") or fila.get("equipo_visitante__nombre")
+            logo = fila.get("equipo_local__logo") or fila.get("equipo_visitante__logo")
+            if not eid:
+                continue
+            key = eid
+            if key not in acc:
+                acc[key] = {
+                    "equipo__id": eid,
+                    "equipo__nombre": nombre,
+                    "equipo__logo": logo,
+                    "total_goles": 0,
+                }
+            acc[key]["total_goles"] += fila.get("total_goles") or 0
+
+        equipos = sorted(
+            acc.values(),
+            key=lambda d: (-d["total_goles"], (d.get("equipo__nombre") or "").lower()),
+        )
         for eq in equipos:
             eq["equipo__logo_url"] = url_para_nombre(eq.get("equipo__logo"))
 

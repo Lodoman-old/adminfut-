@@ -478,9 +478,9 @@ body {
         <div class="row">
           {% for e in top_equipos_goles %}
           <div class="col-6 col-md-4 mb-3">
-            <div class="player-card-small">
+            <div class="player-card compact">
               {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
-              <div class="jersey-mini" style="background:#1f6f2f;--jersey-color:#1f6f2f">#{{ forloop.counter }}</div>
+              <div class="jersey" style="background:#1f6f2f;--jersey-color:#1f6f2f">#{{ forloop.counter }}</div>
               <div class="fw-bold" style="font-size:0.85rem">{{ e.equipo__nombre }}</div>
               <div><span class="badge bg-warning text-dark mt-2 fs-5">{{ e.total }}<br><small>GOLES</small></span></div>
             </div>

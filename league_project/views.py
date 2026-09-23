@@ -143,15 +143,35 @@ def home(request):
         return out
 
     def _build_top_equipos():
-        qs = Gol.objects.filter(partido__es_liguilla=False)
+        # Suma el MARCADOR real de los partidos FIN en temporada regular, para no
+        # perder los goles de marcadores que no detallaron cada goleador (no hay
+        # filas Gol). Excluye liguilla/finales.
+        base = Partido.objects.filter(estado="FIN", es_liguilla=False)
         if categoria_sel:
-            qs = qs.filter(partido__temporada__categoria=categoria_sel)
-        return list(
-            qs
-            .values("equipo__id", "equipo__nombre", "equipo__logo")
-            .annotate(total=Count("id"))
-            .order_by("-total")[:5]
+            base = base.filter(temporada__categoria=categoria_sel)
+        por_local = list(
+            base
+            .values("equipo_local__id", "equipo_local__nombre", "equipo_local__logo")
+            .annotate(total=Sum("goles_local"))
         )
+        por_visita = list(
+            base
+            .values("equipo_visitante__id", "equipo_visitante__nombre", "equipo_visitante__logo")
+            .annotate(total=Sum("goles_visitante"))
+        )
+        acc = {}
+        for fila in por_local + por_visita:
+            eid = fila.get("equipo_local__id") or fila.get("equipo_visitante__id")
+            if not eid:
+                continue
+            ent = acc.setdefault(eid, {
+                "equipo__id": eid,
+                "equipo__nombre": fila.get("equipo_local__nombre") or fila.get("equipo_visitante__nombre"),
+                "equipo__logo": fila.get("equipo_local__logo") or fila.get("equipo_visitante__logo"),
+                "total": 0,
+            })
+            ent["total"] += fila.get("total") or 0
+        return sorted(acc.values(), key=lambda d: (-d["total"], (d.get("equipo__nombre") or "").lower()))[:5]
 
     def _build_top_goleadores(es_liguilla):
         qs = Gol.objects.filter(partido__es_liguilla=es_liguilla)
