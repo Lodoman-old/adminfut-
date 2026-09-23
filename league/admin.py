@@ -163,10 +163,12 @@ class MovimientoEquipoAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(admin.ModelAdmin):
-    list_display = ["token_short", "device_id_short", "nombre", "es_invitado", "usuario", "plataforma", "activo", "creado"]
+    list_display = ["token_short", "device_id_short", "nombre", "email", "es_invitado", "usuario", "plataforma", "activo", "creado"]
     list_filter = ["plataforma", "activo", "es_invitado"]
-    search_fields = ["token", "device_id", "usuario__username", "nombre"]
+    search_fields = ["token", "device_id", "usuario__username", "nombre", "email"]
     filter_horizontal = ["categorias"]
+    list_editable = ["email", "nombre", "activo"]
+    readonly_fields = ["token", "device_id", "creado", "actualizado", "plataforma", "webpush_endpoint", "webpush_p256dh", "webpush_auth"]
 
     def token_short(self, obj):
         return obj.token[:30] + "..."
