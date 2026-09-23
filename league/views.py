@@ -4409,9 +4409,9 @@ def _secciones_rol():
         if not partidos_qs:
             continue
 
-        ids_juegan = set(partidos_qs.values_list("equipo_local_id", flat=True)) | set(
-            partidos_qs.values_list("equipo_visitante_id", flat=True)
-        )
+        ids_juegan = {p.equipo_local_id for p in partidos_qs} | {
+            p.equipo_visitante_id for p in partidos_qs
+        }
         todos_ids = set(
             Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
         )
