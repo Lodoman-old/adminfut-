@@ -1576,12 +1576,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         full = f"{j.nombre} {j.apellido}".upper()
         base_size = 8.5
         usable = col_widths[1] - 6
-        tam = base_size
         txt = full + sufijo
-        if p.stringWidth(txt, "Helvetica", base_size) > usable:
-            tam = max(5.5, usable * base_size / p.stringWidth(txt, "Helvetica", base_size))
-            if p.stringWidth(txt, "Helvetica", tam) > usable:
-                tam = 5.0
+        tam = base_size
+        w = p.stringWidth(txt, "Helvetica", base_size)
+        if w > usable:
+            tam = usable * 0.97 * base_size / w
         return tam, txt
 
     def rh_para(j):
