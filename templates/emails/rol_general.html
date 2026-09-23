@@ -6,7 +6,7 @@
     <h1>⚽ {{ config.nombre_liga }}</h1>
     <h2>📋 Próximos partidos - Todas las categorías</h2>
     <p style="color:#666">Rol generado el {{ ahora_str }}.</p>
-    <img class="rol-img" src="data:image/png;base64,{{ img_rol_b64 }}" alt="Rol de la próxima jornada">
+    <img class="rol-img" src="cid:rol" alt="Rol de la próxima jornada">
     <div class="footer">
         <p>Recibes este correo porque estás suscrito a {{ config.nombre_liga }}.</p>
         <p><a href="{{ site_url }}/suscripcion/?token={{ unsubscribe_token }}">Cancelar suscripción</a></p>

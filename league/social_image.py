@@ -458,7 +458,8 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
     y += _th(fnt_title) + 4
     fnt_sub = _font(13, bold=True)
     T(tx, y, f"{nombre_liga}   ·   Todas las categorías   ·   Jornadas en curso", COLOR_TEXT, fnt_sub)
-    y += _th(fnt_sub) + 12
+    # Separar la cabecera del primer bloque de categorías.
+    y += _th(fnt_sub) + 30
 
     if not secciones:
         fnt_none = _font(14)
@@ -552,6 +553,12 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
     fnt_f = _font(11)
     T(M, y, f"\U0001f550  Generado el {ahora_str}", COLOR_TEXT_LIGHT, fnt_f)
     y += _th(fnt_f) + 20
+
+    # Leyenda de victorias por default (walkover) si alguna sección tiene DFT.
+    if any(p.get("default_win") for sec in secciones for p in sec.get("partidos", [])):
+        fnt_ley = _font(10)
+        T(M, y, "DFT = victoria por default (walkover)", "#c2410c", fnt_ley)
+        y += _th(fnt_ley) + 20
 
     img = Image.new("RGB", (W, y), COLOR_BG)
     draw = ImageDraw.Draw(img)

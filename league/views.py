@@ -1535,8 +1535,13 @@ def _obtener_jornada_actual(temporada):
     ).order_by("numero").first()
 
 
-def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_extra, request=None):
-    """Envía un correo a una lista de suscriptores. Retorna el conteo."""
+def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_extra, request=None, adjuntos=None):
+    """Envía un correo a una lista de suscriptores. Retorna el conteo.
+
+    `adjuntos` es una lista opcional de dicts con las llaves
+    {cid, filename, content(bytes), mimetype} para incrustar imágenes inline
+    (src="cid:...") dentro del HTML.
+    """
     from django.template.loader import render_to_string
     from django.utils.html import strip_tags
 
@@ -1558,9 +1563,9 @@ def _enviar_correo_suscriptores(suscriptores, config, subject, template, ctx_ext
 
         try:
             if use_sendgrid_api:
-                _enviar_sendgrid_api(smtp, subject, html, text, [sus.email])
+                _enviar_sendgrid_api(smtp, subject, html, text, [sus.email], adjuntos)
             else:
-                _enviar_smtp(smtp, subject, html, text, [sus.email])
+                _enviar_smtp(smtp, subject, html, text, [sus.email], adjuntos)
             count += 1
         except Exception as e:
             if request:
@@ -1673,7 +1678,7 @@ def _notificar_partido_pendiente(request, partido, motivo="Partido pendiente"):
     _enviar_suspension_email(titulo, ctx, categoria, request)
 
 
-def _enviar_smtp(smtp, subject, html, text, to_emails):
+def _enviar_smtp(smtp, subject, html, text, to_emails, adjuntos=None):
     from django.core.mail import EmailMultiAlternatives, get_connection
     use_ssl = smtp["port"] == 465
     conn = get_connection(
@@ -1693,18 +1698,37 @@ def _enviar_smtp(smtp, subject, html, text, to_emails):
         connection=conn,
     )
     msg.attach_alternative(html, "text/html")
+    if adjuntos:
+        from email.mime.image import MIMEImage
+        for a in adjuntos:
+            img = MIMEImage(a["content"], _subtype=(a.get("mimetype") or "image/png").split("/")[-1])
+            img.add_header("Content-ID", f"<{a['cid']}>")
+            img.add_header("Content-Disposition", "inline", filename=a.get("filename", "imagen.png"))
+            msg.attach(img)
     msg.send(fail_silently=False)
 
 
-def _enviar_sendgrid_api(smtp, subject, html, text, to_emails):
+def _enviar_sendgrid_api(smtp, subject, html, text, to_emails, adjuntos=None):
     from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, Email, Content, To
+    from sendgrid.helpers.mail import Mail, Email, Content, To, Attachment, Disposition, ContentId, FileContent, FileName, FileType
     message = Mail(
         from_email=Email(smtp["from_email"] or smtp["user"]),
         to_emails=[To(email) for email in to_emails],
         subject=subject,
         html_content=Content("text/html", html),
     )
+    if adjuntos:
+        import base64
+        for a in adjuntos:
+            b64 = base64.b64encode(a["content"]).decode()
+            att = Attachment(
+                FileContent(b64),
+                FileName(a.get("filename", "imagen.png")),
+                FileType(a.get("mimetype") or "image/png"),
+                Disposition("inline"),
+                ContentId(a["cid"]),
+            )
+            message.add_attachment(att)
     sg = SendGridAPIClient(smtp["password"])
     sg.send(message)
 
@@ -4441,14 +4465,14 @@ def _secciones_rol():
                 d["marcador"] = f"{gl}\u2013{gv}"
                 d["local_win"] = gl > gv
                 d["vis_win"] = gv > gl
-                ganador_dft = p.ganador_walkover
-                if ganador_dft:
-                    if ganador_dft == p.equipo_local:
-                        d["default_win"] = "local"
-                        d["local_win"] = True
-                    else:
-                        d["default_win"] = "visitante"
-                        d["vis_win"] = True
+            ganador_dft = p.ganador_walkover
+            if ganador_dft:
+                if ganador_dft == p.equipo_local:
+                    d["default_win"] = "local"
+                    d["local_win"] = True
+                else:
+                    d["default_win"] = "visitante"
+                    d["vis_win"] = True
             partidos_data.append(d)
         secciones.append({
             "categoria": cat.nombre,
@@ -4599,8 +4623,12 @@ def enviar_rol_por_correo(request):
     from django.utils.html import strip_tags
 
     buf = generar_imagen_rol_dashboard(secciones, ahora_str)
-    import base64
-    img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    adjunto_rol = {
+        "cid": "rol",
+        "filename": "rol.png",
+        "content": buf.getvalue(),
+        "mimetype": "image/png",
+    }
 
     suscriptores = list(
         SuscripcionEmail.objects.filter(activo=True).exclude(email="").prefetch_related("categorias")
@@ -4616,7 +4644,6 @@ def enviar_rol_por_correo(request):
     for sus in suscriptores:
         # 1) ROL general (mismo para todos): imagen dashboard con todas las categorías.
         ctx_rol = {
-            "img_rol_b64": img_b64,
             "ahora_str": ahora_str,
             "liga": config,
             "suscriptor_email": sus.email,
@@ -4626,6 +4653,7 @@ def enviar_rol_por_correo(request):
                 [sus], config,
                 f"Próximos partidos - {ahora_str}",
                 "emails/rol_general.html", ctx_rol, request,
+                [adjunto_rol],
             )
         except Exception:
             pass
