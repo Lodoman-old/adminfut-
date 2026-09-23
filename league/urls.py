@@ -111,6 +111,8 @@ urlpatterns = [
     path("publicidad/<int:anuncio_id>/", views.detalle_anuncio, name="detalle_anuncio"),
     path("publicidad/<int:anuncio_id>/impresion/", views.impresion_anuncio, name="impresion_anuncio"),
     path("reportes/anuncio/<int:anuncio_id>/", views.reporte_anuncio, name="reporte_anuncio"),
+    path("reportes/registro/", views.reporte_registro, name="reporte_registro"),
+    path("reportes/registro/enviar-correo/", views.enviar_rol_por_correo, name="enviar_rol_por_correo"),
 
     # PWA / Web Push (alcance raíz)
     path("sw.js", views.service_worker, name="sw_js"),

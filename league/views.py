@@ -4361,8 +4361,26 @@ def _secciones_rol():
 
     from .social_image import _cargar_logo
 
+    def _prioridad_categoria(nombre):
+        """Orden jerárquico del rol: Veteranos 50+, Veteranos 35+, Primera,
+        Intermedia, Segunda y el resto por orden alfabético."""
+        n = (nombre or "").lower()
+        for i, clave in enumerate(
+            ["veteranos 50", "veteranos 35", "primera", "intermedia", "segunda"]
+        ):
+            if clave in n:
+                return (0, i)
+        return (1, n)
+
+    cats = sorted(Categoria.objects.filter(activo=True), key=lambda c: _prioridad_categoria(c.nombre))
+
+    from .models import ConfiguracionLiga
+    cfg_liga = ConfiguracionLiga.obtener()
+    nombre_liga = (cfg_liga.nombre_liga if cfg_liga else "") or "Mi Liga"
+    logo_liga = _cargar_logo(cfg_liga.logo) if cfg_liga else None
+
     secciones = []
-    for cat in Categoria.objects.filter(activo=True).order_by("nombre"):
+    for cat in cats:
         temp_activa = Temporada.objects.filter(categoria=cat, activa=True).first()
         if not temp_activa:
             continue
@@ -4374,11 +4392,20 @@ def _secciones_rol():
         )
         if not jornada:
             continue
-        partidos_qs = Partido.objects.filter(
-            temporada=temp_activa, jornada=jornada, estado="PEND"
-        ).select_related(
-            "equipo_local", "equipo_visitante", "campo"
-        ).order_by("fecha_hora")
+        partidos_qs = [
+            x for x in Partido.objects.filter(
+                temporada=temp_activa, jornada=jornada, estado="PEND"
+            ).select_related(
+                "equipo_local", "equipo_visitante", "campo"
+            ).order_by("fecha_hora")
+        ]
+        # Incluye partidos FIN resueltos por walkover (DFT) para mostrarlos en el rol.
+        partidos_qs += [
+            x for x in Partido.objects.filter(
+                temporada=temp_activa, jornada=jornada, estado="FIN"
+            ).select_related("equipo_local", "equipo_visitante", "campo")
+            if x.ganador_walkover is not None
+        ]
         if not partidos_qs:
             continue
 
@@ -4396,20 +4423,41 @@ def _secciones_rol():
 
         partidos_data = []
         for p in partidos_qs:
-            partidos_data.append({
+            d = {
                 "local": p.equipo_local.nombre,
                 "visitante": p.equipo_visitante.nombre,
                 "campo": p.campo.nombre if p.campo else "",
                 "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m/%Y %H:%M") if p.fecha_hora else "Pendiente",
                 "logo_local": _cargar_logo(p.equipo_local.logo),
                 "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
-            })
+                "marcador": "",
+                "is_fin": p.estado == "FIN",
+                "local_win": False,
+                "vis_win": False,
+                "default_win": None,
+            }
+            if p.estado == "FIN":
+                gl, gv = p.goles_local, p.goles_visitante
+                d["marcador"] = f"{gl}\u2013{gv}"
+                d["local_win"] = gl > gv
+                d["vis_win"] = gv > gl
+                ganador_dft = p.ganador_walkover
+                if ganador_dft:
+                    if ganador_dft == p.equipo_local:
+                        d["default_win"] = "local"
+                        d["local_win"] = True
+                    else:
+                        d["default_win"] = "visitante"
+                        d["vis_win"] = True
+            partidos_data.append(d)
         secciones.append({
             "categoria": cat.nombre,
             "temporada": temp_activa.nombre,
             "jornada": jornada.nombre,
             "partidos": partidos_data,
             "descansan": descansan,
+            "nombre_liga": nombre_liga,
+            "logo_liga": logo_liga,
         })
     return secciones, ahora_str
 
@@ -4461,6 +4509,168 @@ def descargar_rol_facebook(request):
     response = HttpResponse(buf.getvalue(), content_type="image/png")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
     return response
+
+
+def reporte_registro(request):
+    """Reporte de registro de jugadores de un equipo (Categoría→Temporada→Equipo).
+
+    Visible para cualquier usuario autenticado. Solo muestra los jugadores del
+    equipo seleccionado con sus datos y foto (sin tablas ni castigados).
+    """
+    from .models import Categoria, Temporada, Equipo, JugadorEquipo
+
+    cat_id = request.GET.get("categoria") or ""
+    temp_id = request.GET.get("temporada") or ""
+    eq_id = request.GET.get("equipo") or ""
+
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
+    temporadas = Temporada.objects.none()
+    equipos = Equipo.objects.none()
+    jugadores = []
+    equipo = None
+
+    if cat_id:
+        temporadas = Temporada.objects.filter(categoria_id=cat_id).order_by(
+            "-iniciada", "-nombre"
+        )
+    if cat_id and temp_id:
+        equipos = (
+            Equipo.objects.active() if hasattr(Equipo.objects, "active") else Equipo.objects.all()
+        ).filter(categoria_id=cat_id).order_by("nombre")
+    if eq_id:
+        equipo = Equipo.objects.filter(pk=eq_id).first()
+        if equipo:
+            ids = JugadorEquipo.objects.filter(
+                equipo=equipo, activo=True
+            ).values_list("jugador_id", flat=True)
+            from django.db.models import Q
+            jugadores = (
+                Jugador.objects.filter(
+                    Q(pk__in=ids) | Q(equipo=equipo)
+                ).distinct()
+                .select_related("equipo")
+                .order_by("apellido", "nombre")
+            )
+
+    ctx = {
+        "categorias": categorias,
+        "temporadas": temporadas,
+        "equipos": equipos,
+        "jugadores": jugadores,
+        "equipo": equipo,
+        "cat_id": cat_id,
+        "temp_id": temp_id,
+        "eq_id": eq_id,
+    }
+    if request.GET.get("imprimir"):
+        from django.template.loader import render_to_string
+        html = render_to_string("league/reporte_registro_print.html", ctx, request=request)
+        from django.template.loader import render_to_string
+        html = render_to_string("league/reporte_registro_print.html", ctx, request=request)
+        from django.http import HttpResponse
+        resp = HttpResponse(html)
+        resp["Content-Type"] = "text/html; charset=utf-8"
+        return resp
+    return render(request, "league/reporte_registro.html", ctx)
+
+
+def enviar_rol_por_correo(request):
+    """Envía por correo a los suscriptores: 1 ROL general (imagen de todas las
+    categorías, la misma que se publica en Facebook) + 1 correo por cada
+    categoría de interés del suscriptor con tabla de posiciones, castigados y
+    goleo de esa categoría. Solo staff (ver middleware).
+    """
+    from .models import ConfiguracionLiga, SuscripcionEmail
+
+    config = ConfiguracionLiga.obtener()
+    smtp_host = config.get_active_smtp_config()["host"]
+    if not smtp_host:
+        messages.error(request, "No hay SMTP configurado.")
+        return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
+
+    secciones, ahora_str = _secciones_rol()
+    if not secciones:
+        messages.error(request, "No hay próximos partidos pendientes por enviar.")
+        return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
+
+    from .social_image import generar_imagen_rol_dashboard
+    from django.utils.html import escape
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
+    buf = generar_imagen_rol_dashboard(secciones, ahora_str)
+    import base64
+    img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    suscriptores = list(
+        SuscripcionEmail.objects.filter(activo=True).exclude(email="").prefetch_related("categorias")
+    )
+    if not suscriptores:
+        messages.warning(request, "No hay suscriptores con correo registrado.")
+        return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
+
+    total = 0
+    from .models import Temporada, Gol, Tarjeta
+    from django.db.models import Count
+
+    for sus in suscriptores:
+        # 1) ROL general (mismo para todos): imagen dashboard con todas las categorías.
+        ctx_rol = {
+            "img_rol_b64": img_b64,
+            "ahora_str": ahora_str,
+            "liga": config,
+            "suscriptor_email": sus.email,
+        }
+        try:
+            total += _enviar_correo_suscriptores(
+                [sus], config,
+                f"Próximos partidos - {ahora_str}",
+                "emails/rol_general.html", ctx_rol, request,
+            )
+        except Exception:
+            pass
+
+        # 2) Un correo por categoría de interés: tabla + castigados + goleo.
+        for cat in sus.categorias.all():
+            temp = Temporada.objects.filter(categoria=cat, activa=True).first()
+            if not temp:
+                continue
+            goleadores = list(
+                Gol.objects.filter(partido__temporada=temp)
+                .values("jugador__nombre", "jugador__apellido", "equipo__nombre")
+                .annotate(total_goles=Count("id"))
+                .order_by("-total_goles")[:10]
+            )
+            tabla_html = temp.calcular_tabla()
+            castigados = list(
+                Tarjeta.objects.filter(partido__temporada=temp)
+                .values("jugador__nombre", "jugador__apellido", "equipo__nombre")
+                .annotate(
+                    rojas=Count("id", filter=Q(tipo="ROJA")),
+                    amarillas=Count("id", filter=Q(tipo="AMARILLA")),
+                )
+                .order_by("-rojas", "-amarillas")[:10]
+            )
+            ctx_cat = {
+                "temporada": temp,
+                "tabla": tabla_html,
+                "goleadores": goleadores,
+                "castigados": castigados,
+                "liga": config,
+                "suscriptor_email": sus.email,
+                "categoria_nombre": cat.nombre,
+            }
+            try:
+                total += _enviar_correo_suscriptores(
+                    [sus], config,
+                    f"Estadísticas {cat.nombre} - {ahora_str}",
+                    "emails/estadisticas.html", ctx_cat, request,
+                )
+            except Exception:
+                pass
+
+    messages.success(request, f"Correos encolados/enviados: {total}.")
+    return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
 
 
 def publicar_posiciones_facebook(request, temporada_id):

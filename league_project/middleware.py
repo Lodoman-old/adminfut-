@@ -237,6 +237,7 @@ PERMISO_POR_URL = {
     'rol_update': 'gestion_roles',
     'rol_delete': 'gestion_roles',
     'admin_push_logs': '__staff__',
+    'enviar_rol_por_correo': '__staff__',
 }
 
 

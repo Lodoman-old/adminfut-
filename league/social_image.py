@@ -291,42 +291,51 @@ def generar_imagen_rol(
     jornadas,
     ahora_str,
 ):
-    ROL_WIDTH = 900
-    ROL_MARGIN = 20
+    SCALE = 3
+    ROL_WIDTH = 600 * SCALE
+    ROL_MARGIN = 20 * SCALE
     ops = []
-    y = 20
-    gap = 6
+    y = 20 * SCALE
+    gap = 6 * SCALE
     col_w = (ROL_WIDTH - ROL_MARGIN * 2 - gap) // 2
+
+    def _s(v):
+        return int(v * SCALE)
 
     def T(x, y, txt, fill, font):
         ops.append(("text", x, y, txt, fill, font))
 
     def R(x1, y1, x2, y2, fill, r=4):
-        ops.append(("rect", x1, y1, x2, y2, fill, r))
+        ops.append(("rect", x1, y1, x2, y2, fill, _s(r)))
 
     def L(x1, y1, x2, y2, fill, w=1):
-        ops.append(("line", x1, y1, x2, y2, fill, w))
+        ops.append(("line", x1, y1, x2, y2, fill, _s(w)))
 
     def draw_match(ox, oy, p, w):
         bg = COLOR_ROW_ALT if p["idx"] % 2 == 1 else COLOR_WHITE
-        rh = 24
+        rh = _s(24)
         R(ox, oy, ox + w, oy + rh, bg)
-        fnt = _font(10)
-        fnt_b = _font(10, bold=True)
+        fnt = _font(10 * SCALE)
+        fnt_b = _font(10 * SCALE, bold=True)
         local = p["local"][:14]
         vis = p["visitante"][:14]
         score = p["marcador"]
         campo = p["campo"][:12]
         fecha = p["fecha"][:12]
-        T(ox + 5, oy + 4, local, COLOR_TEXT, fnt_b if p.get("is_fin") and p.get("local_win") else fnt)
+        dft = p.get("default_win")
+        local_win = (p.get("is_fin") and p.get("local_win")) or dft == "local"
+        vis_win = (p.get("is_fin") and p.get("vis_win")) or dft == "visitante"
+        T(ox + _s(5), oy + _s(4), local, COLOR_TEXT, fnt_b if local_win else fnt)
         if p.get("susp"):
-            T(ox + 115, oy + 4, "SUSP", "#b00020", fnt_b)
+            T(ox + _s(115), oy + _s(4), "SUSP", "#b00020", fnt_b)
+        elif dft and not p.get("is_fin"):
+            T(ox + _s(115), oy + _s(4), "DFT", "#c2410c", fnt_b)
         else:
-            T(ox + 115, oy + 4, score, COLOR_GREEN if p.get("is_fin") else COLOR_TEXT_LIGHT, fnt_b)
-        T(ox + 140, oy + 4, vis, COLOR_TEXT, fnt_b if p.get("is_fin") and p.get("vis_win") else fnt)
-        T(ox + 245, oy + 4, campo, COLOR_TEXT_LIGHT, fnt)
-        T(ox + 340, oy + 4, fecha, COLOR_TEXT_LIGHT, fnt)
-        return oy + rh + 2
+            T(ox + _s(115), oy + _s(4), score, COLOR_GREEN if p.get("is_fin") else COLOR_TEXT_LIGHT, fnt_b)
+        T(ox + _s(140), oy + _s(4), vis, COLOR_TEXT, fnt_b if vis_win else fnt)
+        T(ox + _s(245), oy + _s(4), campo, COLOR_TEXT_LIGHT, fnt)
+        T(ox + _s(340), oy + _s(4), fecha, COLOR_TEXT_LIGHT, fnt)
+        return oy + rh + _s(2)
 
     fnt_title = _font(22, bold=True)
     T(ROL_MARGIN, y, f"\U0001f4cb  ROL DE JUEGOS", COLOR_GREEN, fnt_title)
@@ -434,12 +443,22 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
     def R(x1, y1, x2, y2, fill, r=4):
         ops.append(("rect", x1, y1, x2, y2, fill, r))
 
+    sec0 = secciones[0] if secciones else {}
+    nombre_liga = (sec0.get("nombre_liga") or "").upper() or "MI LIGA"
+    logo_liga = sec0.get("logo_liga")
+
     fnt_title = _font(24, bold=True)
-    T(M, y, "\U0001f4cb  PRÓXIMOS PARTIDOS", COLOR_GREEN, fnt_title)
-    y += _th(fnt_title) + 2
-    fnt_sub = _font(13)
-    T(M, y, "Todas las categorías  ·  Jornadas en curso", COLOR_TEXT_LIGHT, fnt_sub)
-    y += _th(fnt_sub) + 16
+    tx = M + 8
+    if logo_liga:
+        ll = logo_liga.copy()
+        ll.thumbnail((52, 52), Image.LANCZOS)
+        ops.append(("image", M + 8, y + 4, ll))
+        tx = M + 70
+    T(tx, y + 2, "PRÓXIMOS PARTIDOS", COLOR_GREEN, fnt_title)
+    y += _th(fnt_title) + 4
+    fnt_sub = _font(13, bold=True)
+    T(tx, y, f"{nombre_liga}   ·   Todas las categorías   ·   Jornadas en curso", COLOR_TEXT, fnt_sub)
+    y += _th(fnt_sub) + 12
 
     if not secciones:
         fnt_none = _font(14)
@@ -454,7 +473,7 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
     row_h = 68
 
     for sec in secciones:
-        cab = f"\u26bd  {sec['categoria'].upper()}  ·  {sec['temporada'].upper()}  ·  {sec['jornada']}"
+        cab = f"{sec['categoria'].upper()}   ·   {sec['temporada'].upper()}   ·   {sec['jornada']}"
         R(M, y, W - M, y + 30, COLOR_GREEN, 6)
         T(M + 12, y + 6, cab, "#ffffff", fnt_sec)
         y += 30 + 8
@@ -465,14 +484,19 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             # Equipo local
             if p.get("logo_local"):
                 logo = p["logo_local"].copy()
-                logo.thumbnail((26, 26), Image.LANCZOS)
+                logo.thumbnail((46, 46), Image.LANCZOS)
                 ops.append(("image", M + 10, y + (row_h - logo.size[1]) // 2, logo))
-                name_x = M + 44
+                name_x = M + 64
             else:
-                R(M + 10, y + 21, M + 36, y + 47, COLOR_EQUIPO_SIN_LOGO, 6)
-                T(M + 16, y + 26,      "?", "#ffffff", fnt_eq)
-                name_x = M + 44
+                R(M + 10, y + 19, M + 53, y + 49, COLOR_EQUIPO_SIN_LOGO, 6)
+                T(M + 21, y + 26,      "?", "#ffffff", fnt_eq)
+                name_x = M + 64
+            tw_local = _tw(p["local"][:24], fnt_eq)
             T(name_x, y + 27, p["local"][:24], COLOR_TEXT, fnt_eq)
+            if p.get("default_win") == "local":
+                ddb = _tw("DFT", fnt_eq) + 8
+                R(name_x + tw_local + 8, y + 19, name_x + tw_local + 8 + ddb, y + 35, "#c2410c", 6)
+                T(name_x + tw_local + 12, y + 22, "DFT", "#ffffff", fnt_eq)
             # Centro
             cx = W // 2
             fecha_txt = p["fecha"]
@@ -488,14 +512,19 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             # Equipo visitante
             if p.get("logo_visitante"):
                 logo = p["logo_visitante"].copy()
-                logo.thumbnail((26, 26), Image.LANCZOS)
+                logo.thumbnail((46, 46), Image.LANCZOS)
                 ops.append(("image", W - M - 10 - logo.size[0], y + (row_h - logo.size[1]) // 2, logo))
-                name_x = W - M - 38 - _tw(p["visitante"][:24], fnt_eq)
+                name_x = W - M - 64 - _tw(p["visitante"][:24], fnt_eq)
             else:
-                R(W - M - 36, y + 21, W - M - 10, y + 47, COLOR_EQUIPO_SIN_LOGO, 6)
-                T(W - M - 22 - _tw("?", fnt_eq) // 2, y + 26, "?", "#ffffff", fnt_eq)
-                name_x = W - M - 44 - _tw(p["visitante"][:24], fnt_eq)
+                R(W - M - 53, y + 19, W - M - 10, y + 49, COLOR_EQUIPO_SIN_LOGO, 6)
+                T(W - M - 30 - _tw("?", fnt_eq) // 2, y + 26, "?", "#ffffff", fnt_eq)
+                name_x = W - M - 64 - _tw(p["visitante"][:24], fnt_eq)
+            tw_vis = _tw(p["visitante"][:24], fnt_eq)
             T(name_x, y + 27, p["visitante"][:24], COLOR_TEXT, fnt_eq)
+            if p.get("default_win") == "visitante":
+                ddb = _tw("DFT", fnt_eq) + 8
+                R(W - M - 10 - tw_vis - 8 - ddb, y + 19, W - M - 10 - tw_vis - 8, y + 35, "#c2410c", 6)
+                T(W - M - 10 - tw_vis - 8 - ddb + 4, y + 22, "DFT", "#ffffff", fnt_eq)
             y += row_h + 2
 
         descansan = sec.get("descansan") or []
