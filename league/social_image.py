@@ -495,9 +495,8 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             tw_local = _tw(p["local"][:24], fnt_eq)
             T(name_x, y + 27, p["local"][:24], COLOR_TEXT, fnt_eq)
             if p.get("default_win") == "local":
-                ddb = _tw("DFT", fnt_eq) + 8
-                R(name_x + tw_local + 8, y + 19, name_x + tw_local + 8 + ddb, y + 35, "#c2410c", 6)
-                T(name_x + tw_local + 12, y + 22, "DFT", "#ffffff", fnt_eq)
+                dft_txt = "Gana por default"
+                T(name_x, y + 45, dft_txt, "#c2410c", fnt_lugar)
             # Centro
             cx = W // 2
             fecha_txt = p["fecha"]
@@ -523,9 +522,8 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
             tw_vis = _tw(p["visitante"][:24], fnt_eq)
             T(name_x, y + 27, p["visitante"][:24], COLOR_TEXT, fnt_eq)
             if p.get("default_win") == "visitante":
-                ddb = _tw("DFT", fnt_eq) + 8
-                R(W - M - 10 - tw_vis - 8 - ddb, y + 19, W - M - 10 - tw_vis - 8, y + 35, "#c2410c", 6)
-                T(W - M - 10 - tw_vis - 8 - ddb + 4, y + 22, "DFT", "#ffffff", fnt_eq)
+                dft_txt = "Gana por default"
+                T(W - M - 10 - _tw(dft_txt, fnt_lugar), y + 45, dft_txt, "#c2410c", fnt_lugar)
             y += row_h + 2
 
         descansan = sec.get("descansan") or []
@@ -553,12 +551,6 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
     fnt_f = _font(11)
     T(M, y, f"\U0001f550  Generado el {ahora_str}", COLOR_TEXT_LIGHT, fnt_f)
     y += _th(fnt_f) + 20
-
-    # Leyenda de victorias por default (walkover) si alguna sección tiene DFT.
-    if any(p.get("default_win") for sec in secciones for p in sec.get("partidos", [])):
-        fnt_ley = _font(10)
-        T(M, y, "DFT = victoria por default (walkover)", "#c2410c", fnt_ley)
-        y += _th(fnt_ley) + 20
 
     img = Image.new("RGB", (W, y), COLOR_BG)
     draw = ImageDraw.Draw(img)
