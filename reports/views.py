@@ -1344,8 +1344,8 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
         Partido.objects.select_related("equipo_local", "equipo_visitante", "campo", "arbitro"),
         pk=partido_id,
     )
-    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("dorsal"))
-    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("dorsal"))
+    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("nombre", "apellido"))
+    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("nombre", "apellido"))
     goles = Gol.objects.filter(partido=partido)
     tarjetas = Tarjeta.objects.filter(partido=partido)
     participaciones = {p.jugador_id: p for p in JugadorPartido.objects.filter(partido=partido)}
@@ -1445,8 +1445,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         Partido.objects.select_related("equipo_local", "equipo_visitante", "campo", "arbitro"),
         pk=partido_id,
     )
-    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("dorsal"))
-    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("dorsal"))
+    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("nombre", "apellido"))
+    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("nombre", "apellido"))
     goles = Gol.objects.filter(partido=partido)
     tarjetas = Tarjeta.objects.filter(partido=partido)
     participaciones = {p.jugador_id: p for p in JugadorPartido.objects.filter(partido=partido)}
@@ -1628,12 +1628,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 tam, nombre_txt = nombre_linea(j, sufijo)
                 p.setFillColor(estado_color)
                 p.setFont("Helvetica", tam)
-                centre_x = x + col_widths[1] / 2
                 base = y - rh + 3 + (8.5 - tam) / 2
-                p.drawCentredString(centre_x, base, nombre_txt)
+                p.drawString(x + 3, base, nombre_txt)
                 if sufijo == " (S)":
                     tw = p.stringWidth(nombre_txt, "Helvetica", tam)
-                    p.line(centre_x - tw / 2, base + 2, centre_x + tw / 2, base + 2)
+                    p.line(x + 3, base + 2, x + 3 + tw, base + 2)
             else:
                 p.setFillColor(colors.black)
                 p.setFont("Helvetica", 9)
