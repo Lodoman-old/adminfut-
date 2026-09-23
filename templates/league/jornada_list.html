@@ -4,17 +4,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3><i class="bi bi-list-stars"></i> Jornadas</h3>
-    {% if user|tiene_permiso:"jornada_publicar" %}
-    <button type="button" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#rolTodasModal">
-        <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categor?as</span>
-    </button>
-    {% if user.is_staff %}
-    <form method="post" action="{% url 'enviar_rol_por_correo' %}" class="d-inline">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-success"><i class="bi bi-envelope"></i> <span class="d-none d-sm-inline">Enviar rol por correo</span></button>
-    </form>
-    {% endif %}
-    {% endif %}
+    <div class="d-flex gap-2 align-items-center">
+        {% if user|tiene_permiso:"jornada_publicar" %}
+        <button type="button" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#rolTodasModal">
+            <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categor?as</span>
+        </button>
+        {% if user.is_staff %}
+        <form method="post" action="{% url 'enviar_rol_por_correo' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success"><i class="bi bi-envelope"></i> <span class="d-none d-sm-inline">Enviar rol por correo</span></button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
 </div>
 <form method="get" class="row g-2 mb-3">
     <div class="col-auto">
