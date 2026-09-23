@@ -69,6 +69,7 @@ RUTAS_PUBLICAS = {
     '/reglamento/descargar/',
     '/apk/descargar/',
     '/suscripcion/',
+    '/reportes/registro/',  # reporte de registro: visible para cualquiera (logueado o no)
     '/accounts/login/',
     '/accounts/invitado/registro/',
     '/quiniela/',  # gate anónimo: descargar app / registrarse (la vista decide)
