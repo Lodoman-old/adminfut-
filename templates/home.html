@@ -469,6 +469,29 @@ body {
   <!-- Fila 1 (derecha): goleadores -->
   <div class="col-lg-6 mb-4">
     {% include "publicidad/banner_medio.html" %}
+    <div class="card mb-4">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-shield-check"></i> Top 5 Equipos con Más Goles - {{ categoria_sel.nombre }}
+      </div>
+      <div class="card-body">
+        {% if top_equipos_goles %}
+        <div class="row">
+          {% for e in top_equipos_goles %}
+          <div class="col-6 col-md-4 mb-3">
+            <div class="player-card-small">
+              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              <div class="jersey-mini" style="background:#1f6f2f;--jersey-color:#1f6f2f">#{{ forloop.counter }}</div>
+              <div class="fw-bold" style="font-size:0.85rem">{{ e.equipo__nombre }}</div>
+              <div><span class="badge bg-warning text-dark mt-2 fs-5">{{ e.total }}<br><small>GOLES</small></span></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center my-3">Sin goles en temporada regular.</p>
+        {% endif %}
+      </div>
+    </div>
     <div class="card h-100">
       <div class="card-header bg-primary text-white">
         <i class="bi bi-trophy"></i> Máximos Goleadores - {{ categoria_sel.nombre }}

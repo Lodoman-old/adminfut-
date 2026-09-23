@@ -142,6 +142,17 @@ def home(request):
             out.append(d)
         return out
 
+    def _build_top_equipos():
+        qs = Gol.objects.filter(partido__es_liguilla=False)
+        if categoria_sel:
+            qs = qs.filter(partido__temporada__categoria=categoria_sel)
+        return list(
+            qs
+            .values("equipo__id", "equipo__nombre", "equipo__logo")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+
     def _build_top_goleadores(es_liguilla):
         qs = Gol.objects.filter(partido__es_liguilla=es_liguilla)
         if categoria_sel:
@@ -159,6 +170,31 @@ def home(request):
 
     top_goleadores = _con_urls(_build_top_goleadores(False))   # temporada regular
     top_goleadores_finales = _con_urls(_build_top_goleadores(True))  # liguilla / finales
+
+    # Top 5 EQUIPOS con más goles — solo temporada regular, categoría seleccionada
+    def _build_top_equipos():
+        qs = Gol.objects.filter(partido__es_liguilla=False)
+        if categoria_sel:
+            qs = qs.filter(partido__temporada__categoria=categoria_sel)
+        return list(
+            qs
+            .values(
+                "equipo__id", "equipo__nombre",
+                "equipo__logo",
+            )
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+
+    def _con_urls_equipos(lista):
+        out = []
+        for d in lista:
+            d = dict(d)
+            d["equipo__logo_url"] = url_para_nombre(d.get("equipo__logo"))
+            out.append(d)
+        return out
+
+    top_equipos_goles = _con_urls_equipos(_build_top_equipos())  # temporada regular
 
     # Top tarjetas amarillas
     amar_filter = Tarjeta.objects.filter(tipo="AMARILLA")
@@ -275,6 +311,7 @@ def home(request):
         "equipo_descansa": equipo_descansa,
         "suspensiones_hoy": suspensiones_hoy,
         "anuncios": Anuncio.activos(),
+        "top_equipos_goles": _con_urls(_build_top_equipos()),
     })
 
 def change_server(request):

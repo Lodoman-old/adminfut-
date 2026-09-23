@@ -108,29 +108,70 @@
         </select>
     </div>
 </form>
-{% if goleadores %}
-<div class="row">
-    {% for g in goleadores %}
-    <div class="col-md-4 col-lg-3 col-sm-6 mb-3">
-        <div class="player-card-small">
-            <div style="position:absolute;top:5px;right:10px;font-size:0.8rem;background:rgba(255,215,0,0.2);padding:2px 8px;border-radius:10px;">
-                #{{ forloop.counter }}
-            </div>
-            {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
-            {% if g.jugador__foto_url %}
-            <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="">
-            {% else %}
-            <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
-            {% endif %}
-            <div class="jersey-mini" style="background:#333">
-                {{ g.jugador__dorsal|default:'-' }}
-            </div>
-            <div class="fw-bold" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
-            <small class="text-white-50">{{ g.equipo__nombre }}</small>
-            <div><span class="badge bg-warning text-dark mt-2 fs-5">{{ g.total_goles }} GOLES</span></div>
-        </div>
-    </div>
-    {% endfor %}
+{% if temp_id %}
+<ul class="nav nav-tabs nav-fill mb-3" id="goleoTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="jugadores-tab" data-bs-toggle="tab" data-bs-target="#p-jugadores" type="button" role="tab" aria-controls="p-jugadores" aria-selected="true">
+      <i class="bi bi-person-badge"></i> Jugadores
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="equipos-tab" data-bs-toggle="tab" data-bs-target="#p-equipos" type="button" role="tab" aria-controls="p-equipos" aria-selected="false">
+      <i class="bi bi-shield-check"></i> Por Equipos
+    </button>
+  </li>
+</ul>
+<div class="tab-content" id="goleoTabContent">
+  <div class="tab-pane fade show active" id="p-jugadores" role="tabpanel" aria-labelledby="jugadores-tab">
+  {% if goleadores %}
+  <div class="row">
+      {% for g in goleadores %}
+      <div class="col-md-4 col-lg-3 col-sm-6 mb-3">
+          <div class="player-card-small">
+              <div style="position:absolute;top:5px;right:10px;font-size:0.8rem;background:rgba(255,215,0,0.2);padding:2px 8px;border-radius:10px;">
+                  #{{ forloop.counter }}
+              </div>
+              {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if g.jugador__foto_url %}
+              <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="">
+              {% else %}
+              <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+              {% endif %}
+              <div class="jersey-mini" style="background:#333">
+                  {{ g.jugador__dorsal|default:'-' }}
+              </div>
+              <div class="fw-bold" style="font-size:0.85rem">{{ g.jugador__nombre }} {{ g.jugador__apellido }}</div>
+              <small class="text-white-50">{{ g.equipo__nombre }}</small>
+              <div><span class="badge bg-warning text-dark mt-2 fs-5">{{ g.total_goles }} GOLES</span></div>
+          </div>
+      </div>
+      {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><div class="card-body text-center text-muted">No hay goles registrados en esta temporada.</div></div>
+  {% endif %}
+  </div>
+  <div class="tab-pane fade" id="p-equipos" role="tabpanel" aria-labelledby="equipos-tab">
+  {% if equipos %}
+  <div class="row">
+      {% for e in equipos %}
+      <div class="col-md-4 col-lg-3 col-sm-6 mb-3">
+          <div class="player-card-small">
+              <div style="position:absolute;top:5px;right:10px;font-size:0.8rem;background:rgba(255,215,0,0.2);padding:2px 8px;border-radius:10px;">
+                  #{{ forloop.counter }}
+              </div>
+              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              <div class="fw-bold" style="font-size:0.85rem">{{ e.equipo__nombre }}</div>
+              <small class="text-white-50">{{ e.total_goles }} goles en temporada</small>
+              <div><span class="badge bg-success text-white mt-2 fs-5">{{ e.total_goles }} GOLES</span></div>
+          </div>
+      </div>
+      {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><div class="card-body text-center text-muted">No hay goles registrados en esta temporada.</div></div>
+  {% endif %}
+  </div>
 </div>
 {% elif temp_id %}
 <div class="card"><div class="card-body text-center text-muted">No hay goles registrados en esta temporada.</div></div>

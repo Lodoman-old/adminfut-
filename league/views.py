@@ -3077,8 +3077,24 @@ def tabla_goleo(request):
             g["equipo__logo_url"] = url_para_nombre(g.get("equipo__logo"))
             g["jugador__foto_url"] = url_para_nombre(g.get("jugador__foto"))
 
+    # GOLES POR EQUIPO — solo temporada regular (excluye liguilla/finales)
+    equipos = []
+    if temp_id:
+        eq_qs = (
+            Gol.objects
+            .filter(partido__temporada_id=temp_id, partido__es_liguilla=False)
+            .values("equipo__id", "equipo__nombre", "equipo__logo")
+            .annotate(total_goles=Count("id"))
+            .order_by("-total_goles", "equipo__nombre")
+        )
+        equipos = list(eq_qs)
+        for eq in equipos:
+            eq["equipo__logo_url"] = url_para_nombre(eq.get("equipo__logo"))
+
     return render(request, "league/tabla_goleo.html", {
         "goleadores": goleadores,
+        "equipos": equipos,
+        "total_equipos": len(equipos),
         "categorias": categorias,
         "cat_id": int(cat_id) if cat_id else None,
         "temporadas": temporadas,
