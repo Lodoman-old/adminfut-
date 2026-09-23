@@ -192,20 +192,6 @@ def home(request):
     top_goleadores_finales = _con_urls(_build_top_goleadores(True))  # liguilla / finales
 
     # Top 5 EQUIPOS con más goles — solo temporada regular, categoría seleccionada
-    def _build_top_equipos():
-        qs = Gol.objects.filter(partido__es_liguilla=False)
-        if categoria_sel:
-            qs = qs.filter(partido__temporada__categoria=categoria_sel)
-        return list(
-            qs
-            .values(
-                "equipo__id", "equipo__nombre",
-                "equipo__logo",
-            )
-            .annotate(total=Count("id"))
-            .order_by("-total")[:5]
-        )
-
     def _con_urls_equipos(lista):
         out = []
         for d in lista:
