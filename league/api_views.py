@@ -67,10 +67,14 @@ def register_device_token(request):
 def register_guest_device(request):
     """Register a device token with guest info and category preferences.
 
-    El teléfono es obligatorio y actúa como identidad del invitado: si ya
-    existe otro registro activo con el mismo teléfono, el dispositivo nuevo
-    hereda nombre y categorías y el registro anterior se desactiva.
+    Al registrarse, crea automáticamente un usuario ligado al dispositivo
+    y genera una contraseña para poder acceder a quiniela desde otros dispositivos.
     """
+    from django.contrib.auth.models import User
+    from django.contrib.auth.hashers import make_password
+    import random
+    import string
+
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -115,6 +119,25 @@ def register_guest_device(request):
     obj.usuario = None
     obj.activo = True
 
+    # --- NUEVO: Auto-crear User y generar contraseña ---
+    username = device_id or telefono
+    # Username debe ser único: si ya existe, añadimos sufijo
+    base_username = username
+    user = User.objects.filter(username=username).first()
+    if not user:
+        user = User.objects.create_user(
+            username=username,
+            email=email or None,
+            password=''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=12))
+        )
+    else:
+        # Si ya existe (raro en invitado), actualizamos password
+        user.password = make_password(''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=12)))
+    user.save()
+    obj.usuario = user
+    obj.es_invitado = False  # Ya tiene usuario, ya no es "invitado" estricto
+    # ------------------------------------------------
+
     sub = data.get("subscripcion")
     if sub and isinstance(sub, dict):
         endpoint = (sub.get("endpoint") or "").strip()
@@ -127,6 +150,7 @@ def register_guest_device(request):
 
     obj.save()
 
+    # Transferir categorías del registro anterior si existe
     transferido = False
     existente = (
         DeviceToken.objects
@@ -142,19 +166,17 @@ def register_guest_device(request):
             obj.categorias.set(existente.categorias.all())
         else:
             obj.categorias.set(categoria_ids)
-        existente.activo = False
-        existente.save()
-        obj.save()
     elif categoria_ids:
         cats = Categoria.objects.filter(id__in=categoria_ids, activo=True)
         obj.categorias.set(cats)
     else:
         obj.categorias.clear()
 
-    # Desactivar otros registros del mismo dispositivo
+    # Deactivate other same-device tokens
     if device_id:
         DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(activo=False)
 
+    # Devolvemos las credenciales para que el modal las muestre
     return JsonResponse({
         "ok": True,
         "created": created,
@@ -162,6 +184,9 @@ def register_guest_device(request):
         "device_id": device_id,
         "nombre": obj.nombre,
         "telefono": obj.telefono,
+        "email": obj.email,
+        "username": user.username,        # <-- Nuevo: usuario para login
+        "password": user.password,        # <-- Nuevo: contraseña generada (mostrar una vez)
         "categorias": list(obj.categorias.values_list("id", flat=True)),
     })
 
