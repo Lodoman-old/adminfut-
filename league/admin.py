@@ -163,12 +163,13 @@ class MovimientoEquipoAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(admin.ModelAdmin):
-    list_display = ["token_short", "device_id_short", "nombre", "email", "es_invitado", "usuario", "plataforma", "activo", "creado"]
+    list_display = ["token_short", "device_id_short", "nombre", "email", "es_invitado", "usuario", "plataforma", "activo", "creado", "delete_button"]
     list_filter = ["plataforma", "activo", "es_invitado"]
     search_fields = ["token", "device_id", "usuario__username", "nombre", "email"]
     filter_horizontal = ["categorias"]
     list_editable = ["email", "nombre", "activo"]
     readonly_fields = ["token", "device_id", "creado", "actualizado", "plataforma", "webpush_endpoint", "webpush_p256dh", "webpush_auth"]
+    actions = ["delete_selected"]
 
     def token_short(self, obj):
         return obj.token[:30] + "..."
@@ -177,6 +178,13 @@ class DeviceTokenAdmin(admin.ModelAdmin):
     def device_id_short(self, obj):
         return obj.device_id[:8] + "..." if obj.device_id else "-"
     device_id_short.short_description = "Device"
+
+    def delete_button(self, obj):
+        from django.urls import reverse
+        from django.utils.html import format_html
+        url = reverse('admin:league_devicetoken_delete', args=[obj.pk])
+        return format_html('<a class="button" style="color:red;" href="{}" onclick="return confirm(\'¿Eliminar este dispositivo?\')">🗑 Eliminar</a>', url)
+    delete_button.short_description = "Acciones"
 
 
 @admin.register(PushLog)
