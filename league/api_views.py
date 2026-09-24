@@ -230,32 +230,39 @@ def enviar_credenciales_quiniela(request):
         from django.utils.html import strip_tags
         from django.core.mail import EmailMultiAlternatives
 
-        config = ConfiguracionLiga.obtener()
-        smtp = config.get_active_smtp_config()
-        # DEBUG: log SMTP config
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"SMTP config: host={smtp.get('host')}, port={smtp.get('port')}, user={smtp.get('user')}, provider={smtp.get('provider')}, from={smtp.get('from_email')}")
-        if not smtp["host"]:
-            return JsonResponse({"error": "SMTP no configurado"}, status=500)
-
+        # Usar la misma función que ya funciona para otros emails
+        from .views import _enviar_correo_suscriptores
+        
+        # Crear un objeto tipo suscriptor temporal con el email
+        class _TmpSuscriptor:
+            def __init__(self, email):
+                self.email = email
+                self.token = ""
+        
+        suscriptor_tmp = _TmpSuscriptor(email)
+        
         html = render_to_string("emails/credenciales_quiniela.html", {
             "username": username,
             "password": password,
-            "config": config,
+            "config": ConfiguracionLiga.obtener(),
         })
         text = strip_tags(html)
-
-        msg = EmailMultiAlternatives(
-            subject="Tus credenciales para Quiniela - AdminFut",
-            body=text,
-            from_email=smtp.get("from_email") or smtp["user"],
-            to=[email],
-        )
-        msg.attach_alternative(html, "text/html")
-        msg.send()
-        logger.info(f"Email enviado a {email} para usuario {username}")
-        return JsonResponse({"ok": True})
+        
+        try:
+            _enviar_correo_suscriptores(
+                [suscriptor_tmp], 
+                ConfiguracionLiga.obtener(),
+                "Tus credenciales para Quiniela - AdminFut",
+                "emails/credenciales_quiniela.html", 
+                {"username": username, "password": password},
+                None,  # request
+                []     # adjuntos
+            )
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({"error": f"Error enviando correo: {e}"}, status=500)
     except Exception as e:
         # Cualquier error inesperado -> JSON, no HTML
         import traceback
