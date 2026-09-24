@@ -122,9 +122,11 @@ def register_guest_device(request):
     obj.activo = True
 
     # --- NUEVO: Auto-crear User y generar contraseña ---
-    username = device_id or telefono
-    # Username debe ser único: si ya existe, añadimos sufijo
-    base_username = username
+    # Username limpio: nombre (sin espacios/acentos) + últimos 4 dígitos del teléfono
+    base = "".join(ch for ch in nombre.lower() if ch.isalnum())
+    sufijo = telefono[-4:] if len(telefono) >= 4 else telefono
+    username = f"{base}{sufijo}"[:30]  # max 30 chars
+
     user = User.objects.filter(username=username).first()
     if not user:
         user = User.objects.create_user(
