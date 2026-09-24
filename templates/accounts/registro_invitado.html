@@ -261,6 +261,16 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
         btn.innerHTML = '<i class="bi bi-person-check"></i> Registrarse como Invitado';
     }
 });
+
+// Re-habilitar botón de registro al cerrar el modal (por si se queda disabled)
+document.getElementById('credencialesModal').addEventListener('hidden.bs.modal', function() {
+    const btn = document.getElementById('btnRegistro');
+    if (btn && btn.disabled) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-person-check"></i> Registrarse como Invitado';
+        console.log('Botón registro re-habilitado al cerrar modal');
+    }
+});
 </script>
 
 <!-- Modal de credenciales generadas -->
