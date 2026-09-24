@@ -555,7 +555,7 @@
           </div>
           <div class="modal-body">
             <div class="row g-4" id="filaDescargarApp">
-              <div class="col-md-6 order-2 order-md-1" id="cardAndroid">
+<div class="col-md-6 order-2 order-md-1" id="cardAndroid">
                 <div class="card h-100 border-success">
                   <div class="card-header bg-success text-white"><i class="bi bi-android2"></i> Android</div>
                   <div class="card-body text-center">
@@ -566,6 +566,24 @@
                     {% else %}
                     <button type="button" class="btn btn-secondary btn-lg" disabled><i class="bi bi-download"></i> APK no disponible</button>
                     {% endif %}
+                  </div>
+                  <div class="card-footer bg-light text-start small">
+                    <strong>¿Cómo instalar la APK?</strong>
+                    <ol class="mb-2 ps-3">
+                      <li>Descarga el archivo <code>.apk</code> (botón de arriba).</li>
+                      <li>Abre el archivo desde <strong>Descargas</strong> o la notificación de Chrome.</li>
+                      <li>Si aparece <strong>"Instalación bloqueada"</strong> o <strong>"Fuentes desconocidas"</strong>:
+                        <ul class="mb-0 ps-3">
+                          <li>Ve a <strong>Ajustes > Seguridad</strong> (o <strong>Aplicaciones > Acceso especial > Instalar apps desconocidas</strong>).</li>
+                          <li>Busca <strong>Chrome</strong> (o tu navegador) y activa <strong>"Permitir desde esta fuente"</strong>.</li>
+                          <li>Vuelve a abrir el archivo APK e instala.</li>
+                        </ul>
+                      </li>
+                      <li>Pulsa <strong>"Instalar"</strong> y luego <strong>"Abrir"</strong>.</li>
+                    </ol>
+                    <div class="alert alert-warning mb-0 py-1 small">
+                      <i class="bi bi-exclamation-triangle"></i> La app no está en Play Store: debes permitir la instalación desde tu navegador.
+                    </div>
                   </div>
                 </div>
               </div>
