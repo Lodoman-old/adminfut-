@@ -54,6 +54,45 @@
 {% endblock %}
 {% block extra_js %}
 <script>
+// Función para copiar al portapapeles
+function copyToClipboard(text) {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    // Feedback visual breve
+    const btn = event.target;
+    const textoOriginal = btn.innerText;
+    btn.innerText = 'Copiado';
+    setTimeout(() => btn.innerText = textoOriginal, 1500);
+}
+
+// Función para enviar por correo
+function enviarPorCorreo() {
+    const email = document.getElementById('id_email').value.trim() || '';
+    const username = document.getElementById('modalUsername').innerText;
+    const password = document.getElementById('modalPassword').innerText;
+    if (!email) {
+        alert('No tienes un correo registrado. Copia manualmente los datos.');
+        return;
+    }
+    fetch('/api/enviar-credenciales-quiniela/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ username: username, password: password, email: email })
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            alert('Correo enviado con éxito.');
+            const myModal = bootstrap.Modal.getInstance(document.getElementById('credencialesModal'));
+            if (myModal) myModal.hide();
+        } else {
+            alert('Error al enviar: ' + (d.error || 'desconocido'));
+        }
+    });
+}
+
 document.getElementById('guestForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const btn = document.getElementById('btnRegistro');
@@ -123,9 +162,27 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
                     await Capacitor.Plugins.Preferences.set({ key: 'guest_phone', value: data.telefono || '' });
                 } catch (e) {}
             }
+
+            // --- NUEVO: Mostrar modal con credenciales ---
+            document.getElementById('modalUsername').innerText = data.username;
+            document.getElementById('modalPassword').innerText = data.password;
+            const myModal = new bootstrap.Modal(document.getElementById('credencialesModal'));
+            myModal.show();
+
+            // También guardamos en localStorage para referencia posterior
+            try {
+                localStorage.setItem('adminfut_guest_credentials', JSON.stringify({
+                    username: data.username,
+                    password: data.password,
+                    nombre: data.nombre,
+                    telefono: data.telefono,
+                    device_id: window.__deviceId || '',
+                    token: token
+                }));
+            } catch (e) {}
+
             resultado.className = 'mt-3 alert alert-success';
-            resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. Redirigiendo...';
-            setTimeout(() => { window.location.href = '/'; }, 1500);
+            resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. <br>Tus credenciales para quiniela están en el modal.';
         } else {
             throw new Error(data.error || 'Error al registrar');
         }
@@ -137,4 +194,33 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
     }
 });
 </script>
+
+<!-- Modal de credenciales generadas -->
+<div class="modal fade" id="credencialesModal" tabindex="-1" aria-labelledby="credencialesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="credencialesModalLabel"><i class="bi bi-key"></i> Credenciales para Quiniela</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Has registrado un nuevo dispositivo invitado.</p>
+                <p class="mt-3">A continuación tienes tus credenciales de acceso. <strong>Guárdalas para poder entrar en quiniela desde otro dispositivo.</strong></p>
+                <div class="mb-3">
+                    <strong>Usuario:</strong> <span id="modalUsername" class="font-monospace"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Contraseña:</strong> <span id="modalPassword" class="font-monospace"></span>
+                </div>
+                <small class="text-muted">Usuario = tu nombre + últimos 4 dígitos del teléfono. Contraseña = generada aleatoriamente (12 caracteres).</small>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-outline-primary" onclick="copyToClipboard(document.getElementById('modalUsername').innerText)">Copiar usuario</button>
+                <button class="btn btn-outline-secondary" onclick="copyToClipboard(document.getElementById('modalPassword').innerText)">Copiar contraseña</button>
+                <button class="btn btn-outline-info" onclick="enviarPorCorreo()">Enviar por correo</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
