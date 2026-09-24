@@ -561,7 +561,24 @@ function toggleDevice(token, activate, btn) {
         body: JSON.stringify({token: token})
     }).then(r => r.json()).then(d => {
         if (d.ok) {
-            location.reload();
+            if (activate) {
+                // Activado: cambiar botón a desactivar, badge a Activo, fila a normal
+                btn.className = 'btn btn-sm btn-outline-danger';
+                btn.innerHTML = '🔴 Desactivar';
+                btn.onclick = () => toggleDevice(token, false, btn);
+                btn.title = 'Desactivar dispositivo';
+                btn.closest('tr').classList.remove('table-secondary');
+                btn.closest('tr').querySelector('td:nth-last-child(2)').innerHTML = '<span class="badge bg-success">Activo</span>';
+            } else {
+                // Desactivado: cambiar botón a Borrar, badge a Inactivo, fila a secondary
+                btn.className = 'btn btn-sm btn-danger';
+                btn.innerHTML = '🗑 Borrar';
+                btn.onclick = () => toggleDevice(token, true, btn);
+                btn.title = 'Borrar definitivamente';
+                btn.closest('tr').classList.add('table-secondary');
+                btn.closest('tr').querySelector('td:nth-last-child(2)').innerHTML = '<span class="badge bg-secondary">Inactivo</span>';
+            }
+            btn.disabled = false;
         } else {
             alert('Error: ' + (d.error || 'desconocido'));
             btn.disabled = false;
