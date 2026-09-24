@@ -232,6 +232,10 @@ def enviar_credenciales_quiniela(request):
 
         config = ConfiguracionLiga.obtener()
         smtp = config.get_active_smtp_config()
+        # DEBUG: log SMTP config
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"SMTP config: host={smtp.get('host')}, port={smtp.get('port')}, user={smtp.get('user')}, provider={smtp.get('provider')}, from={smtp.get('from_email')}")
         if not smtp["host"]:
             return JsonResponse({"error": "SMTP no configurado"}, status=500)
 
@@ -250,6 +254,7 @@ def enviar_credenciales_quiniela(request):
         )
         msg.attach_alternative(html, "text/html")
         msg.send()
+        logger.info(f"Email enviado a {email} para usuario {username}")
         return JsonResponse({"ok": True})
     except Exception as e:
         # Cualquier error inesperado -> JSON, no HTML
