@@ -293,6 +293,7 @@
                   <th>Usuario</th>
                   <th>Categorías</th>
                   <th>Actualizado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,9 +310,14 @@
                   <td>{% if t.usuario %}{{ t.usuario.username }}{% else %}-{% endif %}</td>
                   <td>{% for cat in t.categorias.all %}<span class="badge bg-secondary me-1">{{ cat.nombre }}</span>{% empty %}<span class="text-muted">(todas)</span>{% endfor %}</td>
                   <td>{{ t.actualizado|date:"Y-m-d H:i" }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarDispositivo('{{ t.token }}', this)" title="Eliminar dispositivo">
+                      🗑
+                    </button>
+                  </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="11" class="text-center text-muted">No hay dispositivos registrados.</td></tr>
+                <tr><td colspan="12" class="text-center text-muted">No hay dispositivos registrados.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -491,4 +497,30 @@
     </div>
   </div>
 </div>
+
+<script>
+function eliminarDispositivo(token, btn) {
+    if (!confirm('¿Eliminar este dispositivo? Se desactivará y no recibirá más notificaciones.')) return;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳';
+    fetch('/api/unregister-device/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({token: token})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            btn.closest('tr').remove();
+        } else {
+            alert('Error: ' + (d.error || 'desconocido'));
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }).catch(() => {
+        alert('Error de red');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+</script>
 {% endblock %}
