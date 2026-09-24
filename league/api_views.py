@@ -334,6 +334,23 @@ def unregister_device_token(request):
 
 @csrf_exempt
 @require_POST
+def delete_device_token(request):
+    """Permanently delete a device token (not just deactivate)."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    token = data.get("token", "").strip()
+    if not token:
+        return JsonResponse({"error": "token required"}, status=400)
+
+    DeviceToken.objects.filter(token=token).delete()
+    return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
 def update_device_field(request):
     """Update a specific field of a device token (nombre, telefono, email)."""
     try:

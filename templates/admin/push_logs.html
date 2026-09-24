@@ -525,30 +525,7 @@
 </div>
 
 <script>
-function eliminarDispositivo(token, btn) {
-    if (!confirm('¿Eliminar este dispositivo? Se desactivará y no recibirá más notificaciones.')) return;
-    const originalHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '⏳';
-    fetch('/api/unregister-device/', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({token: token})
-    }).then(r => r.json()).then(d => {
-        if (d.ok) {
-            btn.closest('tr').remove();
-        } else {
-            alert('Error: ' + (d.error || 'desconocido'));
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-    }).catch(() => {
-        alert('Error de red');
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-    });
-}
-
+// Toggle activo/inactivo (usa /api/unregister-device/ para desactivar)
 function toggleDevice(token, activate, btn) {
     const action = activate ? 'activar' : 'desactivar';
     if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} este dispositivo?`)) return;
@@ -573,12 +550,37 @@ function toggleDevice(token, activate, btn) {
                 // Desactivado: cambiar botón a Borrar, badge a Inactivo, fila a secondary
                 btn.className = 'btn btn-sm btn-danger';
                 btn.innerHTML = '🗑 Borrar';
-                btn.onclick = () => toggleDevice(token, true, btn);
+                btn.onclick = () => deleteDevice(token, btn);
                 btn.title = 'Borrar definitivamente';
                 btn.closest('tr').classList.add('table-secondary');
                 btn.closest('tr').querySelector('td:nth-last-child(2)').innerHTML = '<span class="badge bg-secondary">Inactivo</span>';
             }
             btn.disabled = false;
+        } else {
+            alert('Error: ' + (d.error || 'desconocido'));
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }).catch(() => {
+        alert('Error de red');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+
+// Borrado definitivo (usa /api/delete-device/)
+function deleteDevice(token, btn) {
+    if (!confirm('¿Borrar definitivamente este dispositivo? Se eliminará permanentemente de la base de datos.')) return;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳';
+    fetch('/api/delete-device/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({token: token})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            btn.closest('tr').remove();
         } else {
             alert('Error: ' + (d.error || 'desconocido'));
             btn.disabled = false;

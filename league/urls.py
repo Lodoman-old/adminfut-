@@ -103,6 +103,7 @@ urlpatterns = [
     path("publicar-posiciones-facebook/<int:temporada_id>/", views.publicar_posiciones_facebook, name="publicar_posiciones_facebook"),
     path("api/register-device/", api_views.register_device_token, name="register_device_token"),
     path("api/unregister-device/", api_views.unregister_device_token, name="unregister_device_token"),
+    path("api/delete-device/", api_views.delete_device_token, name="delete_device_token"),
     path("api/update-device-field/", api_views.update_device_field, name="update_device_field"),
     path("api/register-guest/", api_views.register_guest_device, name="register_guest_device"),
     path("api/update-preferences/", api_views.update_device_preferences, name="update_device_preferences"),
