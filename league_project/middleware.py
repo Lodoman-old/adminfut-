@@ -89,6 +89,7 @@ RUTAS_PUBLICAS = {
     '/api/categorias/',
     '/api/vapid-public-key/',
     '/api/cron-notificar-arbitros/',
+    '/api/enviar-credenciales-quiniela/',
     '/health/',
     # PWA / Web Push
     '/sw.js',
