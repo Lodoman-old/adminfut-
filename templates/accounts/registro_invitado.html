@@ -248,6 +248,16 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             resultado.className = 'mt-3 alert alert-success';
             resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. <br>Tus credenciales para quiniela están en el modal (o en la alerta si falló).';
             
+            // Re-habilitar botón al cerrar modal (aquí el modal ya existe)
+            document.getElementById('credencialesModal').addEventListener('hidden.bs.modal', function() {
+                const btn = document.getElementById('btnRegistro');
+                if (btn && btn.disabled) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-person-check"></i> Registrarse como Invitado';
+                    console.log('Botón registro re-habilitado al cerrar modal');
+                }
+            });
+            
             // NO redirigir automáticamente, que el usuario vea el modal
         } else {
             console.error('Registro falló:', data.error);
@@ -259,16 +269,6 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
         resultado.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + err.message;
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-person-check"></i> Registrarse como Invitado';
-    }
-});
-
-// Re-habilitar botón de registro al cerrar el modal (por si se queda disabled)
-document.getElementById('credencialesModal').addEventListener('hidden.bs.modal', function() {
-    const btn = document.getElementById('btnRegistro');
-    if (btn && btn.disabled) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-person-check"></i> Registrarse como Invitado';
-        console.log('Botón registro re-habilitado al cerrar modal');
     }
 });
 </script>
