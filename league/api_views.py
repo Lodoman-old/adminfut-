@@ -127,16 +127,19 @@ def register_guest_device(request):
     sufijo = telefono[-4:] if len(telefono) >= 4 else telefono
     username = f"{base}{sufijo}"[:30]  # max 30 chars
 
+    # Contraseña aleatoria corta (8 chars: letras + dígitos)
+    plain_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+
     user = User.objects.filter(username=username).first()
     if not user:
         user = User.objects.create_user(
             username=username,
             email=email or None,
-            password=''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=12))
+            password=plain_password
         )
     else:
         # Si ya existe (raro en invitado), actualizamos password
-        user.password = make_password(''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=12)))
+        user.password = make_password(plain_password)
     user.save()
     obj.usuario = user
     obj.es_invitado = False  # Ya tiene usuario, ya no es "invitado" estricto
@@ -189,8 +192,8 @@ def register_guest_device(request):
         "nombre": obj.nombre,
         "telefono": obj.telefono,
         "email": obj.email,
-        "username": user.username,        # <-- Nuevo: usuario para login
-        "password": user.password,        # <-- Nuevo: contraseña generada (mostrar una vez)
+        "username": user.username,
+        "password": plain_password,        # <-- Contraseña en texto plano (mostrar una vez)
         "categorias": list(obj.categorias.values_list("id", flat=True)),
     })
 
