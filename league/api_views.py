@@ -70,10 +70,12 @@ def register_guest_device(request):
     Al registrarse, crea automáticamente un usuario ligado al dispositivo
     y genera una contraseña para poder acceder a quiniela desde otros dispositivos.
     """
-    from django.contrib.auth.models import User
+    from django.contrib.auth import get_user_model
     from django.contrib.auth.hashers import make_password
     import random
     import string
+
+    User = get_user_model()
 
     try:
         data = json.loads(request.body)
