@@ -863,7 +863,11 @@ def admin_push_logs(request):
     from django.utils import timezone
 
     logs = get_push_logs(limit=200)
-    tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
+    show_inactive = request.GET.get("show_inactive") in ("1", "on", "true")
+    if show_inactive:
+        tokens = DeviceToken.objects.select_related("usuario").prefetch_related("categorias").order_by("-creado")[:200]
+    else:
+        tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
     dispositivos_activos = DeviceToken.objects.filter(activo=True).count()
     suscriptores_email = SuscripcionEmail.objects.filter(activo=True).count()
 

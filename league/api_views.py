@@ -333,6 +333,44 @@ def unregister_device_token(request):
 
 
 @csrf_exempt
+@require_POST
+def update_device_field(request):
+    """Update a specific field of a device token (nombre, telefono, email)."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    token = data.get("token", "").strip()
+    field = data.get("field", "").strip()
+    value = data.get("value", "").strip()
+
+    if not token:
+        return JsonResponse({"error": "token required"}, status=400)
+    if field not in ("nombre", "telefono", "email"):
+        return JsonResponse({"error": "field must be nombre, telefono, or email"}, status=400)
+
+    try:
+        obj = DeviceToken.objects.get(token=token)
+    except DeviceToken.DoesNotExist:
+        return JsonResponse({"error": "device not found"}, status=404)
+
+    if field == "telefono":
+        value = "".join(ch for ch in value if ch.isdigit())
+    elif field == "email" and value:
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+        try:
+            validate_email(value)
+        except ValidationError:
+            return JsonResponse({"error": "email inválido"}, status=400)
+
+    setattr(obj, field, value)
+    obj.save()
+    return JsonResponse({"ok": True})
+
+
+@csrf_exempt
 @require_GET
 def lista_categorias(request):
     """Return active categories for guest registration."""
