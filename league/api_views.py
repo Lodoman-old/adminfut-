@@ -157,6 +157,10 @@ def register_guest_device(request):
 
     obj.save()
 
+    # Auto-login del usuario recién creado
+    from django.contrib.auth import login
+    login(request, user)
+
     # Transferir categorías del registro anterior si existe
     transferido = False
     existente = (
@@ -193,8 +197,9 @@ def register_guest_device(request):
         "telefono": obj.telefono,
         "email": obj.email,
         "username": user.username,
-        "password": plain_password,        # <-- Contraseña en texto plano (mostrar una vez)
+        "password": plain_password,
         "categorias": list(obj.categorias.values_list("id", flat=True)),
+        "redirect_url": "/",   # Dashboard/home
     })
 
 

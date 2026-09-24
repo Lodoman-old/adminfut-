@@ -259,6 +259,10 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             });
             
             // NO redirigir automáticamente, que el usuario vea el modal
+            // Redirigir al dashboard tras 3 segundos para que vea las credenciales
+            setTimeout(() => {
+                window.location.href = data.redirect_url || '/';
+            }, 3000);
         } else {
             console.error('Registro falló:', data.error);
             throw new Error(data.error || 'Error al registrar');
