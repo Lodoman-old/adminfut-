@@ -56,11 +56,17 @@
 <script>
 // Función para copiar al portapapeles
 function copyToClipboard(text) {
+    console.log('copyToClipboard llamado con:', text);
     const input = document.createElement('input');
     input.value = text;
     document.body.appendChild(input);
     input.select();
-    document.execCommand('copy');
+    try {
+        document.execCommand('copy');
+        console.log('Copiado al portapapeles:', text);
+    } catch (e) {
+        console.error('Error copiando:', e);
+    }
     document.body.removeChild(input);
     // Feedback visual breve
     const btn = event.target;
@@ -71,18 +77,31 @@ function copyToClipboard(text) {
 
 // Función para enviar por correo
 function enviarPorCorreo() {
+    console.log('enviarPorCorreo llamado');
     const email = document.getElementById('id_email').value.trim() || '';
     const username = document.getElementById('modalUsername').innerText;
     const password = document.getElementById('modalPassword').innerText;
+    console.log('Datos a enviar:', { email, username, password: '***' });
+    
     if (!email) {
         alert('No tienes un correo registrado. Copia manualmente los datos.');
         return;
     }
+    const btnEnviar = event.target;
+    btnEnviar.disabled = true;
+    btnEnviar.innerText = 'Enviando...';
+    
     fetch('/api/enviar-credenciales-quiniela/', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
         body: JSON.stringify({ username: username, password: password, email: email })
-    }).then(r => r.json()).then(d => {
+    }).then(r => {
+        console.log('Respuesta email status:', r.status);
+        return r.json();
+    }).then(d => {
+        console.log('Respuesta email JSON:', d);
+        btnEnviar.disabled = false;
+        btnEnviar.innerText = 'Enviar por correo';
         if (d.ok) {
             alert('Correo enviado con éxito.');
             const myModal = bootstrap.Modal.getInstance(document.getElementById('credencialesModal'));
@@ -90,11 +109,17 @@ function enviarPorCorreo() {
         } else {
             alert('Error al enviar: ' + (d.error || 'desconocido'));
         }
+    }).catch(err => {
+        console.error('Error fetch email:', err);
+        btnEnviar.disabled = false;
+        btnEnviar.innerText = 'Enviar por correo';
+        alert('Error de red al enviar: ' + err.message);
     });
 }
 
 document.getElementById('guestForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    console.log('Formulario submit iniciado');
     const btn = document.getElementById('btnRegistro');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Registrando...';
@@ -102,22 +127,34 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
 
     try {
         const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+        console.log('isNative:', isNative);
         let token = 'web-' + Date.now();
         if (isNative && Capacitor.Plugins.PushNotifications) {
+            console.log('Solicitando permisos push...');
             await Capacitor.Plugins.PushNotifications.requestPermissions();
             Capacitor.Plugins.PushNotifications.register();
             token = await new Promise(function(resolve) {
-                Capacitor.Plugins.PushNotifications.addListener('registration', function(t) { resolve(t.value); });
-                setTimeout(function() { resolve('cap-' + Date.now()); }, 5000);
+                Capacitor.Plugins.PushNotifications.addListener('registration', function(t) { 
+                    console.log('Token push recibido:', t.value);
+                    resolve(t.value); 
+                });
+                setTimeout(function() { 
+                    console.log('Timeout push, usando fallback');
+                    resolve('cap-' + Date.now()); 
+                }, 5000);
             });
         }
 
         let subscripcion = null;
         if (!isNative && typeof window.obtenerSuscripcionWebPush === 'function') {
+            console.log('Obteniendo suscripción WebPush...');
             subscripcion = await window.obtenerSuscripcionWebPush();
         }
 
         const cats = Array.from(document.querySelectorAll('input[name="categorias"]:checked')).map(cb => parseInt(cb.value));
+        console.log('Categorías seleccionadas:', cats);
+        console.log('Enviando a /api/register-guest/...');
+        
         const resp = await fetch('/api/register-guest/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
@@ -132,8 +169,12 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
                 subscripcion: subscripcion,
             }),
         });
+        console.log('Respuesta registro status:', resp.status);
         const data = await resp.json();
+        console.log('Respuesta registro JSON:', data);
+        
         if (data.ok) {
+            console.log('Registro OK, procesando...');
             const cats = Array.from(document.querySelectorAll('input[name="categorias"]:checked')).map(cb => parseInt(cb.value));
             // La primera categoría escogida es la principal del invitado en el home
             const primaria = cats.length ? String(cats[0]) : '';
@@ -164,10 +205,33 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             }
 
             // --- NUEVO: Mostrar modal con credenciales ---
-            document.getElementById('modalUsername').innerText = data.username;
-            document.getElementById('modalPassword').innerText = data.password;
-            const myModal = new bootstrap.Modal(document.getElementById('credencialesModal'));
-            myModal.show();
+            console.log('Preparando modal con credenciales:', data.username, data.password);
+            
+            // Verificar que los elementos existen
+            const modalEl = document.getElementById('credencialesModal');
+            const usernameEl = document.getElementById('modalUsername');
+            const passwordEl = document.getElementById('modalPassword');
+            
+            if (!modalEl || !usernameEl || !passwordEl) {
+                console.error('Elementos del modal no encontrados');
+                throw new Error('Error interno: modal no encontrado en el DOM');
+            }
+            
+            usernameEl.innerText = data.username;
+            passwordEl.innerText = data.password;
+            console.log('Credenciales puestas en modal');
+            
+            // Intentar mostrar modal con manejo de error
+            let myModal = null;
+            try {
+                myModal = new bootstrap.Modal(modalEl);
+                myModal.show();
+                console.log('Modal mostrado');
+            } catch (modalErr) {
+                console.error('Error mostrando modal:', modalErr);
+                // Fallback: mostrar en alert si el modal falla
+                alert('Registro exitoso!\n\nUsuario: ' + data.username + '\nContraseña: ' + data.password + '\n\nGuárdalos para acceder a quiniela desde otro dispositivo.');
+            }
 
             // También guardamos en localStorage para referencia posterior
             try {
@@ -182,11 +246,15 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
             } catch (e) {}
 
             resultado.className = 'mt-3 alert alert-success';
-            resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. <br>Tus credenciales para quiniela están en el modal.';
+            resultado.innerHTML = '<i class="bi bi-check-circle"></i> Registro exitoso. Bienvenido <strong>' + data.nombre + '</strong>. <br>Tus credenciales para quiniela están en el modal (o en la alerta si falló).';
+            
+            // NO redirigir automáticamente, que el usuario vea el modal
         } else {
+            console.error('Registro falló:', data.error);
             throw new Error(data.error || 'Error al registrar');
         }
     } catch (err) {
+        console.error('Error en registro:', err);
         resultado.className = 'mt-3 alert alert-danger';
         resultado.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + err.message;
         btn.disabled = false;
@@ -212,7 +280,7 @@ document.getElementById('guestForm').addEventListener('submit', async function(e
                 <div class="mb-3">
                     <strong>Contraseña:</strong> <span id="modalPassword" class="font-monospace"></span>
                 </div>
-                <small class="text-muted">Usuario = tu nombre + últimos 4 dígitos del teléfono. Contraseña = generada aleatoriamente (12 caracteres).</small>
+                <small class="text-muted">Usuario = tu nombre + últimos 4 dígitos del teléfono. Contraseña = generada aleatoriamente (8 caracteres).</small>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

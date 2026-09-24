@@ -200,6 +200,62 @@ def register_guest_device(request):
 
 @csrf_exempt
 @require_POST
+def enviar_credenciales_quiniela(request):
+    """Envía por correo las credenciales de quiniela a un invitado."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    email = data.get("email", "").strip()
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+
+    if not email:
+        return JsonResponse({"error": "email requerido"}, status=400)
+    if not username or not password:
+        return JsonResponse({"error": "credenciales requeridas"}, status=400)
+
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({"error": "email inválido"}, status=400)
+
+    from .models import ConfiguracionLiga
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from django.core.mail import EmailMultiAlternatives
+
+    config = ConfiguracionLiga.obtener()
+    smtp = config.get_active_smtp_config()
+    if not smtp["host"]:
+        return JsonResponse({"error": "SMTP no configurado"}, status=500)
+
+    html = render_to_string("emails/credenciales_quiniela.html", {
+        "username": username,
+        "password": password,
+        "config": config,
+    })
+    text = strip_tags(html)
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject="Tus credenciales para Quiniela - AdminFut",
+            body=text,
+            from_email=smtp.get("from_email") or smtp["user"],
+            to=[email],
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send()
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"error": f"Error enviando correo: {e}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
 def update_device_preferences(request):
     """Update guest name and category preferences for a device token."""
     try:

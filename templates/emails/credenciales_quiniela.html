@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Credenciales Quiniela</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #1877F2; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0;">🔐 Credenciales para Quiniela</h1>
+    </div>
+    <div style="background: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;">
+        <p>Hola,</p>
+        <p>Aquí tienes tus credenciales para acceder a la <strong>Quiniela de AdminFut</strong> desde cualquier dispositivo:</p>
+        
+        <div style="background: white; border: 2px solid #1877F2; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong></p>
+            <p style="font-family: monospace; font-size: 18px; background: #f0f0f0; padding: 10px; border-radius: 4px; margin: 0 0 15px 0;">{{ username }}</p>
+            
+            <p style="margin: 0 0 10px 0;"><strong>Contraseña:</strong></p>
+            <p style="font-family: monospace; font-size: 18px; background: #f0f0f0; padding: 10px; border-radius: 4px; margin: 0;">{{ password }}</p>
+        </div>
+        
+        <p style="color: #666; font-size: 14px;">
+            <strong>Importante:</strong> Guarda este correo. Sin estas credenciales no podrás acceder a tus pronósticos desde otro dispositivo.
+        </p>
+        
+        <p style="color: #666; font-size: 14px;">
+            Tu usuario es tu nombre + los últimos 4 dígitos de tu teléfono (ej: <code>carlos5678</code>).<br>
+            La contraseña es generada aleatoriamente.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px; text-align: center;">
+            {{ config.nombre_liga }} - AdminFut<br>
+            Si no solicitaste esto, ignora este mensaje.
+        </p>
+    </div>
+</body>
+</html>
