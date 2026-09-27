@@ -451,20 +451,21 @@ class Temporada(models.Model):
             letra = chr(65 + (i % n))
             Grupo.objects.create(temporada=self, equipo=eq, grupo=letra, orden=i)
 
-    def puede_iniciar(self):
+    def puede_iniciar(self, ignore_players=False):
         from .models import Equipo, Jugador, Campo
         eqs = self.equipos_habilitados()
         eq_count = len(eqs)
         if eq_count < 2:
             return False, "Se necesitan al menos 2 equipos activos en la categoría"
-        min_jug = self.categoria.min_jugadores or 7
-        for eq in eqs:
-            # Un equipo marcado como abandono no bloquea el inicio por falta de jugadores
-            if self.equipo_abandono(eq):
-                continue
-            cnt = Jugador.objects.filter(equipo=eq, activo=True).count()
-            if cnt < min_jug:
-                return False, f"El equipo '{eq.nombre}' solo tiene {cnt} jugadores (mínimo {min_jug})"
+        if not ignore_players:
+            min_jug = self.categoria.min_jugadores or 7
+            for eq in eqs:
+                # Un equipo marcado como abandono no bloquea el inicio por falta de jugadores
+                if self.equipo_abandono(eq):
+                    continue
+                cnt = Jugador.objects.filter(equipo=eq, activo=True).count()
+                if cnt < min_jug:
+                    return False, f"El equipo '{eq.nombre}' solo tiene {cnt} jugadores (mínimo {min_jug})"
         cp = Campo.objects.filter(activo=True).count()
         if cp == 0:
             return False, "Se necesita al menos 1 campo activo"

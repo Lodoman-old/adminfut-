@@ -12,6 +12,15 @@
         </div>
         <form method="post" action="{{ url_generar }}">
             {% csrf_token %}
+            <div class="mb-3 form-check">
+                <input class="form-check-input" type="checkbox" name="ignore_players" id="ignore_players" value="on">
+                <label class="form-check-label" for="ignore_players">
+                    <i class="bi bi-people text-warning"></i> <strong>Iniciar sin validar jugadores mínimos</strong> (equipos pueden tener 0 jugadores)
+                </label>
+                <div class="form-text text-warning small">
+                    <i class="bi bi-exclamation-triangle"></i> Permite iniciar la temporada aunque los equipos no tengan los jugadores mínimos requeridos. Útil para pre-registro.
+                </div>
+            </div>
             <div class="mb-3">
                 <label class="form-label fw-medium">¿La temporada ya estaba iniciada?</label>
                 <div class="form-check">

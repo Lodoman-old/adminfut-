@@ -2126,7 +2126,8 @@ def iniciar_temporada(request, pk):
         messages.warning(request, "La temporada ya fue iniciada.")
         return redirect("temporada_list")
 
-    puede, msg = temporada.puede_iniciar()
+    ignore_players = request.POST.get("ignore_players") == "on"
+    puede, msg = temporada.puede_iniciar(ignore_players=ignore_players)
     if not puede:
         messages.error(request, f"No se puede iniciar: {msg}")
         return redirect("temporada_list")
