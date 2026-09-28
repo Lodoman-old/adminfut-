@@ -103,14 +103,23 @@ def home(request):
     else:
         proximos = list(proximos_amistosos)
 
-    # Resultados recientes de la categoría
-    res_filter = Partido.objects.filter(estado="FIN")
-    if categoria_sel:
-        res_filter = res_filter.filter(temporada__categoria=categoria_sel)
-
-    resultados = res_filter.select_related(
-        "equipo_local", "equipo_visitante"
-    ).order_by("-fecha_hora")[:5]
+    # Resultados recientes de la categoría (TODOS los partidos de la última jornada con resultados)
+    if categoria_sel and temp_activa:
+        ultima_jornada = Jornada.objects.filter(
+            temporada=temp_activa,
+            partidos__estado__in=["FIN", "SUSP"]
+        ).distinct().order_by("-numero").first()
+        if ultima_jornada:
+            resultados = Partido.objects.filter(
+                jornada=ultima_jornada,
+                estado__in=["FIN", "SUSP"]
+            ).select_related(
+                "equipo_local", "equipo_visitante", "campo"
+            ).order_by("fecha_hora")
+        else:
+            resultados = Partido.objects.none()
+    else:
+        resultados = Partido.objects.none()
 
     # Stats por categoría seleccionada
     stats = {}

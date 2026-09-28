@@ -595,7 +595,13 @@ body {
             <strong>{{ p.equipo_local.nombre }}</strong>
           </div>
           <div class="match-center-col">
-            <div class="match-score" style="font-size:1.5rem">{{ p.goles_local }} - {{ p.goles_visitante }}</div>
+            <div class="match-score" style="font-size:1.5rem">
+              {% if p.estado == "SUSP" %}
+                <span class="text-danger fw-bold">SUSPENDIDO</span>
+              {% else %}
+                {{ p.goles_local }} - {{ p.goles_visitante }}
+              {% endif %}
+            </div>
             {% with gw=p.ganador_walkover %}{% if gw %}<div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resolvió por default">Gana {{ gw.nombre }} por DEFAULT</span></div>{% endif %}{% endwith %}
             {% if agregado %}<div class="agregado" style="font-size:0.85rem;color:#aab;">({{ agregado.total_local }} - {{ agregado.total_visitante }})</div>{% endif %}
             <div class="match-info"><i class="bi bi-calendar-range"></i> {% if p.es_amistoso %}<span class="badge bg-info text-dark">Amistoso</span>{% else %}{{ p.jornada.nombre }}{% endif %}{% if p.liguilla_leg == 2 %} <span class="badge bg-warning text-dark">VUELTA</span>{% elif p.es_ida %} <span class="badge bg-warning text-dark">IDA</span>{% endif %}</div>
