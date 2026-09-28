@@ -208,9 +208,23 @@
             <div class="modal-body text-center py-4">
                 <i class="bi bi-question-circle text-warning" style="font-size:3rem"></i>
                 <p class="mt-3 mb-0" id="confirmarAccionMensaje"></p>
+                <!-- Checkbox para iniciar temporada sin validar jugadores -->
+                <div class="form-check text-start mt-3" id="ignorePlayersCheck" style="display:none;">
+                    <input class="form-check-input" type="checkbox" name="ignore_players" id="ignore_players" value="on">
+                    <label class="form-check-label" for="ignore_players">
+                        <i class="bi bi-people text-warning"></i> <strong>Iniciar sin validar jugadores mínimos</strong> (equipos pueden tener 0 jugadores)
+                    </label>
+                    <div class="form-text text-warning small">
+                        <i class="bi bi-exclamation-triangle"></i> Permite iniciar la temporada aunque los equipos no tengan los jugadores mínimos requeridos.
+                    </div>
+                </div>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" class="btn btn-warning" id="confirmarAccionBtn"><i class="bi bi-check-circle"></i> Sí, continuar</a>
+                <form id="confirmarAccionForm" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="ignore_players" value="off">
+                    <button type="submit" class="btn btn-warning" id="confirmarAccionBtn"><i class="bi bi-check-circle"></i> Sí, continuar</button>
+                </form>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -266,8 +280,31 @@ document.addEventListener('DOMContentLoaded', function() {
     if (accionModal) {
         accionModal.addEventListener('show.bs.modal', function(event) {
             var btn = event.relatedTarget;
-            accionBtn.href = btn.getAttribute('data-href');
-            accionMsg.textContent = btn.getAttribute('data-mensaje');
+            var href = btn.getAttribute('data-href');
+            var mensaje = btn.getAttribute('data-mensaje');
+            var isIniciar = href && href.indexOf('iniciar_temporada') !== -1;
+
+            // Mostrar/ocultar checkbox para iniciar temporada
+            var ignoreCheck = document.getElementById('ignorePlayersCheck');
+            var ignoreInput = document.getElementById('ignore_players');
+            if (isIniciar) {
+                ignoreCheck.style.display = '';
+            } else {
+                ignoreCheck.style.display = 'none';
+                ignoreInput.checked = false;
+            }
+
+            // Actualizar form action
+            var form = document.getElementById('confirmarAccionForm');
+            form.action = href;
+
+            // Sync hidden input with checkbox
+            ignoreInput.addEventListener('change', function() {
+                var hidden = document.querySelector('#confirmarAccionForm input[name="ignore_players"]');
+                hidden.value = this.checked ? 'on' : 'off';
+            });
+
+            accionMsg.textContent = mensaje;
         });
     }
 });
