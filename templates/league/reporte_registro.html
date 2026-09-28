@@ -8,12 +8,9 @@
         <div class="text-muted small">Jugadores del equipo seleccionado (Categoría → Temporada → Equipo)</div>
     </div>
     {% if user.is_authenticated and user.is_staff %}
-    <form method="post" action="{% url 'enviar_rol_por_correo' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-success">
-            <i class="bi bi-envelope-arrow-up"></i> Enviar por correo
-        </button>
-    </form>
+    <a href="{% url 'reporte_registro_pdf' %}?categoria={{ cat_id }}&temporada={{ temp_id }}&equipo={{ eq_id }}" class="btn btn-success">
+        <i class="bi bi-file-earmark-pdf"></i> Exportar a PDF
+    </a>
     {% endif %}
 </div>
 
