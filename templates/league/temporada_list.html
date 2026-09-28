@@ -282,7 +282,8 @@ document.addEventListener('DOMContentLoaded', function() {
             var btn = event.relatedTarget;
             var href = btn.getAttribute('data-href');
             var mensaje = btn.getAttribute('data-mensaje');
-            var isIniciar = href && href.indexOf('iniciar_temporada') !== -1;
+            // La URL de iniciar_temporada es /temporadas/<pk>/iniciar/ -> buscamos /iniciar/
+            var isIniciar = href && href.indexOf('/iniciar/') !== -1;
 
             // Mostrar/ocultar checkbox para iniciar temporada
             var ignoreCheck = document.getElementById('ignorePlayersCheck');
