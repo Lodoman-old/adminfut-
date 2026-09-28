@@ -2141,6 +2141,7 @@ def iniciar_temporada(request, pk):
         messages.info(request, f"Grupos asignados: {cantidades}. Ajusta los equipos si es necesario antes de confirmar.")
         return redirect("asignar_grupos", pk=temporada.pk)
 
+    # Si es POST, procesar el formulario
     if request.method == "POST":
         ya_iniciada = request.POST.get("ya_iniciada")
         if ya_iniciada == "si":
@@ -2164,24 +2165,13 @@ def iniciar_temporada(request, pk):
             messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol de juegos generado.")
         return redirect("temporada_list")
 
-    # Si la fecha de inicio es pasada, preguntar si ya estaba iniciada y desde qué jornada
-    if temporada.fecha_inicio < date.today():
-        ctx = {
-            "temporada": temporada,
-            "url_generar": reverse("iniciar_temporada", args=[pk]),
-        }
-        return render(request, "league/iniciar_temporada.html", ctx)
-
-    try:
-        temporada.generar_rol()
-    except Exception as e:
-        messages.error(request, f"Error al generar el rol: {e}")
-        return redirect("temporada_list")
-
-    temporada.iniciada = True
-    temporada.save()
-    messages.success(request, f"Temporada '{temporada.nombre}' iniciada con rol de juegos generado.")
-    return redirect("temporada_list")
+    # GET: siempre mostrar formulario (para que se vea el checkbox ignore_players)
+    ctx = {
+        "temporada": temporada,
+        "url_generar": reverse("iniciar_temporada", args=[pk]),
+        "fecha_pasada": temporada.fecha_inicio < date.today(),
+    }
+    return render(request, "league/iniciar_temporada.html", ctx)
 
 
 def generar_liguilla_view(request, pk):
