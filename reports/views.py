@@ -1346,7 +1346,7 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
     )
     # Incluir jugadores con el equipo como principal O secundario
     from django.db.models import Q
-    from .models import JugadorEquipo
+    from league.models import JugadorEquipo
 
     local_jugador_ids = JugadorEquipo.objects.filter(
         equipo=partido.equipo_local, activo=True
@@ -1462,7 +1462,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     )
     # Incluir jugadores con el equipo como principal O secundario
     from django.db.models import Q
-    from .models import JugadorEquipo
+    from league.models import JugadorEquipo
 
     local_jugador_ids = JugadorEquipo.objects.filter(
         equipo=partido.equipo_local, activo=True
