@@ -2337,12 +2337,11 @@ def reporte_registro_pdf(request):
 
         # Posición de la tarjeta
         x = margin_left + col * (card_w + gap_x)
-        # Calcular y basada en la página actual (después del header)
-        # row_in_page 0,1,2,3 dentro de cada página de 8 tarjetas
-        y = draw_header(p) - card_h - row_in_page * (card_h + gap_y)
+        # y_base es la base (fondo) de la tarjeta en esta fila
+        y_base = draw_header(p) - card_h - row_in_page * (card_h + gap_y)
         x = margin_left + col * (card_w + gap_x)
 
-        # Fondo de la tarjeta (redondeada) - dibujar desde y_top - card_h hasta y_top
+        # Fondo de la tarjeta (redondeada)
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#cccccc"))
         p.setLineWidth(0.5)
@@ -2350,7 +2349,7 @@ def reporte_registro_pdf(request):
 
         # Coordenadas internas de la tarjeta (origen en esquina superior izquierda)
         card_x = x
-        card_y_top = y  # y ya es la esquina superior de la tarjeta
+        card_y_top = y + card_h  # esquina superior de la tarjeta (y + altura)
 
         # Foto del jugador (esquina superior derecha de la tarjeta)
         img_w = 32 * mm
