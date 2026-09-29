@@ -14,7 +14,7 @@ from io import BytesIO
 import os
 import math
 from django.conf import settings
-from league.models import Partido, Gol, Temporada, Equipo, Jugador, Jornada, Tarjeta, Arbitro, JugadorPartido, Categoria, ConfiguracionLiga, SuscripcionEmail, SuspensionJugador
+from league.models import Partido, Gol, Temporada, Equipo, Jugador, Jornada, Tarjeta, Arbitro, JugadorPartido, Categoria, ConfiguracionLiga, SuscripcionEmail, SuspensionJugador, JugadorEquipo
 from finance.models import Ingreso, ConceptoIngreso
 
 
