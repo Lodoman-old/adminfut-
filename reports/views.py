@@ -2290,7 +2290,13 @@ def reporte_registro_pdf(request):
         p.setFont("Helvetica", 10)
         p.drawString(25 * mm, h - 22 * mm, "Registro de jugadores - " + equipo.nombre)
         p.setFont("Helvetica", 9)
-        temp_name = equipo.temporada.nombre if equipo.temporada else "N/A"
+        # Obtener nombre de la temporada desde temp_id del request
+        from league.models import Temporada
+        temp_name = "N/A"
+        if temp_id:
+            temp = Temporada.objects.filter(pk=temp_id).first()
+            if temp:
+                temp_name = temp.nombre
         p.drawString(25 * mm, h - 27 * mm, "Categoría: " + equipo.categoria.nombre + "  |  Temporada: " + temp_name)
         # Línea separadora
         p.setStrokeColor(colors.black)
