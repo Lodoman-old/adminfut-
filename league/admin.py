@@ -27,11 +27,33 @@ class EquipoAdmin(admin.ModelAdmin):
     list_filter = ["categoria"]
 
 
+class JugadorEquipoInline(admin.TabularInline):
+    model = JugadorEquipo
+    fk_name = "jugador"
+    extra = 1
+    verbose_name = "Equipo secundario"
+    verbose_name_plural = "Equipos secundarios (compatibles)"
+    fields = ["equipo", "es_principal", "activo"]
+    autocomplete_fields = ["equipo"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(es_principal=False).select_related("equipo", "equipo__categoria")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "equipo":
+            # Solo mostrar equipos de categorías compatibles con la categoría del equipo principal
+            # (esto se limita más en el formulario, aquí solo filtramos activos)
+            kwargs["queryset"] = Equipo.objects.filter(activo=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(Jugador)
 class JugadorAdmin(admin.ModelAdmin):
     list_display = ["nombre", "apellido", "tipo_documento", "curp", "posicion", "equipo", "dorsal", "suspendido_pago", "equipos_extra"]
     list_filter = ["equipo__categoria", "posicion", "suspendido_pago"]
     search_fields = ["curp", "nombre", "apellido"]
+    inlines = [JugadorEquipoInline]
 
     def equipos_extra(self, obj):
         extras = obj.registros_equipo.filter(es_principal=False)
