@@ -2321,6 +2321,7 @@ def reporte_registro_pdf(request):
     y = draw_header(p) - card_h  # Ajustar para que la tarjeta no se empalme con el header
     page_num = 1
 
+    # Iterar jugadores y dibujar tarjetas
     for idx, j in enumerate(jugadores_list):
         col = idx % 2
         row = (idx // 2) % 4
@@ -2328,64 +2329,87 @@ def reporte_registro_pdf(request):
         if idx > 0 and idx % 8 == 0:
             p.showPage()
             page_num += 1
-            y = draw_header(p)
+            y = draw_header(p) - card_h
 
-        x = 15 * mm + col * (card_w + gap_x)
-        y = h - 38 * mm - row * (card_h + gap_y)
+        # Posición de la tarjeta (x, y es la esquina SUPERIOR IZQUIERDA de la tarjeta)
+        col_x = 15 * mm + col * (card_w + gap_x)
+        y_top = h - 38 * mm - row * (card_h + gap_y)  # Esquina superior izquierda de la tarjeta
 
-        # Fondo de la tarjeta
+        # Fondo de la tarjeta (redondeada)
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#cccccc"))
         p.setLineWidth(0.5)
-        p.roundRect(x, y, card_w - 4 * mm, card_h, 3 * mm, fill=1, stroke=1)
+        p.roundRect(15 * mm + col * (card_w + gap_x), y_top - card_h, card_w - 4 * mm, card_h, 3 * mm, fill=1, stroke=1)
 
-        # Foto del jugador
-        img_x = 3 * mm
-        img_y = card_h - 38 * mm
+        # Coordenadas internas de la tarjeta (origen en esquina superior izquierda)
+        card_x = 15 * mm + col * (card_w + gap_x)
+        card_y_top = y_top
+
+        # Foto del jugador (esquina superior derecha de la tarjeta)
         img_w = 32 * mm
         img_h = 38 * mm
+        img_x = card_w - 4 * mm - img_w - 3 * mm  # 3mm margen derecho
+        img_y = 3 * mm  # 3mm margen superior
         p.setFillColor(colors.HexColor("#f0f0f0"))
-        p.roundRect(x + img_x, y + img_y, img_w, img_h, 2 * mm, fill=1, stroke=0)
+        p.roundRect(card_x + img_x, card_y_top - img_y - img_h, img_w, img_h, 2 * mm, fill=1, stroke=0)
         if j.foto:
             try:
                 local_path = os.path.join(settings.MEDIA_ROOT, j.foto.name)
                 if os.path.exists(local_path):
-                    p.drawImage(local_path, x + img_x, y + img_y, width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(local_path, card_x + img_x, card_y_top - img_y - img_h, 
+                                width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
 
-        # Nombre y apellido
+        # Nombre y apellido (arriba a la izquierda, al lado de la foto)
         p.setFont("Helvetica-Bold", 11)
         p.setFillColor(colors.black)
-        p.drawString(x + 38 * mm, y + card_h - 10 * mm, j.nombre + " " + j.apellido)
+        p.drawString(card_x + 3 * mm, card_y_top - 10 * mm, j.nombre + " " + j.apellido)
 
         # Dorsal
         if j.dorsal:
             p.setFont("Helvetica-Bold", 10)
             p.setFillColor(colors.HexColor("#003366"))
-            p.drawString(x + 38 * mm, y + card_h - 20 * mm, "Dorsal: " + str(j.dorsal))
+            p.drawString(card_x + 3 * mm, card_y_top - 18 * mm, "Dorsal: " + str(j.dorsal))
 
         # Posición
         if j.posicion:
             p.setFont("Helvetica", 9)
             p.setFillColor(colors.black)
-            p.drawString(x + 38 * mm, y + card_h - 27 * mm, "Posición: " + j.get_posicion_display())
+            p.drawString(card_x + 3 * mm, card_y_top - 25 * mm, "Pos: " + j.get_posicion_display())
+
+        # Fecha de nacimiento
+        if j.fecha_nacimiento:
+            p.setFont("Helvetica", 9)
+            p.drawString(card_x + 3 * mm, card_y_top - 33 * mm, "Nac: " + j.fecha_nacimiento.strftime("%d/%m/%Y"))
 
         # Edad
-        if j.edad():
+        edad = j.edad()
+        if edad is not None:
             p.setFont("Helvetica", 9)
-            p.drawString(x + 38 * mm, y + card_h - 34 * mm, "Edad: " + str(j.edad()) + " años")
+            p.drawString(card_x + 3 * mm, card_y_top - 41 * mm, "Edad: " + str(edad) + " años")
 
         # CURP
         if j.curp:
             p.setFont("Helvetica", 8)
             p.setFillColor(colors.grey)
-            p.drawString(x + 38 * mm, y + card_h - 42 * mm, "CURP: " + j.curp)
+            p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "CURP: " + j.curp)
 
-        # Documento - usar curp
-        if j.curp:
-            p.setFont("Helvetica", 8)
-            p.drawString(x + 38 * mm, y + card_h - 49 * mm, "Doc: " + j.get_tipo_documento_display() + " " + j.curp)
+        # Tipo y número de documento
+        if j.curp or j.tipo_documento:
+            p.setFont("Helvetica", 7)
+            p.setFillColor(colors.grey)
+            doc_text = j.get_tipo_documento_display() + ": " + (j.curp or "—")
+            p.drawString(card_x + 3 * mm, card_y_top - 57 * mm, "Doc: " + doc_text)
+
+    # Footer en última página
+    p.setFont("Helvetica", 8)
+    p.setFillColor(colors.grey)
+    p.drawString(20 * mm, 10 * mm, "Generado por " + config.nombre_liga)
+    p.drawRightString(w - 20 * mm, 10 * mm, "Total jugadores: " + str(total_jugadores))
+
+    p.save()
+    return response
 
     # Footer en última página
     p.setFont("Helvetica", 8)
