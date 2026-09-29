@@ -1344,8 +1344,23 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
         Partido.objects.select_related("equipo_local", "equipo_visitante", "campo", "arbitro"),
         pk=partido_id,
     )
-    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("nombre", "apellido"))
-    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("nombre", "apellido"))
+    # Incluir jugadores con el equipo como principal O secundario
+    from django.db.models import Q
+    from .models import JugadorEquipo
+
+    local_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_local, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_local = list(Jugador.objects.filter(
+        Q(pk__in=local_jugador_ids) | Q(equipo=partido.equipo_local), activo=True
+    ).order_by("nombre", "apellido").distinct())
+
+    visit_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_visitante, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_visit = list(Jugador.objects.filter(
+        Q(pk__in=visit_jugador_ids) | Q(equipo=partido.equipo_visitante), activo=True
+    ).order_by("nombre", "apellido").distinct())
     goles = Gol.objects.filter(partido=partido)
     tarjetas = Tarjeta.objects.filter(partido=partido)
     participaciones = {p.jugador_id: p for p in JugadorPartido.objects.filter(partido=partido)}
@@ -1445,8 +1460,23 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         Partido.objects.select_related("equipo_local", "equipo_visitante", "campo", "arbitro"),
         pk=partido_id,
     )
-    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True).order_by("nombre", "apellido"))
-    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True).order_by("nombre", "apellido"))
+    # Incluir jugadores con el equipo como principal O secundario
+    from django.db.models import Q
+    from .models import JugadorEquipo
+
+    local_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_local, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_local = list(Jugador.objects.filter(
+        Q(pk__in=local_jugador_ids) | Q(equipo=partido.equipo_local), activo=True
+    ).order_by("nombre", "apellido").distinct())
+
+    visit_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_visitante, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_visit = list(Jugador.objects.filter(
+        Q(pk__in=visit_jugador_ids) | Q(equipo=partido.equipo_visitante), activo=True
+    ).order_by("nombre", "apellido").distinct())
     goles = Gol.objects.filter(partido=partido)
     tarjetas = Tarjeta.objects.filter(partido=partido)
     participaciones = {p.jugador_id: p for p in JugadorPartido.objects.filter(partido=partido)}
