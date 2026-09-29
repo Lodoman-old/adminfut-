@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db import models
 from django.utils import timezone
