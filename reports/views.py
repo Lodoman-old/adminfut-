@@ -2321,7 +2321,19 @@ def reporte_registro_pdf(request):
     y = draw_header(p)
     page_num = 1
 
-            # Fondo de la tarjeta
+    for idx, j in enumerate(jugadores_list):
+        col = idx % 2
+        row = (idx // 2) % 4
+
+        if idx > 0 and idx % 8 == 0:
+            p.showPage()
+            page_num += 1
+            y = draw_header(p)
+
+        x = 15 * mm + col * (card_w + gap_x)
+        y = h - 38 * mm - row * (card_h + gap_y)
+
+        # Fondo de la tarjeta
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#cccccc"))
         p.setLineWidth(0.5)
@@ -2370,7 +2382,7 @@ def reporte_registro_pdf(request):
             p.setFillColor(colors.grey)
             p.drawString(x + 38 * mm, y + card_h - 42 * mm, "CURP: " + j.curp)
 
-            # Documento - usar curp
+        # Documento - usar curp
         if j.curp:
             p.setFont("Helvetica", 8)
             p.drawString(x + 38 * mm, y + card_h - 49 * mm, "Doc: " + j.get_tipo_documento_display() + " " + j.curp)
