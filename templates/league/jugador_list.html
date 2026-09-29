@@ -75,7 +75,7 @@
                 {% if user|tiene_permiso:"jugador_editar" %}
                 <!-- Botón para agregar equipo secundario (categorías compatibles) -->
                 {% if cat_id in categorias_editables or user.is_superuser %}
-                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#equipoSecundarioModal" 
+                <button type="button" class="btn btn-sm btn-outline-info d-none" data-bs-toggle="modal" data-bs-target="#equipoSecundarioModal" 
                     data-jugador-id="{{ j.pk }}" 
                     data-jugador-nombre="{{ j.nombre }} {{ j.apellido }}"
                     data-jugador-curp="{{ j.curp }}"
