@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function cargarEquiposCompatibles(catPrincipalId) {
-        fetch('{% url "api_equipos_compatibles" 0 %}'.replace('0', catPrincipalId))
+        fetch('{% url "api_equipos_compatibles" %}'.replace('0', catPrincipalId))
             .then(response => response.json())
             .then(data => {
                 var select = document.getElementById('sec_equipo_id');
