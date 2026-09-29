@@ -25,6 +25,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 class EquipoAdmin(admin.ModelAdmin):
     list_display = ["nombre", "categoria", "activo"]
     list_filter = ["categoria"]
+    search_fields = ["nombre"]
 
 
 class JugadorEquipoInline(admin.TabularInline):

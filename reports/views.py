@@ -1,4 +1,4 @@
-from django.contrib import messages
+﻿from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.timezone import localtime
@@ -20,7 +20,7 @@ from finance.models import Ingreso, ConceptoIngreso
 
 def draw_header(p, width, height, extra_line=""):
     """Dibuja el encabezado de la liga (logo, nombre, datos de contacto) en el PDF.
-    Retorna la posición Y después del encabezado."""
+    Retorna la posici?n Y despu?s del encabezado."""
     from reportlab.lib import colors
     cfg = ConfiguracionLiga.obtener()
     y = height - 30
@@ -46,7 +46,7 @@ def draw_header(p, width, height, extra_line=""):
     p.setFont("Helvetica-Bold", 14)
     p.drawString(x_text, y - 5, cfg.nombre_liga)
 
-    # Dirección y teléfonos
+    # Direcci?n y tel?fonos
     y2 = y - 22
     p.setFont("Helvetica", 8)
     datos = []
@@ -59,13 +59,13 @@ def draw_header(p, width, height, extra_line=""):
     if datos:
         p.drawString(x_text, y2, " | ".join(datos))
 
-    # Línea separadora
+    # L?nea separadora
     y_sep = y2 - 8
     p.setStrokeColor(colors.HexColor("#2d5a27"))
     p.setLineWidth(1.5)
     p.line(30, y_sep, width - 30, y_sep)
 
-    # Línea extra (categoría, temporada, etc.)
+    # L?nea extra (categor?a, temporada, etc.)
     if extra_line:
         lines = extra_line.split("\n")
         y_line = y_sep - 16
@@ -80,7 +80,7 @@ def draw_header(p, width, height, extra_line=""):
 
 
 def draw_footer(p, width, height, font_size=7):
-    """Dibuja el pie de página (redes sociales)."""
+    """Dibuja el pie de p?gina (redes sociales)."""
     cfg = ConfiguracionLiga.obtener()
     if cfg.redes_sociales:
         p.setFont("Helvetica", font_size)
@@ -112,7 +112,7 @@ def reporte_posiciones_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categoría: {cat.nombre}")
+            partes_extra.append(f"Categor?a: {cat.nombre}")
     extra = "\n".join(partes_extra)
     y = draw_header(p, width, height, extra)
 
@@ -200,7 +200,7 @@ def reporte_goleo_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categoría: {cat.nombre}")
+            partes_extra.append(f"Categor?a: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -262,7 +262,7 @@ def reporte_ingresos_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categoría: {cat.nombre}")
+            partes_extra.append(f"Categor?a: {cat.nombre}")
     if concepto_id:
         from finance.models import ConceptoIngreso
         conc = ConceptoIngreso.objects.filter(id=concepto_id).first()
@@ -343,7 +343,7 @@ def reporte_tarjetas_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categoría: {cat.nombre}")
+            partes_extra.append(f"Categor?a: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -414,7 +414,7 @@ def reporte_castigados_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categoría: {cat.nombre}")
+            partes_extra.append(f"Categor?a: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -433,7 +433,7 @@ def reporte_castigados_pdf(request):
             tipo="ROJA", suspension_jornadas__gt=0,
             partido__temporada_id=temp_id,
         ).select_related("jugador", "equipo", "partido__jornada").order_by("-partido__fecha_hora")
-        data = [["#", "Jugador", "Equipo", "Susp.", "Expulsión", "Pendientes"]]
+        data = [["#", "Jugador", "Equipo", "Susp.", "Expulsi?n", "Pendientes"]]
         procesados = set()
         for i, c in enumerate(castigados, 1):
             info = susp_dict.get(c.jugador_id)
@@ -447,7 +447,7 @@ def reporte_castigados_pdf(request):
                         for p in pend_list
                     )
                 else:
-                    pend_text = f"Pendiente ({restantes}) - próxima temporada"
+                    pend_text = f"Pendiente ({restantes}) - pr?xima temporada"
             else:
                 pend_text = "Cumplida"
             data.append([
@@ -476,14 +476,14 @@ def reporte_castigados_pdf(request):
                 )
                 susp_col = env.suspension_jornadas
             else:
-                pend_text = f"Pendiente ({info['restantes']}) - próxima temporada"
+                pend_text = f"Pendiente ({info['restantes']}) - pr?xima temporada"
                 susp_col = env.suspension_jornadas
             data.append([
                 len(data),
                 Paragraph(f"{env.jugador.nombre} {env.jugador.apellido}", ps),
                 Paragraph(env.equipo.nombre if env.equipo else "Expulsado de la liga", ps),
                 susp_col,
-                Paragraph("Suspensión manual", ps),
+                Paragraph("Suspensi?n manual", ps),
                 Paragraph(pend_text, ps),
             ])
         col_widths = [25, 150, 100, 40, 200, 200]
@@ -599,7 +599,7 @@ def reporte_pagos_temporada(request):
                     or 0
                 )
                 pagos[conc.nombre] = total
-            # "Completo" = tiene Inscripción pagada (lo único necesario para iniciar)
+            # "Completo" = tiene Inscripci?n pagada (lo ?nico necesario para iniciar)
             inscripcion_pagada = any(
                 "inscripci" in c.nombre.lower() and pagos.get(c.nombre, 0) > 0
                 for c in conceptos_pago
@@ -642,7 +642,7 @@ def reporte_jornadas_completo(request):
     return render(request, "reports/reporte_jornadas_completo.html", ctx)
 
 
-# ─── Excel (xlsx) exports ───────────────────────────────────────────────────
+# ??? Excel (xlsx) exports ???????????????????????????????????????????????????
 
 
 def _xlsx_response(filename):
@@ -681,7 +681,7 @@ def _get_filtros_comunes(request):
     if cat_id:
         categoria = Categoria.objects.filter(id=cat_id).first()
         if categoria:
-            filtros.append(("Categoría", categoria.nombre))
+            filtros.append(("Categor?a", categoria.nombre))
     if temp_id:
         temporada = Temporada.objects.filter(id=temp_id).first()
         if temporada:
@@ -836,7 +836,7 @@ def reporte_castigados_xlsx(request):
         if jornada_id:
             qs = qs.filter(partido__jornada_id=jornada_id)
         castigados = qs.select_related("jugador", "equipo", "partido__jornada").order_by("-partido__fecha_hora")
-        ws.append(["#", "Jugador", "Equipo", "Suspensión (J)", "Expulsión", "Pendientes"])
+        ws.append(["#", "Jugador", "Equipo", "Suspensi?n (J)", "Expulsi?n", "Pendientes"])
         for i, c in enumerate(castigados, 1):
             prox = Partido.objects.filter(
                 temporada=temp,
@@ -889,7 +889,7 @@ def reporte_castigados_xlsx(request):
                         for p in pend_list
                     )
                 else:
-                    pend_str = f"Pendiente ({rst}) - próxima temporada"
+                    pend_str = f"Pendiente ({rst}) - pr?xima temporada"
                 susp_col = m.jornadas
             num_fila = ws.max_row or 2
             ws.append([
@@ -897,7 +897,7 @@ def reporte_castigados_xlsx(request):
                 f"{m.jugador.nombre} {m.jugador.apellido}",
                 m.equipo.nombre if m.equipo else "Expulsado de la liga",
                 susp_col,
-                "Suspensión manual",
+                "Suspensi?n manual",
                 pend_str,
             ])
     else:
@@ -968,7 +968,7 @@ def reporte_ingresos_xlsx(request):
     return response
 
 
-# ─── Pagos por Temporada ─────────────────────────────────────────────────────
+# ??? Pagos por Temporada ?????????????????????????????????????????????????????
 
 
 def reporte_pagos_pdf(request):
@@ -981,7 +981,7 @@ def reporte_pagos_pdf(request):
     extra = "Reporte de Pagos por Temporada"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Reporte de Pagos\nTemporada: {temp.nombre}\nCategoría: {temp.categoria.nombre}"
+        extra = f"Reporte de Pagos\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1047,7 +1047,7 @@ def reporte_pagos_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categoría", temp.categoria.nombre))
+            filtros.append(("Categor?a", temp.categoria.nombre))
 
     wb, response = _xlsx_response("pagos_temporada")
     ws = wb.active
@@ -1097,7 +1097,7 @@ def reporte_pagos_xlsx(request):
     return response
 
 
-# ─── Juegos por Jornada ──────────────────────────────────────────────────────
+# ??? Juegos por Jornada ??????????????????????????????????????????????????????
 
 
 def reporte_jornadas_pdf(request):
@@ -1110,7 +1110,7 @@ def reporte_jornadas_pdf(request):
     extra = "Juegos por Jornada"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Juegos por Jornada\nTemporada: {temp.nombre}\nCategoría: {temp.categoria.nombre}"
+        extra = f"Juegos por Jornada\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1140,7 +1140,7 @@ def reporte_jornadas_pdf(request):
             p.setFillColor(colors.black)
             page_y -= 16
 
-            hdr = ["Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "Árbitro"]
+            hdr = ["Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "?rbitro"]
             data = [hdr]
             for partido in partidos:
                 data.append([
@@ -1180,7 +1180,7 @@ def reporte_jornadas_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categoría", temp.categoria.nombre))
+            filtros.append(("Categor?a", temp.categoria.nombre))
 
     wb, response = _xlsx_response("juegos_jornada")
     ws = wb.active
@@ -1191,7 +1191,7 @@ def reporte_jornadas_xlsx(request):
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
         jornadas = Jornada.objects.filter(temporada=temp).order_by("numero")
-        headers = ["Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "Árbitro"]
+        headers = ["Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "?rbitro"]
         ws.append(headers)
         for col in range(1, len(headers) + 1):
             cell = ws.cell(row=start, column=col)
@@ -1220,7 +1220,7 @@ def reporte_jornadas_xlsx(request):
     return response
 
 
-# ─── Todos los Juegos ────────────────────────────────────────────────────────
+# ??? Todos los Juegos ????????????????????????????????????????????????????????
 
 
 def reporte_jornadas_completo_pdf(request):
@@ -1233,7 +1233,7 @@ def reporte_jornadas_completo_pdf(request):
     extra = "Todos los Juegos"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Todos los Juegos\nTemporada: {temp.nombre}\nCategoría: {temp.categoria.nombre}"
+        extra = f"Todos los Juegos\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1242,7 +1242,7 @@ def reporte_jornadas_completo_pdf(request):
             "jornada", "equipo_local", "equipo_visitante", "campo", "arbitro"
         ).order_by("jornada__numero", "fecha_hora")
 
-        hdr = ["#", "Jor.", "Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "Árbitro"]
+        hdr = ["#", "Jor.", "Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "?rbitro"]
         data = [hdr]
         for i, partido in enumerate(partidos, 1):
             data.append([
@@ -1303,14 +1303,14 @@ def reporte_jornadas_completo_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categoría", temp.categoria.nombre))
+            filtros.append(("Categor?a", temp.categoria.nombre))
 
     wb, response = _xlsx_response("todos_juegos")
     ws = wb.active
     ws.title = "Todos los Juegos"
 
     start = _add_filtros(ws, filtros)
-    headers = ["#", "Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "Árbitro"]
+    headers = ["#", "Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "?rbitro"]
     ws.append(headers)
     for col in range(1, len(headers) + 1):
         cell = ws.cell(row=start, column=col)
@@ -1336,7 +1336,7 @@ def reporte_jornadas_completo_xlsx(request):
     return response
 
 
-# ─── Cédula Arbitral ─────────────────────────────────────────────────────────
+# ??? C?dula Arbitral ?????????????????????????????????????????????????????????
 
 
 def reporte_cedula_arbitral_xlsx(request, partido_id):
@@ -1363,14 +1363,14 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
 
     wb, response = _xlsx_response(f"cedula_arbitral_{partido_id}")
     ws = wb.active
-    ws.title = "Cédula"
+    ws.title = "C?dula"
 
     # Filtros
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
     ws.cell(row=1, column=1, value=f"{partido.equipo_local} vs {partido.equipo_visitante}").font = openpyxl.styles.Font(bold=True, size=14)
     ws.cell(row=2, column=1, value=f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}").font = openpyxl.styles.Font(italic=True)
     ws.cell(row=3, column=1, value=f"Campo: {partido.campo.nombre if partido.campo else '-'}").font = openpyxl.styles.Font(italic=True)
-    ws.cell(row=4, column=1, value=f"Árbitro: {partido.arbitro.nombre_completo() if partido.arbitro else '---'}").font = openpyxl.styles.Font(italic=True)
+    ws.cell(row=4, column=1, value=f"?rbitro: {partido.arbitro.nombre_completo() if partido.arbitro else '---'}").font = openpyxl.styles.Font(italic=True)
     ws.append([])
     start = 6
 
@@ -1386,11 +1386,11 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
             ws.append([
                 j.dorsal or "-",
                 f"{j.nombre} {j.apellido}",
-                "Sí" if part and part.titular else "",
-                "Sí" if part and not part.titular else "",
+                "S?" if part and part.titular else "",
+                "S?" if part and not part.titular else "",
                 g if g > 0 else "",
-                "Sí" if card["amarillas"] >= 1 else "",
-                "Sí" if card["roja"] else "",
+                "S?" if card["amarillas"] >= 1 else "",
+                "S?" if card["roja"] else "",
             ])
 
     def _logo_src(equipo):
@@ -1478,7 +1478,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             if partido.jornada.numero <= fin:
                 suspendidos.add(r.jugador_id)
 
-    # Verificar elegibilidad para liguilla según % mínimo de juegos
+    # Verificar elegibilidad para liguilla seg?n % m?nimo de juegos
     no_elegibles = set()
     if partido.es_liguilla and partido.temporada.min_porcentaje_liguilla:
         min_pct = partido.temporada.min_porcentaje_liguilla
@@ -1527,17 +1527,17 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.setFont("Helvetica-Bold", 10)
         p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
         p.setFont("Helvetica-Bold", 12)
-        p.drawRightString(w - x0, y0, "CÉDULA ARBITRAL")
-        # El "Equipo A vs Equipo B" central se eliminó: los nombres ya van en
-        # la franja de cada equipo (LOCAL / VISITANTE) con su logo más grande.
+        p.drawRightString(w - x0, y0, "C?DULA ARBITRAL")
+        # El "Equipo A vs Equipo B" central se elimin?: los nombres ya van en
+        # la franja de cada equipo (LOCAL / VISITANTE) con su logo m?s grande.
         y2 = y0 - 24
         p.setFont("Helvetica", 8.5)
         p.drawString(x0, y2, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
         p.drawCentredString(w / 2, y2, f"Campo: {partido.campo.nombre if partido.campo else 'Por definir'}")
         if partido.arbitro:
-            p.drawRightString(w - x0, y2, f"Árbitro: {partido.arbitro.nombre_completo()}")
+            p.drawRightString(w - x0, y2, f"?rbitro: {partido.arbitro.nombre_completo()}")
         else:
-            p.drawRightString(w - x0, y2, "Árbitro: __________________________")
+            p.drawRightString(w - x0, y2, "?rbitro: __________________________")
         return y2 - 15
 
     table_top = cabecera_pagina()
@@ -1678,11 +1678,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
 
-    # Firmas en un solo renglón, al final de la hoja (sin nombres de capitanes)
+    # Firmas en un solo rengl?n, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 9)
     firma_y = footer_y - 28
     p.drawString(left_x, firma_y, "Firma local: ____________")
-    p.drawCentredString(w / 2, firma_y, "Firma del árbitro: ____________")
+    p.drawCentredString(w / 2, firma_y, "Firma del ?rbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     draw_footer(p, w, h, 14)
@@ -1693,7 +1693,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
 
 def reporte_suscriptores(request):
-    """Página web con lista de suscriptores."""
+    """P?gina web con lista de suscriptores."""
     if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("reporte_suscriptores", False):
         return redirect("login")
     from league.models import Categoria
@@ -1729,16 +1729,16 @@ def reporte_suscriptores_pdf(request):
         if cat:
             extra += f" - {cat.nombre}"
     draw_header(p, w, extra)
-    headers = ["Email", "Usuario", "Categorías", "Roles", "Estadísticas", "Activo", "Creado"]
+    headers = ["Email", "Usuario", "Categor?as", "Roles", "Estad?sticas", "Activo", "Creado"]
     data = [headers]
     for s in qs:
         cats = ", ".join(s.categorias.values_list("nombre", flat=True)) if s.categorias.exists() else "Todas"
         usuario = s.usuario.username if s.usuario else "-"
         data.append([
             s.email, usuario, cats,
-            "Sí" if s.recibir_roles else "No",
-            "Sí" if s.recibir_estadisticas else "No",
-            "Sí" if s.activo else "No",
+            "S?" if s.recibir_roles else "No",
+            "S?" if s.recibir_estadisticas else "No",
+            "S?" if s.activo else "No",
             s.creado.strftime("%d/%m/%Y"),
         ])
     table = Table(data, colWidths=[180, 100, 120, 60, 60, 60, 80])
@@ -1788,7 +1788,7 @@ def _imagen_pdf(filefield, timeout=15):
 
 
 def _suspensos_globales():
-    """Jugadores con suspensión en toda la liga (sin equipo): no generan credencial."""
+    """Jugadores con suspensi?n en toda la liga (sin equipo): no generan credencial."""
     return set(SuspensionJugador.objects.filter(activo=True, equipo__isnull=True).values_list("jugador_id", flat=True))
 
 
@@ -2072,7 +2072,7 @@ def reporte_credenciales_pdf(request):
                 outlined_text(name_cx - ln_w / 2, ly, ln, name_font, name_size)
 
             # Category (9pt)
-            outlined_text(text_x, content_y + content_h - 56, f"Categoría: {cat.nombre}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 56, f"Categor?a: {cat.nombre}", data_font, 9)
 
             # Documento (9pt)
             tipo_label = {"CURP": "CURP", "PAS": "PASAPORTE", "INM": "INM", "OTR": "DOC"}.get(j.tipo_documento, "CURP")
@@ -2119,7 +2119,7 @@ def reporte_credenciales_pdf(request):
                     p.setStrokeColor(colors.HexColor("#9a9a9a"))
                     p.drawPath(star, fill=1, stroke=1)
 
-            # Dorsal badge (rectangular, opcional según el checkbox "número")
+            # Dorsal badge (rectangular, opcional seg?n el checkbox "n?mero")
             if mostrar_numero:
                 jersey_w = 28
                 jersey_body_h = 20
@@ -2165,12 +2165,12 @@ def reporte_suscriptores_xlsx(request):
         from league.models import Categoria
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            filtros.append(("Categoría", cat.nombre))
+            filtros.append(("Categor?a", cat.nombre))
     start = _add_filtros(ws, filtros)
     qs = SuscripcionEmail.objects.all().order_by("-creado")
     if cat_id:
         qs = qs.filter(categorias__id=cat_id)
-    headers = ["Email", "Usuario", "Categorías", "Recibe Roles", "Recibe Estadísticas", "Activo", "Creado"]
+    headers = ["Email", "Usuario", "Categor?as", "Recibe Roles", "Recibe Estad?sticas", "Activo", "Creado"]
     from openpyxl.styles import Font, PatternFill
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=start, column=col, value=h)
@@ -2182,178 +2182,180 @@ def reporte_suscriptores_xlsx(request):
         ws.cell(row=i, column=1, value=s.email)
         ws.cell(row=i, column=2, value=usuario)
         ws.cell(row=i, column=3, value=cats)
-        ws.cell(row=i, column=4, value="Sí" if s.recibir_roles else "No")
-        ws.cell(row=i, column=5, value="Sí" if s.recibir_estadisticas else "No")
-        ws.cell(row=i, column=6, value="Sí" if s.activo else "No")
+        ws.cell(row=i, column=4, value="S?" if s.recibir_roles else "No")
+        ws.cell(row=i, column=5, value="S?" if s.recibir_estadisticas else "No")
+        ws.cell(row=i, column=6, value="S?" if s.activo else "No")
         ws.cell(row=i, column=7, value=s.creado.strftime("%d/%m/%Y"))
     # Ajustar ancho de columnas
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[chr(64 + col)].width = 20
     wb.save(response)
     return response
-d e f   r e p o r t e _ r e g i s t r o _ p d f ( r e q u e s t ) :  
-         " " " E x p o r t a   a   P D F   e l   r e p o r t e   d e   r e g i s t r o   d e   j u g a d o r e s   d e   u n   e q u i p o . " " "  
-         f r o m   l e a g u e . m o d e l s   i m p o r t   C a t e g o r i a ,   T e m p o r a d a ,   E q u i p o ,   J u g a d o r ,   J u g a d o r E q u i p o  
-         f r o m   d j a n g o . d b . m o d e l s   i m p o r t   Q  
-         f r o m   r e p o r t l a b . l i b . p a g e s i z e s   i m p o r t   l e t t e r  
-         f r o m   r e p o r t l a b . p d f g e n   i m p o r t   c a n v a s  
-         f r o m   r e p o r t l a b . l i b   i m p o r t   c o l o r s  
-         f r o m   r e p o r t l a b . l i b . u n i t s   i m p o r t   m m  
-         i m p o r t   o s  
-         f r o m   d j a n g o . c o n f   i m p o r t   s e t t i n g s  
-  
-         c a t _ i d   =   r e q u e s t . G E T . g e t ( " c a t e g o r i a " )   o r   " "  
-         t e m p _ i d   =   r e q u e s t . G E T . g e t ( " t e m p o r a d a " )   o r   " "  
-         e q _ i d   =   r e q u e s t . G E T . g e t ( " e q u i p o " )   o r   " "  
-  
-         i f   n o t   e q _ i d :  
-                 m e s s a g e s . e r r o r ( r e q u e s t ,   " D e b e s   s e l e c c i o n a r   u n   e q u i p o . " )  
-                 r e t u r n   r e d i r e c t ( " r e p o r t e _ r e g i s t r o " )  
-  
-         e q u i p o   =   E q u i p o . o b j e c t s . f i l t e r ( p k = e q _ i d ) . f i r s t ( )  
-         i f   n o t   e q u i p o :  
-                 m e s s a g e s . e r r o r ( r e q u e s t ,   " E q u i p o   n o   e n c o n t r a d o . " )  
-                 r e t u r n   r e d i r e c t ( " r e p o r t e _ r e g i s t r o " )  
-  
-         i d s   =   J u g a d o r E q u i p o . o b j e c t s . f i l t e r (  
-                 e q u i p o = e q u i p o ,   a c t i v o = T r u e  
-         ) . v a l u e s _ l i s t ( " j u g a d o r _ i d " ,   f l a t = T r u e )  
-         f r o m   d j a n g o . d b . m o d e l s   i m p o r t   Q  
-         j u g a d o r e s   =   (  
-                 J u g a d o r . o b j e c t s . f i l t e r (  
-                         Q ( p k _ _ i n = i d s )   |   Q ( e q u i p o = e q u i p o )  
-                 ) . d i s t i n c t ( )  
-                 . s e l e c t _ r e l a t e d ( " e q u i p o " )  
-                 . o r d e r _ b y ( " a p e l l i d o " ,   " n o m b r e " )  
-         )  
-  
-         #   C o n f i g u r a c i � n   d e   l a   l i g a  
-         f r o m   l e a g u e . m o d e l s   i m p o r t   C o n f i g u r a c i o n L i g a  
-         c o n f i g   =   C o n f i g u r a c i o n L i g a . o b t e n e r ( )  
-  
-         #   C r e a r   P D F  
-         r e s p o n s e   =   H t t p R e s p o n s e ( c o n t e n t _ t y p e = " a p p l i c a t i o n / p d f " )  
-         r e s p o n s e [ " C o n t e n t - D i s p o s i t i o n " ]   =   f ' a t t a c h m e n t ;   f i l e n a m e = " r e g i s t r o _ { e q u i p o . n o m b r e . r e p l a c e ( "   " ,   " _ " ) } . p d f " '  
-  
-         p   =   c a n v a s . C a n v a s ( r e s p o n s e ,   p a g e s i z e = l e t t e r )  
-         w ,   h   =   l e t t e r  
-  
-         #   E n c a b e z a d o   p o r   p � g i n a  
-         d e f   d r a w _ h e a d e r ( p ) :  
-                 y   =   h   -   2 0   *   m m  
-                 p . s e t F i l l C o l o r ( c o l o r s . b l a c k )  
-                 p . s e t F o n t ( " H e l v e t i c a - B o l d " ,   1 6 )  
-  
-                 #   L o g o   d e   l a   l i g a  
-                 c f g   =   C o n f i g u r a c i o n L i g a . o b t e n e r ( )  
-                 i f   c f g . l o g o :  
-                         t r y :  
-                                 l o c a l _ p a t h   =   o s . p a t h . j o i n ( s e t t i n g s . M E D I A _ R O O T ,   c f g . l o g o . n a m e )  
-                                 i f   o s . p a t h . e x i s t s ( l o c a l _ p a t h ) :  
-                                         p . d r a w I m a g e ( l o c a l _ p a t h ,   2 0   *   m m ,   h   -   2 5   *   m m ,   w i d t h = 2 5   *   m m ,   h e i g h t = 2 5   *   m m ,   p r e s e r v e A s p e c t R a t i o = T r u e ,   m a s k = ' a u t o ' )  
-                         e x c e p t   E x c e p t i o n :  
-                                 p a s s  
-                 p . s e t F o n t ( " H e l v e t i c a - B o l d " ,   1 8 )  
-                 p . d r a w S t r i n g ( 2 5   *   m m ,   h   -   1 5   *   m m ,   c f g . n o m b r e _ l i g a )  
-                 p . s e t F o n t ( " H e l v e t i c a " ,   1 0 )  
-                 p . d r a w S t r i n g ( 2 5   *   m m ,   h   -   2 2   *   m m ,   f " R e g i s t r o   d e   j u g a d o r e s   -   { e q u i p o . n o m b r e } " )  
-                 p . s e t F o n t ( " H e l v e t i c a " ,   9 )  
-                 p . d r a w S t r i n g ( 2 5   *   m m ,   h   -   2 7   *   m m ,   f " C a t e g o r � a :   { e q u i p o . c a t e g o r i a . n o m b r e }     |     T e m p o r a d a :   { e q u i p o . t e m p o r a d a . n o m b r e   i f   e q u i p o . t e m p o r a d a   e l s e   ' N / A ' } " )  
-                 #   L � n e a   s e p a r a d o r a  
-                 p . s e t S t r o k e C o l o r ( c o l o r s . b l a c k )  
-                 p . s e t L i n e W i d t h ( 0 . 5 )  
-                 p . l i n e ( 1 5   *   m m ,   h   -   3 2   *   m m ,   w   -   1 5   *   m m ,   h   -   3 2   *   m m )  
-                 r e t u r n   h   -   3 8   *   m m  
-  
-         #   D a t o s   d e   j u g a d o r e s  
-         j u g a d o r e s _ l i s t   =   l i s t ( j u g a d o r e s )  
-         t o t a l _ j u g a d o r e s   =   l e n ( j u g a d o r e s _ l i s t )  
-  
-         #   L a y o u t :   t a r j e t a s   d e   j u g a d o r e s   e n   g r i d   ( 2   c o l u m n a s   x   4   f i l a s   =   8   p o r   p � g i n a )  
-         c a r d _ w   =   ( w   -   3 0   *   m m )   /   2  
-         c a r d _ h   =   7 5   *   m m  
-         g a p _ x   =   5   *   m m  
-         g a p _ y   =   8   *   m m  
-  
-         p a g e _ n u m   =   1  
-         p . s e t T i t l e ( f " R e g i s t r o   { e q u i p o . n o m b r e } " )  
-         p . s e t A u t h o r ( c o n f i g . n o m b r e _ l i g a )  
-  
-         y   =   d r a w _ h e a d e r ( p )  
-         p a g e _ n u m   =   1  
-  
-         f o r   i d x ,   j   i n   e n u m e r a t e ( j u g a d o r e s _ l i s t ) :  
-                 c o l   =   i d x   %   2  
-                 r o w   =   ( i d x   / /   2 )   %   4  
-  
-                 i f   i d x   >   0   a n d   i d x   %   8   = =   0 :  
-                         p . s h o w P a g e ( )  
-                         p a g e _ n u m   + =   1  
-                         y   =   d r a w _ h e a d e r ( p )  
-  
-                 x   =   1 5   *   m m   +   c o l   *   ( c a r d _ w   +   g a p _ x )  
-                 y   =   h   -   3 8   *   m m   -   r o w   *   ( c a r d _ h   +   g a p _ y )  
-  
-                 #   F o n d o   d e   l a   t a r j e t a  
-                 p . s e t F i l l C o l o r ( c o l o r s . w h i t e )  
-                 p . s e t S t r o k e C o l o r ( c o l o r s . H e x C o l o r ( " # c c c c c c " ) )  
-                 p . s e t L i n e W i d t h ( 0 . 5 )  
-                 p . r o u n d R e c t ( 1 5   *   m m ,   y ,   c a r d _ w   -   4   *   m m ,   c a r d _ h ,   3   *   m m ,   f i l l = 1 ,   s t r o k e = 1 )  
-  
-                 #   F o t o   d e l   j u g a d o r  
-                 i m g _ x   =   3   *   m m  
-                 i m g _ y   =   c a r d _ h   -   3 8   *   m m  
-                 i m g _ w   =   3 2   *   m m  
-                 i m g _ h   =   3 8   *   m m  
-                 p . s e t F i l l C o l o r ( c o l o r s . H e x C o l o r ( " # f 0 f 0 f 0 " ) )  
-                 p . r o u n d R e c t ( 1 5   *   m m   +   i m g _ x ,   y   +   i m g _ y ,   i m g _ w ,   i m g _ h ,   2   *   m m ,   f i l l = 1 ,   s t r o k e = 0 )  
-                 i f   j . f o t o :  
-                         t r y :  
-                                 l o c a l _ p a t h   =   o s . p a t h . j o i n ( s e t t i n g s . M E D I A _ R O O T ,   j . f o t o . n a m e )  
-                                 i f   o s . p a t h . e x i s t s ( l o c a l _ p a t h ) :  
-                                         p . d r a w I m a g e ( l o c a l _ p a t h ,   1 5   *   m m   +   i m g _ x ,   y   +   i m g _ y ,   w i d t h = i m g _ w ,   h e i g h t = i m g _ h ,   p r e s e r v e A s p e c t R a t i o = T r u e ,   m a s k = ' a u t o ' )  
-                         e x c e p t   E x c e p t i o n :  
-                                 p a s s  
-  
-                 #   N o m b r e   y   a p e l l i d o  
-                 p . s e t F o n t ( " H e l v e t i c a - B o l d " ,   1 1 )  
-                 p . s e t F i l l C o l o r ( c o l o r s . b l a c k )  
-                 p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   1 0   *   m m ,   f " { j . n o m b r e }   { j . a p e l l i d o } " )  
-  
-                 #   D o r s a l  
-                 i f   j . d o r s a l :  
-                         p . s e t F o n t ( " H e l v e t i c a - B o l d " ,   1 0 )  
-                         p . s e t F i l l C o l o r ( c o l o r s . H e x C o l o r ( " # 0 0 3 3 6 6 " ) )  
-                         p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   2 0   *   m m ,   f " D o r s a l :   { j . d o r s a l } " )  
-  
-                 #   P o s i c i � n  
-                 i f   j . p o s i c i o n :  
-                         p . s e t F o n t ( " H e l v e t i c a " ,   9 )  
-                         p . s e t F i l l C o l o r ( c o l o r s . b l a c k )  
-                         p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   2 7   *   m m ,   f " P o s i c i � n :   { j . g e t _ p o s i c i o n _ d i s p l a y ( ) } " )  
-  
-                 #   E d a d  
-                 i f   j . e d a d :  
-                         p . s e t F o n t ( " H e l v e t i c a " ,   9 )  
-                         p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   3 4   *   m m ,   f " E d a d :   { j . e d a d }   a � o s " )  
-  
-                 #   C U R P  
-                 i f   j . c u r p :  
-                         p . s e t F o n t ( " H e l v e t i c a " ,   8 )  
-                         p . s e t F i l l C o l o r ( c o l o r s . g r e y )  
-                         p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   4 2   *   m m ,   f " C U R P :   { j . c u r p } " )  
-  
-                 #   D o c u m e n t o  
-                 i f   j . d o c u m e n t o :  
-                         p . s e t F o n t ( " H e l v e t i c a " ,   8 )  
-                         p . d r a w S t r i n g ( 1 5   *   m m   +   3 8   *   m m ,   y   +   c a r d _ h   -   4 9   *   m m ,   f " D o c :   { j . g e t _ t i p o _ d o c u m e n t o _ d i s p l a y ( ) } " )  
-  
-         #   F o o t e r   e n   � l t i m a   p � g i n a  
-         p . s e t F o n t ( " H e l v e t i c a " ,   8 )  
-         p . s e t F i l l C o l o r ( c o l o r s . g r e y )  
-         p . d r a w S t r i n g ( 2 0   *   m m ,   1 0   *   m m ,   f " G e n e r a d o   p o r   { c o n f i g . n o m b r e _ l i g a } " )  
-         p . d r a w R i g h t S t r i n g ( w   -   2 0   *   m m ,   1 0   *   m m ,   f " T o t a l   j u g a d o r e s :   { t o t a l _ j u g a d o r e s } " )  
-  
-         p . s a v e ( )  
-         r e t u r n   r e s p o n s e  
- 
+
+
+def reporte_registro_pdf(request):
+    """Exporta a PDF el reporte de registro de jugadores de un equipo."""
+    from league.models import Categoria, Temporada, Equipo, Jugador, JugadorEquipo
+    from django.db.models import Q
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    import os
+    from django.conf import settings
+
+    cat_id = request.GET.get("categoria") or ""
+    temp_id = request.GET.get("temporada") or ""
+    eq_id = request.GET.get("equipo") or ""
+
+    if not eq_id:
+        messages.error(request, "Debes seleccionar un equipo.")
+        return redirect("reporte_registro")
+
+    equipo = Equipo.objects.filter(pk=eq_id).first()
+    if not equipo:
+        messages.error(request, "Equipo no encontrado.")
+        return redirect("reporte_registro")
+
+    ids = JugadorEquipo.objects.filter(
+        equipo=equipo, activo=True
+    ).values_list("jugador_id", flat=True)
+    from django.db.models import Q
+    jugadores = (
+        Jugador.objects.filter(
+            Q(pk__in=ids) | Q(equipo=equipo)
+        ).distinct()
+        .select_related("equipo")
+        .order_by("apellido", "nombre")
+    )
+
+    # Configuración de la liga
+    from league.models import ConfiguracionLiga
+    config = ConfiguracionLiga.obtener()
+
+    # Crear PDF
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="registro_{}.pdf"'.format(equipo.nombre.replace(" ", "_"))
+
+    p = canvas.Canvas(response, pagesize=letter)
+    w, h = letter
+
+    # Encabezado por página
+    def draw_header(p):
+        y = h - 20 * mm
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 16)
+
+        # Logo de la liga
+        cfg = ConfiguracionLiga.obtener()
+        if cfg.logo:
+            try:
+                local_path = os.path.join(settings.MEDIA_ROOT, cfg.logo.name)
+                if os.path.exists(local_path):
+                    p.drawImage(local_path, 20 * mm, h - 25 * mm, width=25 * mm, height=25 * mm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        p.setFont("Helvetica-Bold", 18)
+        p.drawString(25 * mm, h - 15 * mm, cfg.nombre_liga)
+        p.setFont("Helvetica", 10)
+        p.drawString(25 * mm, h - 22 * mm, "Registro de jugadores - " + equipo.nombre)
+        p.setFont("Helvetica", 9)
+        temp_name = equipo.temporada.nombre if equipo.temporada else "N/A"
+        p.drawString(25 * mm, h - 27 * mm, "Categoría: " + equipo.categoria.nombre + "  |  Temporada: " + temp_name)
+        # Línea separadora
+        p.setStrokeColor(colors.black)
+        p.setLineWidth(0.5)
+        p.line(15 * mm, h - 32 * mm, w - 15 * mm, h - 32 * mm)
+        return h - 38 * mm
+
+    # Datos de jugadores
+    jugadores_list = list(jugadores)
+    total_jugadores = len(jugadores_list)
+
+    # Layout: tarjetas de jugadores en grid (2 columnas x 4 filas = 8 por página)
+    card_w = (w - 30 * mm) / 2
+    card_h = 75 * mm
+    gap_x = 5 * mm
+    gap_y = 8 * mm
+
+    page_num = 1
+    p.setTitle("Registro " + equipo.nombre)
+    p.setAuthor(config.nombre_liga)
+
+    y = draw_header(p)
+    page_num = 1
+
+    for idx, j in enumerate(jugadores_list):
+        col = idx % 2
+        row = (idx // 2) % 4
+
+        if idx > 0 and idx % 8 == 0:
+            p.showPage()
+            page_num += 1
+            y = draw_header(p)
+
+        x = 15 * mm + col * (card_w + gap_x)
+        y = h - 38 * mm - row * (card_h + gap_y)
+
+        # Fondo de la tarjeta
+        p.setFillColor(colors.white)
+        p.setStrokeColor(colors.HexColor("#cccccc"))
+        p.setLineWidth(0.5)
+        p.roundRect(15 * mm, y, card_w - 4 * mm, card_h, 3 * mm, fill=1, stroke=1)
+
+        # Foto del jugador
+        img_x = 3 * mm
+        img_y = card_h - 38 * mm
+        img_w = 32 * mm
+        img_h = 38 * mm
+        p.setFillColor(colors.HexColor("#f0f0f0"))
+        p.roundRect(15 * mm + img_x, y + img_y, img_w, img_h, 2 * mm, fill=1, stroke=0)
+        if j.foto:
+            try:
+                local_path = os.path.join(settings.MEDIA_ROOT, j.foto.name)
+                if os.path.exists(local_path):
+                    p.drawImage(local_path, 15 * mm + img_x, y + img_y, width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        # Nombre y apellido
+        p.setFont("Helvetica-Bold", 11)
+        p.setFillColor(colors.black)
+        p.drawString(15 * mm + 38 * mm, y + card_h - 10 * mm, j.nombre + " " + j.apellido)
+
+        # Dorsal
+        if j.dorsal:
+            p.setFont("Helvetica-Bold", 10)
+            p.setFillColor(colors.HexColor("#003366"))
+            p.drawString(15 * mm + 38 * mm, y + card_h - 20 * mm, "Dorsal: " + str(j.dorsal))
+
+        # Posición
+        if j.posicion:
+            p.setFont("Helvetica", 9)
+            p.setFillColor(colors.black)
+            p.drawString(15 * mm + 38 * mm, y + card_h - 27 * mm, "Posición: " + j.get_posicion_display())
+
+        # Edad
+        if j.edad:
+            p.setFont("Helvetica", 9)
+            p.drawString(15 * mm + 38 * mm, y + card_h - 34 * mm, "Edad: " + str(j.edad) + " años")
+
+        # CURP
+        if j.curp:
+            p.setFont("Helvetica", 8)
+            p.setFillColor(colors.grey)
+            p.drawString(15 * mm + 38 * mm, y + card_h - 42 * mm, "CURP: " + j.curp)
+
+        # Documento
+        if j.documento:
+            p.setFont("Helvetica", 8)
+            p.drawString(15 * mm + 38 * mm, y + card_h - 49 * mm, "Doc: " + j.get_tipo_documento_display())
+
+    # Footer en última página
+    p.setFont("Helvetica", 8)
+    p.setFillColor(colors.grey)
+    p.drawString(20 * mm, 10 * mm, "Generado por " + config.nombre_liga)
+    p.drawRightString(w - 20 * mm, 10 * mm, "Total jugadores: " + str(total_jugadores))
+
+    p.save()
+    return response
