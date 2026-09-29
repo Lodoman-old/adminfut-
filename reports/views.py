@@ -2382,10 +2382,10 @@ def reporte_registro_pdf(request):
             p.setFillColor(colors.grey)
             p.drawString(15 * mm + 38 * mm, y + card_h - 42 * mm, "CURP: " + j.curp)
 
-        # Documento
-        if j.documento:
+            # Documento - usar curp
+        if j.curp:
             p.setFont("Helvetica", 8)
-            p.drawString(15 * mm + 38 * mm, y + card_h - 49 * mm, "Doc: " + j.get_tipo_documento_display())
+            p.drawString(15 * mm + 38 * mm, y + card_h - 49 * mm, "Doc: " + j.get_tipo_documento_display() + " " + j.curp)
 
     # Footer en última página
     p.setFont("Helvetica", 8)
