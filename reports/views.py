@@ -2318,7 +2318,7 @@ def reporte_registro_pdf(request):
     p.setTitle("Registro " + equipo.nombre)
     p.setAuthor(config.nombre_liga)
 
-    y = draw_header(p)
+    y = draw_header(p) - card_h  # Ajustar para que la tarjeta no se empalme con el header
     page_num = 1
 
     for idx, j in enumerate(jugadores_list):
@@ -2372,9 +2372,9 @@ def reporte_registro_pdf(request):
             p.drawString(x + 38 * mm, y + card_h - 27 * mm, "Posición: " + j.get_posicion_display())
 
         # Edad
-        if j.edad:
+        if j.edad():
             p.setFont("Helvetica", 9)
-            p.drawString(x + 38 * mm, y + card_h - 34 * mm, "Edad: " + str(j.edad) + " años")
+            p.drawString(x + 38 * mm, y + card_h - 34 * mm, "Edad: " + str(j.edad()) + " años")
 
         # CURP
         if j.curp:
