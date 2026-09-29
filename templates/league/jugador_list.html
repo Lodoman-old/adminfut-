@@ -260,7 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function cargarEquiposCompatibles(catPrincipalId) {
-        fetch('{% url "api_equipos_compatibles" %}'.replace('0', catPrincipalId))
+        fetch('{% url "api_equipos_compatibles" %}', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    },
+    body: JSON.stringify({ categoria_id: catPrincipalId })
+})
             .then(response => response.json())
             .then(data => {
                 var select = document.getElementById('sec_equipo_id');
@@ -383,20 +390,6 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var el = document.getElementById('modalAlertaEdad');
-    var modal = new bootstrap.Modal(el, {backdrop: 'static', keyboard: false});
-    modal.show();
-    function cleanup() {
-        modal.hide();
-        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('padding-right');
-        document.body.style.removeProperty('overflow');
-    }
-    document.getElementById('btn-cerrar-modal-edad').addEventListener('click', cleanup);
-    document.getElementById('btn-cerrar-modal-edad-ok').addEventListener('click', cleanup);
-});
 </script>
 
 {% endblock %}

@@ -39,7 +39,7 @@ class JugadorEquipoInline(admin.TabularInline):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.filter(es_principal=False).select_related("equipo", "equipo__categoria")
+        return qs.select_related("equipo", "equipo__categoria")
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "equipo":
@@ -57,7 +57,7 @@ class JugadorAdmin(admin.ModelAdmin):
     inlines = [JugadorEquipoInline]
 
     def equipos_extra(self, obj):
-        extras = obj.registros_equipo.filter(es_principal=False)
+        extras = obj.registros_equipo.all()
         if extras:
             return ", ".join(r.equipo.nombre for r in extras)
         return "-"
