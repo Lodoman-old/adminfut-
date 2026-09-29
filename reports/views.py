@@ -2309,10 +2309,15 @@ def reporte_registro_pdf(request):
     total_jugadores = len(jugadores_list)
 
     # Layout: tarjetas de jugadores en grid (2 columnas x 4 filas = 8 por página)
-    card_w = (w - 30 * mm) / 2
-    card_h = 75 * mm
+    # Márgenes más amplios para impresión (no al ras de la hoja)
+    margin_left = 20 * mm
+    margin_right = 20 * mm
+    margin_top = 45 * mm   # espacio para header
+    margin_bottom = 20 * mm
+    card_w = (w - margin_left - margin_right - 5 * mm) / 2  # 5mm gap entre columnas
+    card_h = 70 * mm  # un poco más pequeña para que quepa bien
     gap_x = 5 * mm
-    gap_y = 8 * mm
+    gap_y = 10 * mm  # más espacio vertical entre filas
 
     page_num = 1
     p.setTitle("Registro " + equipo.nombre)
@@ -2389,18 +2394,17 @@ def reporte_registro_pdf(request):
             p.setFont("Helvetica", 9)
             p.drawString(card_x + 3 * mm, card_y_top - 41 * mm, "Edad: " + str(edad) + " años")
 
-        # CURP
-        if j.curp:
-            p.setFont("Helvetica", 8)
-            p.setFillColor(colors.grey)
-            p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "CURP: " + j.curp)
-
-        # Tipo y número de documento
+        # Documento (incluye CURP si existe)
         if j.curp or j.tipo_documento:
             p.setFont("Helvetica", 7)
             p.setFillColor(colors.grey)
-            doc_text = j.get_tipo_documento_display() + ": " + (j.curp or "—")
-            p.drawString(card_x + 3 * mm, card_y_top - 57 * mm, "Doc: " + doc_text)
+            doc_parts = []
+            if j.tipo_documento:
+                doc_parts.append(j.get_tipo_documento_display())
+            if j.curp:
+                doc_parts.append(j.curp)
+            doc_text = " | ".join(doc_parts) if doc_parts else "—"
+            p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "Doc: " + doc_text)
 
     # Footer en última página
     p.setFont("Helvetica", 8)
