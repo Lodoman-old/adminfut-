@@ -2329,26 +2329,28 @@ def reporte_registro_pdf(request):
     # Iterar jugadores y dibujar tarjetas
     for idx, j in enumerate(jugadores_list):
         col = idx % 2
-        row = (idx // 2) % 4
+        row_in_page = (idx // 2) % 4
 
         if idx > 0 and idx % 8 == 0:
             p.showPage()
             page_num += 1
-            y = draw_header(p) - card_h
 
-        # Posición de la tarjeta (x, y es la esquina SUPERIOR IZQUIERDA de la tarjeta)
-        col_x = 15 * mm + col * (card_w + gap_x)
-        y_top = h - 38 * mm - row * (card_h + gap_y)  # Esquina superior izquierda de la tarjeta
+        # Posición de la tarjeta
+        x = margin_left + col * (card_w + gap_x)
+        # Calcular y basada en la página actual (después del header)
+        # row_in_page 0,1,2,3 dentro de cada página de 8 tarjetas
+        y = draw_header(p) - card_h - row_in_page * (card_h + gap_y)
+        x = margin_left + col * (card_w + gap_x)
 
-        # Fondo de la tarjeta (redondeada)
+        # Fondo de la tarjeta (redondeada) - dibujar desde y_top - card_h hasta y_top
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#cccccc"))
         p.setLineWidth(0.5)
-        p.roundRect(15 * mm + col * (card_w + gap_x), y_top - card_h, card_w - 4 * mm, card_h, 3 * mm, fill=1, stroke=1)
+        p.roundRect(x, y, card_w - 4 * mm, card_h, 3 * mm, fill=1, stroke=1)
 
         # Coordenadas internas de la tarjeta (origen en esquina superior izquierda)
-        card_x = 15 * mm + col * (card_w + gap_x)
-        card_y_top = y_top
+        card_x = x
+        card_y_top = y  # y ya es la esquina superior de la tarjeta
 
         # Foto del jugador (esquina superior derecha de la tarjeta)
         img_w = 32 * mm
@@ -2405,6 +2407,15 @@ def reporte_registro_pdf(request):
                 doc_parts.append(j.curp)
             doc_text = " | ".join(doc_parts) if doc_parts else "—"
             p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "Doc: " + doc_text)
+
+    # Footer en última página
+    p.setFont("Helvetica", 8)
+    p.setFillColor(colors.grey)
+    p.drawString(20 * mm, 10 * mm, "Generado por " + config.nombre_liga)
+    p.drawRightString(w - 20 * mm, 10 * mm, "Total jugadores: " + str(total_jugadores))
+
+    p.save()
+    return response
 
     # Footer en última página
     p.setFont("Helvetica", 8)
