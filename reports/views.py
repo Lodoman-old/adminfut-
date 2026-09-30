@@ -2272,55 +2272,45 @@ def reporte_registro_pdf(request):
 
     # Encabezado por página
     def draw_header(p):
-        y = h - 18 * mm
+        y = h - 15 * mm
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 18)
 
-        # Logo de la liga (más grande y visible)
+        # Logo de la liga (más grande y visible, a la izquierda)
         cfg = ConfiguracionLiga.obtener()
         if cfg.logo:
             try:
                 local_path = os.path.join(settings.MEDIA_ROOT, cfg.logo.name)
                 if os.path.exists(local_path):
-                    p.drawImage(local_path, 15 * mm, h - 30 * mm, width=30 * mm, height=30 * mm, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(local_path, 15 * mm, h - 35 * mm, width=35 * mm, height=30 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
-        # Logo del equipo
+        # Logo del equipo (a la derecha, separado del nombre de la liga)
         if equipo.logo:
             try:
                 local_path = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
                 if os.path.exists(local_path):
-                    p.drawImage(local_path, w - 50 * mm, h - 28 * mm, width=20 * mm, height=20 * mm, preserveAspectRatio=True, mask='auto')
-            except Exception:
-                pass
-        # También intentar con _imagen_pdf para logos en Cloudinary
-        if equipo.logo:
-            try:
-                from reports.views import _imagen_pdf
-                img_reader = _imagen_pdf(equipo.logo)
-                if img_reader:
-                    p.drawImage(img_reader, w - 50 * mm, h - 28 * mm, width=20 * mm, height=20 * mm, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(local_path, w - 45 * mm, h - 28 * mm, width=20 * mm, height=20 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
 
-        p.setFont("Helvetica-Bold", 20)
-        p.drawString(25 * mm, h - 18 * mm, cfg.nombre_liga)
+        p.setFont("Helvetica-Bold", 22)
+        p.drawString(65 * mm, h - 20 * mm, cfg.nombre_liga)
         p.setFont("Helvetica", 11)
-        p.drawString(25 * mm, h - 24 * mm, "Registro de jugadores - " + equipo.nombre)
+        p.drawString(25 * mm, h - 26 * mm, "Registro de jugadores - " + equipo.nombre)
         p.setFont("Helvetica", 10)
-        # Obtener nombre de la temporada desde temp_id del request
         from league.models import Temporada
         temp_name = "N/A"
         if temp_id:
             temp = Temporada.objects.filter(pk=temp_id).first()
             if temp:
                 temp_name = temp.nombre
-        p.drawString(25 * mm, h - 30 * mm, "Categoría: " + equipo.categoria.nombre + "  |  Temporada: " + temp_name)
+        p.drawString(25 * mm, h - 32 * mm, "Categoría: " + equipo.categoria.nombre + "  |  Temporada: " + temp_name)
         # Línea separadora
         p.setStrokeColor(colors.black)
         p.setLineWidth(0.5)
-        p.line(15 * mm, h - 35 * mm, w - 15 * mm, h - 35 * mm)
-        return h - 45 * mm
+        p.line(15 * mm, h - 38 * mm, w - 15 * mm, h - 35 * mm)
+        return h - 48 * mm  # Y donde empieza el contenido (abajo del header)
 
     # Datos de jugadores
     jugadores_list = list(jugadores)
@@ -2328,14 +2318,14 @@ def reporte_registro_pdf(request):
 
     # Layout: tarjetas de jugadores en grid (2 columnas x 3 filas = 6 por página)
     # Márgenes amplios para impresión
-    margin_left = 20 * mm
+    margin_left = 15 * mm
     margin_right = 18 * mm
     margin_top = 50 * mm   # espacio para header
     margin_bottom = 18 * mm
     card_w = (w - 36 * mm) / 2  # (216mm - 36mm - 5mm gap) / 2 = 87.5mm
-    card_h = 75 * mm  # más alta para que quepa todo cómodo
+    card_h = 75 * mm  # más pequeña para que quepan 8 por página
     gap_x = 5 * mm
-    gap_y = 15 * mm  # más espacio vertical
+    gap_y = 15 * mm  # más espacio vertical entre filas
 
     page_num = 1
     p.setTitle("Registro " + equipo.nombre)
@@ -2352,59 +2342,58 @@ def reporte_registro_pdf(request):
 
         # Posición de la tarjeta
         x = 20 * mm + col * (87.5 * mm + 5 * mm)
-        y = draw_header(p) - 75 * mm - ((idx // 2) % 3) * (75 * mm + 15 * mm)
+        # y_top es la esquina SUPERIOR de la tarjeta
+        y_top = draw_header(p) - row_in_page * (68 * mm + 12 * mm)
         x = 20 * mm + col * (87.5 * mm + 5 * mm)
 
         # Fondo de la tarjeta (redondeada)
         p.setFillColor(colors.white)
         p.setStrokeColor(colors.HexColor("#cccccc"))
         p.setLineWidth(0.5)
-        p.roundRect(x, y, 87.5 * mm, 75 * mm, 3 * mm, fill=1, stroke=1)
+        p.roundRect(x, y_top - 68 * mm, 87.5 * mm, 68 * mm, 3 * mm, fill=1, stroke=1)
 
         # Coordenadas internas de la tarjeta (origen en esquina superior izquierda)
         card_x = x
-        card_y_top = y + 75 * mm  # esquina superior de la tarjeta (y + altura)
+        card_y_top = draw_header(p) - row_in_page * (68 * mm + 12 * mm)
 
-        # Foto del jugador (esquina superior derecha de la tarjeta)
+        # Foto del jugador (esquina superior derecha de la tarjeta, bajada para no tapar nombre)
         img_w = 30 * mm
         img_h = 35 * mm
         img_x = 87.5 * mm - 4 * mm - 30 * mm - 3 * mm
         img_y = 3 * mm
         p.setFillColor(colors.HexColor("#f0f0f0"))
-        p.roundRect(x + img_x, y + 75 * mm - 3 * mm - 35 * mm, 30 * mm, 35 * mm, 2 * mm, fill=1, stroke=0)
+        p.roundRect(x + img_x, y_top - 3 * mm - 35 * mm, 30 * mm, 35 * mm, 2 * mm, fill=1, stroke=0)
         if j.foto:
             try:
-                local_path = os.path.join(settings.MEDIA_ROOT, j.foto.name)
-                if os.path.exists(local_path):
-                    from reports.views import _imagen_pdf
-                    img_reader = _imagen_pdf(j.foto)
-                    if img_reader:
-                        p.drawImage(img_reader, x + img_x, y + 75 * mm - 3 * mm - 35 * mm, 
-                                    width=30 * mm, height=35 * mm, preserveAspectRatio=True, mask='auto')
+                from reports.views import _imagen_pdf
+                img_reader = _imagen_pdf(j.foto)
+                if img_reader:
+                    p.drawImage(img_reader, x + img_x, y_top - 3 * mm - 35 * mm, 
+                                width=30 * mm, height=35 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
 
-        # Nombre y apellido (arriba a la izquierda, al lado de la foto)
+        # Nombre y apellido (arriba a la izquierda, BAJADO para no tapar foto)
         p.setFont("Helvetica-Bold", 11)
         p.setFillColor(colors.black)
-        p.drawString(x + 3 * mm, y + 75 * mm - 10 * mm, j.nombre + " " + j.apellido)
+        p.drawString(x + 3 * mm, card_y_top - 18 * mm, j.nombre + " " + j.apellido)
 
         # Posición
         if j.posicion:
             p.setFont("Helvetica", 9)
             p.setFillColor(colors.black)
-            p.drawString(x + 3 * mm, y + 75 * mm - 25 * mm, "Pos: " + j.get_posicion_display())
+            p.drawString(x + 3 * mm, card_y_top - 28 * mm, "Pos: " + j.get_posicion_display())
 
         # Fecha de nacimiento
         if j.fecha_nacimiento:
             p.setFont("Helvetica", 9)
-            p.drawString(x + 3 * mm, y + 75 * mm - 33 * mm, "Nac: " + j.fecha_nacimiento.strftime("%d/%m/%Y"))
+            p.drawString(x + 3 * mm, card_y_top - 33 * mm, "Nac: " + j.fecha_nacimiento.strftime("%d/%m/%Y"))
 
         # Edad
         edad = j.edad()
         if edad is not None:
             p.setFont("Helvetica", 9)
-            p.drawString(x + 3 * mm, y + 75 * mm - 41 * mm, "Edad: " + str(edad) + " años")
+            p.drawString(x + 3 * mm, y_top - 41 * mm, "Edad: " + str(edad) + " años")
 
         # Documento (incluye CURP si existe)
         if j.curp or j.tipo_documento:
@@ -2416,7 +2405,7 @@ def reporte_registro_pdf(request):
             if j.curp:
                 doc_parts.append(j.curp)
             doc_text = " | ".join(doc_parts) if doc_parts else "—"
-            p.drawString(x + 3 * mm, y + 75 * mm - 50 * mm, "Doc: " + doc_text)
+            p.drawString(x + 3 * mm, card_y_top - 50 * mm, "Doc: " + doc_text)
 
     # Footer en última página
     p.setFont("Helvetica", 8)
