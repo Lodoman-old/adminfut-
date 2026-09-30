@@ -112,8 +112,11 @@ def _allowed_secondary_category_ids(equipo_principal, jugador=None, forward_map=
     existing_secondary_ids = set()
     if jugador and jugador.pk:
         if categorias_registradas is None:
+            # Solo cuentan los registros ACTIVOS: uno dado de baja (activo=False)
+            # no significa que el jugador juegue ahí, y la categoría debe volver
+            # a estar disponible para un nuevo alta.
             categorias_registradas = list(
-                jugador.registros_equipo.filter(es_principal=False)
+                jugador.registros_equipo.filter(es_principal=False, activo=True)
                 .values_list("equipo__categoria_id", flat=True)
             )
         for categoria_id in categorias_registradas:
@@ -243,7 +246,7 @@ class JugadorForm(forms.ModelForm):
             temp_activa = Temporada.objects.filter(categoria=cat_old, iniciada=True, finalizada=False).first()
             if temp_activa:
                 ha_jugado = self._jugador_ha_jugado_en_temporada(self.instance, temp_activa, self.instance.equipo)
-                periodo_abierto = temp_activa.periodos_altas.filter(activo=True).exists()
+                periodo_abierto = temp_activa.periodo_altas_activo()
                 if not periodo_abierto:
                     raise ValidationError(
                         f"No puedes cambiar el equipo del jugador mientras haya una temporada en curso "
@@ -638,7 +641,7 @@ class JugadorForm(forms.ModelForm):
                             old_id = old.equipo_id
                     if old_id is not None and eid != old_id:
                         # Cambio de equipo: permitir solo si hay período abierto y no ha jugado
-                        periodo_abierto = temp_obj.periodos_altas.filter(activo=True).exists()
+                        periodo_abierto = temp_obj.periodo_altas_activo()
                         ha_jugado = self._jugador_ha_jugado_en_temporada(self.instance, temp_obj, old.equipo)
                         if not periodo_abierto:
                             self.add_error("secondary_data",
@@ -648,7 +651,7 @@ class JugadorForm(forms.ModelForm):
                                 f"No puedes cambiar de equipo en {cats[cid].nombre} porque el jugador ya tiene participaciones registradas.")
                     elif old_id is None:
                         # Alta nueva: permitir solo si hay período abierto
-                        periodo_abierto = temp_obj.periodos_altas.filter(activo=True).exists()
+                        periodo_abierto = temp_obj.periodo_altas_activo()
                         if not periodo_abierto:
                             self.add_error("secondary_data",
                                 f"No puedes agregar un equipo en {cats[cid].nombre} porque no hay un período de altas activo.")

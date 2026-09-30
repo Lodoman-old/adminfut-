@@ -409,7 +409,7 @@ def _jugadores_con_secundario_posible(jugadores):
     cats_registradas = {}
     registros_por_jugador = {}
     for row in JugadorEquipo.objects.filter(
-        jugador_id__in=pks, es_principal=False
+        jugador_id__in=pks, es_principal=False, activo=True
     ).values("id", "jugador_id", "equipo_id", "equipo__categoria_id", "activo"):
         cats_registradas.setdefault(row["jugador_id"], []).append(row["equipo__categoria_id"])
         registros_por_jugador.setdefault(row["jugador_id"], []).append(row)
@@ -4222,7 +4222,11 @@ def api_equipos_categoria(request):
 
     registros = {}
     if jugador:
-        for r in jugador.registros_equipo.filter(es_principal=False).select_related("equipo"):
+        # Solo los registros ACTIVOS: un equipo dado de baja (activo=False) debe
+        # volver a ofrecerse como alta nueva, igual que en el formulario.
+        for r in jugador.registros_equipo.filter(
+            es_principal=False, activo=True
+        ).select_related("equipo"):
             registros[str(r.equipo.categoria_id)] = r.equipo_id
 
     # Categorías con temporada en curso (no se puede cambiar equipo)

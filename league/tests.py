@@ -2511,3 +2511,50 @@ class PeriodoAltasVencidoTest(EquipoSecundarioBaseTest):
     def test_el_boton_no_se_muestra(self):
         # Unica categoria compatible y esta cerrada: no hay nada que hacer.
         self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+
+class RegistroSecundarioInactivoTest(EquipoSecundarioBaseTest):
+    """Un equipo secundario dado de baja (activo=False) debe volver a estar
+    disponible como alta nueva.
+
+    Caso real reportado en produccion: el jugador seguia apareciendo en el
+    modal como "Ya registrado" en una categoria de la que ya lo habian dado
+    de baja, y no podia volver a registrarse.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.reg = self.registrar(self.jugador, self.eq_b, es_principal=False, activo=False)
+        self.client.force_login(self.admin)
+
+    def test_el_modal_lo_ofrece_como_alta_nueva(self):
+        r = self.client.get(reverse("api_equipos_categoria"), {
+            "equipo_id": self.eq_a.pk, "jugador_id": self.jugador.pk,
+        })
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()
+        # B sigue siendo categoria compatible, pero NO esta registrada.
+        self.assertIn(str(self.cat_b.pk), [str(c["id"]) for c in data["compatibles"]])
+        self.assertNotIn(str(self.cat_b.pk), data["registros"])
+
+    def test_se_puede_volver_a_registrar(self):
+        r = self.client.post(
+            reverse("jugador_agregar_equipo_secundario", args=[self.jugador.pk]),
+            {"equipo_id": self.eq_b.pk},
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(r.json()["ok"], r.json())
+        self.reg.refresh_from_db()
+        self.assertTrue(self.reg.activo)
+        self.assertFalse(self.reg.es_principal)
+
+    def test_el_boton_sigue_visible(self):
+        # Sin secundarios activos pero con categoria compatible disponible.
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_el_registro_no_lo_lista_la_pantalla_de_registro(self):
+        # Este es el sintoma: la pantalla de Registro solo muestra activos.
+        eq = self.eq_b
+        ids = JugadorEquipo.objects.filter(equipo=eq, activo=True).values_list(
+            "jugador_id", flat=True)
+        self.assertNotIn(self.jugador.pk, list(ids))
