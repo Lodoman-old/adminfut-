@@ -2189,3 +2189,129 @@ class AllowedSecondaryCategoriesTest(TestCase):
         ids = set(_get_allowed_secondary_categories(self.eq_a, self.j)
                   .values_list("id", flat=True))
         self.assertEqual(ids, {self.b.pk})
+
+
+class CambioEquipoSecundarioTest(EquipoSecundarioBaseTest):
+    """Cambiar de equipo dentro de una categoría donde ya es secundario.
+
+    Solo se permite si no hay temporada en curso, o si la hay con período de
+    altas abierto y el jugador todavía no tiene participaciones en la categoría.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.eq_b2 = Equipo.objects.create(nombre="EqB2", categoria=self.cat_b, activo=True)
+        self.registrar(self.jugador, self.eq_b)  # ya es secundario en B
+
+    def abrir_temporada_b(self, con_altas=True, con_partido=False):
+        t = Temporada.objects.create(
+            categoria=self.cat_b, nombre="T-B",
+            fecha_inicio=date.today() - timedelta(days=30),
+            iniciada=True, activa=True, finalizada=False,
+        )
+        if con_altas:
+            from .models import PeriodoAltas
+            PeriodoAltas.objects.create(
+                temporada=t, fecha_inicio=date.today(),
+                fecha_fin=date.today() + timedelta(days=30)
+            )
+        if con_partido:
+            self._registrar_partido(t)
+        return t
+
+    def _registrar_partido(self, temporada):
+        from .models import Campo, Jornada, Partido, JugadorPartido
+        campo = Campo.objects.create(nombre="C", activo=True)
+        jornada = Jornada.objects.create(
+            numero=1, nombre="J1", temporada=temporada
+        )
+        partido = Partido.objects.create(
+            temporada=temporada, jornada=jornada,
+            equipo_local=self.eq_b, equipo_visitante=self.eq_b2, campo=campo,
+            fecha_hora=datetime(2026, 1, 1, 12, 0), estado="JUG",
+        )
+        JugadorPartido.objects.create(
+            jugador=self.jugador, partido=partido, equipo=self.eq_b
+        )
+
+    def test_cambia_de_equipo_sin_temporada_en_curso(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()
+        self.assertTrue(data["ok"], data)
+        self.assertTrue(data["cambio"])
+        # Solo queda el nuevo equipo en esa categoría.
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+        reg = JugadorEquipo.objects.get(jugador=self.jugador, equipo=self.eq_b2)
+        self.assertFalse(reg.es_principal)
+        self.assertTrue(reg.activo)
+
+    def test_cambia_con_altas_abiertas_y_sin_partidos(self):
+        self.abrir_temporada_b(con_altas=True, con_partido=False)
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(r.json()["cambio"])
+
+    def test_no_cambia_sin_periodo_de_altas(self):
+        self.abrir_temporada_b(con_altas=False)
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("período de altas", r.json()["error"])
+        self.assertTrue(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_no_cambia_si_ya_jugo_en_la_categoria(self):
+        self.abrir_temporada_b(con_altas=True, con_partido=True)
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("participaciones", r.json()["error"])
+        self.assertTrue(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_repetir_el_mismo_equipo_es_no_op(self):
+        # Doble clic: responde ok sin tocar nada, no es un error.
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["sin_cambios"])
+        self.assertEqual(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).count(), 1)
+
+    def test_no_deja_dos_registros_en_la_misma_categoria(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        registros = JugadorEquipo.objects.filter(
+            jugador=self.jugador, es_principal=False, equipo__categoria=self.cat_b
+        )
+        self.assertEqual(registros.count(), 1)
+
+    def test_boton_visible_solo_por_cambio(self):
+        # Ya tiene secundario en B, A~B compatible, y no hay categoria nueva:
+        # el boton debe seguir visible porque puede cambiar de equipo en B.
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_boton_se_oculta_si_no_se_puede_alta_ni_cambiar(self):
+        # Temporada en curso, sin altas y con partido: no se puede ni alta ni cambio.
+        self.abrir_temporada_b(con_altas=False, con_partido=True)
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_modifica_datos_del_jugador_al_cambiar(self):
+        antes = (self.jugador.nombre, self.jugador.apellido,
+                 self.jugador.curp, self.jugador.equipo_id,
+                 self.jugador.fecha_nacimiento)
+        self.client.force_login(self.admin)
+        self.client.post(self.url, {"equipo_id": self.eq_b2.pk})
+        self.jugador.refresh_from_db()
+        self.assertEqual(
+            (self.jugador.nombre, self.jugador.apellido,
+             self.jugador.curp, self.jugador.equipo_id,
+             self.jugador.fecha_nacimiento),
+            antes,
+        )

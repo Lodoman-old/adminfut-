@@ -238,12 +238,6 @@ document.addEventListener('DOMContentLoaded', function () {
         okBox.classList.add('d-none');
     }
 
-    function showOk(msg, avisos) {
-        errBox.classList.add('d-none');
-        okBox.textContent = msg + (avisos && avisos.length ? ' ' + avisos.join(' ') : '');
-        okBox.classList.remove('d-none');
-    }
-
     function clearAlerts() {
         errBox.classList.add('d-none');
         okBox.classList.add('d-none');
@@ -259,7 +253,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function refreshGuard() {
-        btn.disabled = !seleccionActual();
+        var sel = seleccionActual();
+        btn.disabled = !sel;
+        if (!sel) {
+            btn.innerHTML = '<i class="bi bi-plus-circle"></i> Agregar equipo secundario';
+            return;
+        }
+        // Si la categoria elegida ya tiene un equipo registrado, es un cambio.
+        var esCambio = sel.getAttribute('data-es-registro') === '1';
+        btn.innerHTML = esCambio
+            ? '<i class="bi bi-arrow-left-right"></i> Cambiar equipo secundario'
+            : '<i class="bi bi-plus-circle"></i> Agregar equipo secundario';
     }
 
     // Una categoría es válida si es compatible con TODAS las categorías ya registradas.
@@ -294,11 +298,22 @@ document.addEventListener('DOMContentLoaded', function () {
             .filter(function (c) { return registros[String(c.id)] !== undefined; })
             .map(function (c) { return c.id; });
 
+        var haJugado = data.ha_jugado || {};
+
         cats.forEach(function (cat) {
             var clave = String(cat.id);
             var temporadaActiva = tempsActivas.indexOf(cat.id) !== -1;
             var yaRegistrado = registros[clave] !== undefined;
             var seleccion = yaRegistrado ? registros[clave] : null;
+
+            // En una categoria donde ya esta registrado se puede CAMBIAR de
+            // equipo si no hay temporada en curso, o si hay temporada en curso
+            // con periodo de altas abierto y el jugador aun no tiene
+            // participaciones registradas en la categoria.
+            var puedeCambiar = true;
+            if (yaRegistrado && temporadaActiva) {
+                puedeCambiar = !!periodosAbiertos[clave] && !haJugado[clave];
+            }
 
             var card = document.createElement('div');
             card.className = 'card mb-2';
@@ -340,10 +355,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var aviso = '';
 
-            if (!yaRegistrado && temporadaActiva && !periodosAbiertos[clave]) {
+            if (yaRegistrado) {
+                if (!puedeCambiar) {
+                    aviso = temporadaActiva && !periodosAbiertos[clave]
+                        ? 'No hay período de altas activo en ' + cat.nombre
+                            + ', por eso el equipo queda congelado.'
+                        : 'El jugador ya tiene participaciones en ' + cat.nombre
+                            + ', por eso no se puede cambiar de equipo este temporada.';
+                }
+            } else if (temporadaActiva && !periodosAbiertos[clave]) {
                 aviso = 'No hay período de altas activo en ' + cat.nombre
                     + ', por eso no se pueden agregar equipos nuevos ahí.';
-            } else if (!yaRegistrado && !compatibleConTodas(cat.id, registradas, fwd, rev)) {
+            } else if (!compatibleConTodas(cat.id, registradas, fwd, rev)) {
                 aviso = 'Incompatible con las categorías donde el jugador ya está registrado.';
             } else if (edadConocida) {
                 var cMin = cat.edad_minima, cMax = cat.edad_maxima;
@@ -365,15 +388,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var select = document.createElement('select');
             select.className = 'form-select form-select-sm secondary-team-select';
+            select.setAttribute('data-es-registro', yaRegistrado ? '1' : '0');
 
             var vacio = document.createElement('option');
             vacio.value = '';
-            vacio.textContent = yaRegistrado ? '-- Ya registrado en: --' : '-- Elegir equipo --';
+            vacio.textContent = yaRegistrado ? '-- Elegir equipo --' : '-- Elegir equipo --';
             select.appendChild(vacio);
 
-            var opciones = (cat.equipos || []).filter(function (eq) {
-                return !yaRegistrado || String(eq.id) === String(seleccion);
-            });
+            var opciones = cat.equipos || [];
 
             if (opciones.length === 0) {
                 var opt = document.createElement('option');
@@ -384,10 +406,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 opciones.forEach(function (eq) {
                     var o = document.createElement('option');
                     o.value = eq.id;
-                    o.textContent = eq.nombre;
+                    o.textContent = (yaRegistrado && String(eq.id) === String(seleccion))
+                        ? eq.nombre + ' (actual)'
+                        : eq.nombre;
                     select.appendChild(o);
                 });
-                if (yaRegistrado) select.value = seleccion;
+                // En un alta nueva no se preselecciona nada; en un cambio se
+                // deja el equipo actual para que el usuario elija otro.
+                if (yaRegistrado && puedeCambiar) select.value = '';
             }
 
             if (aviso) {
@@ -461,6 +487,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 + it.categoria_nombre + '</small>';
         });
         celda.innerHTML = html + '<div class="mt-1">' + cats + '</div>';
+        // Confirmacion visual: el modal se cerro, asi que la fila parpadea.
+        celda.classList.add('table-warning');
+        window.setTimeout(function () {
+            celda.classList.remove('table-warning');
+        }, 2000);
     }
 
     modalEl.addEventListener('show.bs.modal', function (e) {
@@ -476,6 +507,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('sec_edad').value = edad ? edad + ' años' : '—';
         btn.disabled = true;
         cargar();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        clearAlerts();
+        catBox.innerHTML = '';
+        refreshGuard();
     });
 
     btn.addEventListener('click', function () {
@@ -504,9 +541,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (res) {
                 btn.innerHTML = label;
                 if (res.data && res.data.ok) {
-                    showOk(res.data.mensaje, res.data.avisos);
                     pintarFila(ctx.jugadorId, res.data.categorias_secundarias || []);
-                    cargar();
+                    // Se cierra el modal: la fila ya quedo actualizada.
+                    bootstrap.Modal.getInstance(modalEl).hide();
                 } else {
                     showError((res.data && res.data.error)
                         || 'No se pudo agregar el equipo secundario.');

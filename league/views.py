@@ -318,6 +318,42 @@ def horarios_fijos_report(request):
     })
 
 
+def _puede_cambiar_equipo_secundario(jugador, registro_actual, temporada=None, categoria=None):
+    """¿Se puede mover al jugador a otro equipo de una categoría donde ya
+    tiene secundario? Devuelve (permitido, motivo_bloqueo).
+
+    Mismo criterio que JugadorForm: si la categoría tiene temporada en curso
+    hace falta un período de altas abierto y que el jugador no tenga
+    participaciones ya registradas en esa categoría (si ya jugó, el equipo
+    queda congelado para toda la temporada). Sin temporada en curso no hay
+    bloqueo, igual que en el formulario.
+    """
+    cat = categoria or registro_actual.equipo.categoria
+    if temporada is None:
+        temporada = Temporada.objects.filter(
+            categoria_id=cat.pk, iniciada=True, finalizada=False
+        ).order_by("id").first()
+    if temporada is None:
+        return True, ""
+
+    if not temporada.periodos_altas.filter(activo=True).exists():
+        return False, (
+            "No hay un período de altas activo en {}. No se puede cambiar de equipo.".format(
+                cat.nombre)
+        )
+
+    from .models import JugadorPartido
+    ya_jugo = JugadorPartido.objects.filter(
+        jugador=jugador, partido__temporada=temporada, equipo__categoria_id=cat.pk
+    ).exists()
+    if ya_jugo:
+        return False, (
+            "No se puede cambiar de equipo en {} porque el jugador ya tiene "
+            "participaciones registradas en la categoría.".format(cat.nombre)
+        )
+    return True, ""
+
+
 def _jugadores_con_secundario_posible(jugadores):
     """Pks de los jugadores que tienen AL MENOS UN equipo secundario válido.
 
@@ -367,16 +403,27 @@ def _jugadores_con_secundario_posible(jugadores):
 
     # Categorías donde el jugador ya tiene equipo secundario.
     cats_registradas = {}
+    registros_por_jugador = {}
     for row in JugadorEquipo.objects.filter(
         jugador_id__in=pks, es_principal=False
-    ).values("jugador_id", "equipo__categoria_id"):
+    ).values("id", "jugador_id", "equipo_id", "equipo__categoria_id"):
         cats_registradas.setdefault(row["jugador_id"], []).append(row["equipo__categoria_id"])
+        registros_por_jugador.setdefault(row["jugador_id"], []).append(row)
 
     # Una suspensión activa impide dar de alta en cualquier equipo nuevo.
     suspendidos = set(
         SuspensionJugador.objects.filter(jugador_id__in=pks, activo=True)
         .values_list("jugador_id", flat=True)
     )
+
+    def edad_valida(cat, edad):
+        if edad is None:
+            return True
+        if cat.edad_minima is not None and edad < cat.edad_minima:
+            return False
+        if cat.edad_maxima is not None and edad > cat.edad_maxima:
+            return False
+        return True
 
     def tiene_destino(jugador):
         principal_cat_id = jugador.equipo.categoria_id
@@ -387,18 +434,14 @@ def _jugadores_con_secundario_posible(jugadores):
             categorias_registradas=registradas,
         )
         edad = jugador.edad()
+
+        # 1) ALTA en una categoría nueva.
         for cid in permitidas:
-            # Un alta en una categoría donde ya está registrado no es un alta nueva.
             if cid == principal_cat_id or cid in registradas:
                 continue
             cat = cats.get(cid)
-            if cat is None:
+            if cat is None or not edad_valida(cat, edad):
                 continue
-            if edad is not None:
-                if cat.edad_minima is not None and edad < cat.edad_minima:
-                    continue
-                if cat.edad_maxima is not None and edad > cat.edad_maxima:
-                    continue
             if cid in temp_por_cat and cid not in cats_con_altas:
                 continue
             for eq in equipos_por_cat.get(cid, []):
@@ -408,6 +451,30 @@ def _jugadores_con_secundario_posible(jugadores):
                 except Exception:
                     continue
                 return True
+
+        # 2) CAMBIO de equipo dentro de una categoría donde ya es secundario
+        #    (requiere período de altas abierto y sin participaciones previas).
+        for reg in registros_por_jugador.get(jugador.pk, []):
+            cid = reg["equipo__categoria_id"]
+            if cid == principal_cat_id or cid not in permitidas:
+                continue
+            cat = cats.get(cid)
+            if cat is None or not edad_valida(cat, edad):
+                continue
+            otros = [eq for eq in equipos_por_cat.get(cid, [])
+                     if eq.pk != reg["equipo_id"]]
+            if not otros:
+                continue
+            stub = JugadorEquipo(id=reg["id"], equipo_id=reg["equipo_id"])
+            try:
+                permitido, _ = _puede_cambiar_equipo_secundario(
+                    jugador, stub, temporada=temp_por_cat.get(cid), categoria=cat
+                )
+            except Exception:
+                continue
+            if permitido:
+                return True
+
         return False
 
     resultado = set()
@@ -4190,6 +4257,21 @@ def api_equipos_categoria(request):
     })
 
 
+def _categorias_secundarias_payload(jugador):
+    """Equipos secundarios activos del jugador, para refrescar la fila del listado."""
+    return [
+        {
+            "categoria_id": r.equipo.categoria_id,
+            "categoria_nombre": r.equipo.categoria.nombre,
+            "equipo_id": r.equipo_id,
+            "equipo_nombre": r.equipo.nombre,
+        }
+        for r in jugador.registros_equipo.filter(
+            es_principal=False, activo=True
+        ).select_related("equipo__categoria").order_by("equipo__categoria__nombre")
+    ]
+
+
 @require_POST
 def jugador_agregar_equipo_secundario(request, pk):
     """Registra un EQUIPO SECUNDARIO (categoría compatible) para un jugador.
@@ -4230,7 +4312,15 @@ def jugador_agregar_equipo_secundario(request, pk):
     principal = jugador.equipo
     cat_destino = equipo.categoria
 
+    # ¿Está ya registrado como secundario en ESTA categoría?
+    # Si sí, la operación es un CAMBIO de equipo dentro de la categoría.
+    registro_actual = jugador.registros_equipo.filter(
+        es_principal=False, equipo__categoria_id=cat_destino.pk, activo=True
+    ).select_related("equipo__categoria").first()
+    es_cambio = registro_actual is not None
+
     # 1) No agregar el propio equipo principal, ni otro de la MISMA categoría
+    #    que la principal. Un cambio de equipo nunca aplica a la principal.
     if equipo.pk == principal.pk:
         return fallo("Ese ya es el equipo principal del jugador.")
     if cat_destino.pk == principal.categoria_id:
@@ -4238,6 +4328,24 @@ def jugador_agregar_equipo_secundario(request, pk):
             "{} ya tiene al jugador en la categoría {} y no puede estar en dos equipos "
             "de la misma categoría.".format(principal.nombre, principal.categoria.nombre)
         )
+    if es_cambio and registro_actual.equipo_id == equipo.pk:
+        # Ya está en ese equipo: no hay nada que cambiar. Se responde ok para
+        # que un doble clic no genere un error.
+        return JsonResponse({
+            "ok": True,
+            "cambio": False,
+            "sin_cambios": True,
+            "mensaje": "{} ya está registrado en {} ({}).".format(
+                jugador, equipo.nombre, cat_destino.nombre),
+            "avisos": [],
+            "equipo": {
+                "id": equipo.pk,
+                "nombre": equipo.nombre,
+                "categoria_id": cat_destino.pk,
+                "categoria_nombre": cat_destino.nombre,
+            },
+            "categorias_secundarias": _categorias_secundarias_payload(jugador),
+        })
 
     # 2) Compatibilidad de categoría: misma regla que aplica el formulario
     #    (compatible con TODAS las categorías donde ya participa).
@@ -4280,16 +4388,27 @@ def jugador_agregar_equipo_secundario(request, pk):
                     cat_destino.nombre, cat_destino.edad_maxima, edad)
             )
 
-    # 7) Temporada en curso: el alta nueva solo se permite con período de altas activo
+    # 7) Temporada en curso:
+    #    - ALTA nueva: hace falta período de altas activo.
+    #    - CAMBIO de equipo: hace falta período de altas activo Y que el
+    #      jugador no tenga participaciones ya registradas en la categoría.
     temp_activa = Temporada.objects.filter(
         categoria_id=cat_destino.pk, iniciada=True, finalizada=False
-    ).first()
-    if temp_activa and not ya_registrado:
+    ).order_by("id").first()
+
+    if es_cambio:
+        permitido, motivo = _puede_cambiar_equipo_secundario(
+            jugador, registro_actual, temporada=temp_activa
+        )
+        if not permitido:
+            return fallo(motivo)
+    elif temp_activa and not ya_registrado:
         if not temp_activa.periodos_altas.filter(activo=True).exists():
             return fallo(
                 "No hay un período de altas activo en {}, así que no se puede agregar "
                 "un equipo en esa categoría.".format(cat_destino.nombre)
             )
+
 
     # 8) Aviso de cupo. No bloquea, igual que en la pantalla de jugador.
     avisos = []
@@ -4303,6 +4422,14 @@ def jugador_agregar_equipo_secundario(request, pk):
     # 9) Persistencia idempotente. unique_together = (jugador, equipo) NO mira
     #    'activo', por eso update_or_create en vez de create.
     with transaction.atomic():
+        if es_cambio:
+            # Cambio de equipo dentro de la categoría: se retira el registro
+            # anterior (igual que hace JugadorForm.save) para no dejar al
+            # jugador en dos equipos de la misma categoría.
+            JugadorEquipo.objects.filter(
+                jugador=jugador, es_principal=False,
+                equipo__categoria_id=cat_destino.pk
+            ).delete()
         JugadorEquipo.objects.update_or_create(
             jugador=jugador,
             equipo=equipo,
@@ -4311,8 +4438,14 @@ def jugador_agregar_equipo_secundario(request, pk):
 
     return JsonResponse({
         "ok": True,
-        "mensaje": "{} agregado a {} ({}).".format(
-            jugador, equipo.nombre, cat_destino.nombre),
+        "cambio": es_cambio,
+        "mensaje": (
+            "{} ahora juega en {} ({}).".format(
+                jugador, equipo.nombre, cat_destino.nombre)
+            if es_cambio else
+            "{} agregado a {} ({}).".format(
+                jugador, equipo.nombre, cat_destino.nombre)
+        ),
         "avisos": avisos,
         "equipo": {
             "id": equipo.pk,
@@ -4320,19 +4453,8 @@ def jugador_agregar_equipo_secundario(request, pk):
             "categoria_id": cat_destino.pk,
             "categoria_nombre": cat_destino.nombre,
         },
-        "categorias_secundarias": [
-            {
-                "categoria_id": r.equipo.categoria_id,
-                "categoria_nombre": r.equipo.categoria.nombre,
-                "equipo_id": r.equipo_id,
-                "equipo_nombre": r.equipo.nombre,
-            }
-            for r in jugador.registros_equipo.filter(
-                es_principal=False, activo=True
-            ).select_related("equipo__categoria").order_by("equipo__categoria__nombre")
-        ],
+        "categorias_secundarias": _categorias_secundarias_payload(jugador),
     })
-
 
 
 def reagendar_partido(request, pk):
