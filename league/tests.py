@@ -1929,3 +1929,263 @@ class ContadorVisitasTest(TestCase):
         self.assertContains(r, "Total de visitas")
         self.assertContains(r, "Páginas más visitadas")
         self.assertContains(r, "Inicio de visita")
+
+
+"""Tests del feature 'agregar equipo secundario' desde /jugadores/.
+
+Cubren dos cosas:
+  1. Que el botón SOLO aparezca para jugadores que realmente pueden recibir un
+     equipo secundario válido (categoría compatible + edad + período de altas).
+  2. Que el endpoint aplique las mismas reglas y no toque datos del jugador.
+"""
+from datetime import date, timedelta
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import reverse
+
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, SuspensionJugador, Temporada
+from .views import _jugadores_con_secundario_posible
+
+
+class EquipoSecundarioBaseTest(TestCase):
+    def setUp(self):
+        Usuario = get_user_model()
+
+        # A (principal) ~ B (compatible con A). C no es compatible con nadie.
+        self.cat_a = Categoria.objects.create(
+            nombre="A", nivel=0, activo=True, curp_obligatoria=False,
+            edad_minima=None, edad_maxima=None,
+        )
+        self.cat_b = Categoria.objects.create(
+            nombre="B", nivel=1, activo=True, curp_obligatoria=False,
+            edad_minima=None, edad_maxima=None,
+        )
+        self.cat_c = Categoria.objects.create(
+            nombre="C", nivel=2, activo=True, curp_obligatoria=False,
+            edad_minima=None, edad_maxima=None,
+        )
+        self.cat_a.categorias_compatibles.add(self.cat_b)
+        self.cat_b.categorias_compatibles.add(self.cat_a)
+
+        self.eq_a = Equipo.objects.create(nombre="EqA", categoria=self.cat_a, activo=True)
+        self.eq_b = Equipo.objects.create(nombre="EqB", categoria=self.cat_b, activo=True)
+        self.eq_c = Equipo.objects.create(nombre="EqC", categoria=self.cat_c, activo=True)
+
+        self.jugador = Jugador.objects.create(
+            nombre="Juan", apellido="Perez", posicion="DEL",
+            equipo=self.eq_a, fecha_nacimiento=date(2000, 1, 1),
+        )
+
+        self.admin = Usuario.objects.create_user(
+            username="adminsec", password="p", is_staff=True, is_superuser=True
+        )
+        self.url = reverse("jugador_agregar_equipo_secundario", args=[self.jugador.pk])
+
+    def registrar(self, jugador, equipo, es_principal=False, activo=True):
+        return JugadorEquipo.objects.create(
+            jugador=jugador, equipo=equipo, es_principal=es_principal, activo=activo
+        )
+
+
+class BotonEquipoSecundarioTest(EquipoSecundarioBaseTest):
+    """El botón se muestra únicamente si el jugador cumple los requisitos."""
+
+    def test_se_muestra_si_hay_categoria_compatible(self):
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_si_no_hay_categoria_compatible(self):
+        # A es compatible con B, pero el jugador ya está en B como secundario:
+        # no queda ninguna categoría nueva válida.
+        self.registrar(self.jugador, self.eq_b)
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_si_la_edad_no_cumple(self):
+        self.cat_b.edad_minima = 60
+        self.cat_b.save()
+        # El jugador tiene ~25 años.
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_se_muestra_si_la_edad_cumple(self):
+        self.cat_b.edad_minima = 18
+        self.cat_b.edad_maxima = 40
+        self.cat_b.save()
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_sin_equipo_principal(self):
+        self.jugador.equipo = None
+        self.jugador.save()
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_si_categoria_destino_no_tiene_equipos_activos(self):
+        self.eq_b.activo = False
+        self.eq_b.save()
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_si_no_hay_periodo_de_altas_en_temporada_en_curso(self):
+        t = Temporada.objects.create(
+            categoria=self.cat_b, nombre="T-B",
+            fecha_inicio=date.today() - timedelta(days=30),
+            iniciada=True, activa=True, finalizada=False,
+        )
+        # Temporada en curso SIN período de altas abierto -> no se puede dar de alta.
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+        # Con período de altas abierto -> sí.
+        from .models import PeriodoAltas
+        PeriodoAltas.objects.create(
+            temporada=t, fecha_inicio=date.today(), fecha_fin=date.today() + timedelta(days=30)
+        )
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_con_suspension_activa(self):
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat_a, jornadas=2,
+            fecha_inicio=date.today(),
+        )
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_el_listado_solo_muestra_el_boton_a_quienes_cumplen(self):
+        otro = Jugador.objects.create(
+            nombre="Sin", apellido="Salida", posicion="DEF",
+            equipo=self.eq_c, fecha_nacimiento=date(2000, 1, 1),
+        )
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("jugador_list"))
+        self.assertEqual(r.status_code, 200)
+        puede = r.context["puede_secundario"]
+        self.assertIn(self.jugador.pk, puede)
+        self.assertNotIn(otro.pk, puede)
+
+
+class EndpointEquipoSecundarioTest(EquipoSecundarioBaseTest):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+
+    def test_agrega_equipo_secundario(self):
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["ok"], data)
+        reg = JugadorEquipo.objects.get(jugador=self.jugador, equipo=self.eq_b)
+        self.assertFalse(reg.es_principal)
+        self.assertTrue(reg.activo)
+
+    def test_no_modifica_datos_del_jugador(self):
+        antes = (self.jugador.nombre, self.jugador.apellido,
+                 self.jugador.curp, self.jugador.equipo_id,
+                 self.jugador.fecha_nacimiento)
+        self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.jugador.refresh_from_db()
+        self.assertEqual(
+            (self.jugador.nombre, self.jugador.apellido,
+             self.jugador.curp, self.jugador.equipo_id,
+             self.jugador.fecha_nacimiento),
+            antes,
+        )
+
+    def test_rechaza_equipo_principal(self):
+        r = self.client.post(self.url, {"equipo_id": self.eq_a.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()["ok"])
+
+    def test_rechaza_misma_categoria_que_principal(self):
+        otro_a = Equipo.objects.create(nombre="EqA2", categoria=self.cat_a, activo=True)
+        r = self.client.post(self.url, {"equipo_id": otro_a.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()["ok"])
+
+    def test_rechaza_categoria_incompatible(self):
+        r = self.client.post(self.url, {"equipo_id": self.eq_c.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(r.json()["ok"])
+
+    def test_rechaza_por_edad(self):
+        self.cat_b.edad_minima = 60
+        self.cat_b.save()
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("edad", r.json()["error"].lower())
+
+    def test_es_idempotente(self):
+        self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            JugadorEquipo.objects.filter(jugador=self.jugador, equipo=self.eq_b).count(), 1
+        )
+
+    def test_rechaza_suspension_activa(self):
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat_a, jornadas=2,
+            fecha_inicio=date.today(),
+        )
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_exige_csrf(self):
+        client = self.client_class(enforce_csrf_checks=True)
+        client.force_login(self.admin)
+        r = client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 403)
+
+    def test_anonimo_es_bloqueado(self):
+        # El middleware de la app redirige al login antes de llegar a la vista.
+        self.client.logout()
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertIn(r.status_code, (302, 403))
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_usuario_sin_permiso_es_403(self):
+        usuario = get_user_model().objects.create_user(username="sinperm", password="p")
+        self.client.force_login(usuario)
+        r = self.client.post(self.url, {"equipo_id": self.eq_b.pk})
+        self.assertEqual(r.status_code, 403)
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_solo_post(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 405)
+
+
+class AllowedSecondaryCategoriesTest(TestCase):
+    """_allowed_secondary_category_ids y _get_allowed_secondary_categories
+    deben seguir dando el mismo resultado que antes del refactor."""
+
+    def setUp(self):
+        self.a = Categoria.objects.create(nombre="A", activo=True, curp_obligatoria=False)
+        self.b = Categoria.objects.create(nombre="B", activo=True, curp_obligatoria=False)
+        self.d = Categoria.objects.create(nombre="D", activo=True, curp_obligatoria=False)
+        self.a.categorias_compatibles.add(self.b)
+        self.b.categorias_compatibles.add(self.a)
+        self.eq_a = Equipo.objects.create(nombre="EqA", categoria=self.a, activo=True)
+        self.eq_b = Equipo.objects.create(nombre="EqB", categoria=self.b, activo=True)
+        self.eq_d = Equipo.objects.create(nombre="EqD", categoria=self.d, activo=True)
+        self.j = Jugador.objects.create(
+            nombre="L", apellido="P", posicion="DEL", equipo=self.eq_a
+        )
+
+    def test_ambas_funciones_coinciden(self):
+        from .forms import _allowed_secondary_category_ids, _get_allowed_secondary_categories
+
+        casos = [[], [self.eq_b]]
+        for eqs in casos:
+            for eq in eqs:
+                JugadorEquipo.objects.create(
+                    jugador=self.j, equipo=eq, es_principal=False, activo=True
+                )
+            por_ids = set(_allowed_secondary_category_ids(self.eq_a, self.j))
+            por_qs = set(_get_allowed_secondary_categories(self.eq_a, self.j)
+                         .values_list("id", flat=True))
+            self.assertEqual(por_ids, por_qs)
+            JugadorEquipo.objects.filter(equipo__in=eqs).delete()
+
+    def test_sin_secundario_permite_b(self):
+        from .forms import _get_allowed_secondary_categories
+        ids = set(_get_allowed_secondary_categories(self.eq_a, self.j)
+                  .values_list("id", flat=True))
+        self.assertEqual(ids, {self.b.pk})

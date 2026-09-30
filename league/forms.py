@@ -70,27 +70,14 @@ class EquipoForm(forms.ModelForm):
         )
 
 
-def _get_allowed_secondary_categories(equipo_principal, jugador=None):
+def _compatibilidad_maps():
+    """Devuelve (forward_map, reverse_map) de TODAS las categorías.
+
+    forward_map[cat] = ids de categorías compatibles declaradas por cat
+    reverse_map[cat] = ids de categorías que declaran a cat como compatible
+
+    Se reutiliza en el listado de jugadores para no repetir la consulta por fila.
     """
-    Retorna las categorías en las que un jugador puede registrarse como
-    secundario, considerando TODAS las categorías en las que ya participa
-    (principal + secundarias existentes).
-
-    - Las categorías donde el jugador YA tiene un equipo secundario
-      siempre se incluyen (para poder ver su registro actual).
-    - Las categorías NUEVAS solo se incluyen si son compatibles
-      (en cualquier dirección) con CADA UNA de las categorías existentes.
-    """
-    from .models import Categoria
-    cat = equipo_principal.categoria
-
-    existing_cat_ids = {cat.id}
-    existing_secondary_ids = set()
-    if jugador and jugador.pk:
-        for r in jugador.registros_equipo.filter(es_principal=False).select_related("equipo__categoria"):
-            existing_cat_ids.add(r.equipo.categoria_id)
-            existing_secondary_ids.add(r.equipo.categoria_id)
-
     all_cats = list(Categoria.objects.prefetch_related("categorias_compatibles").all())
     forward_map = {}
     for c in all_cats:
@@ -99,6 +86,39 @@ def _get_allowed_secondary_categories(equipo_principal, jugador=None):
     for c in all_cats:
         for compat_id in forward_map[c.id]:
             reverse_map.setdefault(compat_id, set()).add(c.id)
+    for cid in forward_map:
+        reverse_map.setdefault(cid, set())
+    return forward_map, reverse_map
+
+
+def _allowed_secondary_category_ids(equipo_principal, jugador=None, forward_map=None,
+                                    reverse_map=None, categorias_registradas=None):
+    """IDs de categorías en las que el jugador puede registrarse como secundario.
+
+    - Las categorías donde el jugador YA tiene un equipo secundario
+      siempre se incluyen (para poder ver su registro actual).
+    - Las categorías NUEVAS solo se incluyen si son compatibles
+      (en cualquier dirección) con CADA UNA de las categorías existentes.
+
+    `categorias_registradas` permite pasar los ids ya cargados para evitar
+    una consulta por jugador (lo usa el listado).
+    """
+    if forward_map is None or reverse_map is None:
+        forward_map, reverse_map = _compatibilidad_maps()
+
+    cat = equipo_principal.categoria
+
+    existing_cat_ids = {cat.id}
+    existing_secondary_ids = set()
+    if jugador and jugador.pk:
+        if categorias_registradas is None:
+            categorias_registradas = list(
+                jugador.registros_equipo.filter(es_principal=False)
+                .values_list("equipo__categoria_id", flat=True)
+            )
+        for categoria_id in categorias_registradas:
+            existing_cat_ids.add(categoria_id)
+            existing_secondary_ids.add(categoria_id)
 
     candidate_ids = forward_map.get(cat.id, set()) | reverse_map.get(cat.id, set())
 
@@ -114,7 +134,23 @@ def _get_allowed_secondary_categories(equipo_principal, jugador=None):
             ):
                 allowed.append(cid)
 
-    return Categoria.objects.filter(id__in=allowed)
+    return allowed
+
+
+def _get_allowed_secondary_categories(equipo_principal, jugador=None):
+    """
+    Retorna las categorías en las que un jugador puede registrarse como
+    secundario, considerando TODAS las categorías en las que ya participa
+    (principal + secundarias existentes).
+
+    - Las categorías donde el jugador YA tiene un equipo secundario
+      siempre se incluyen (para poder ver su registro actual).
+    - Las categorías NUEVAS solo se incluyen si son compatibles
+      (en cualquier dirección) con CADA UNA de las categorías existentes.
+    """
+    return Categoria.objects.filter(
+        id__in=_allowed_secondary_category_ids(equipo_principal, jugador)
+    )
 
 
 class JugadorForm(forms.ModelForm):

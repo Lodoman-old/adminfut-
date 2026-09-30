@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import FileResponse, HttpResponse, Http404
+from django.http import FileResponse, HttpResponse, Http404, JsonResponse
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
@@ -318,6 +318,109 @@ def horarios_fijos_report(request):
     })
 
 
+def _jugadores_con_secundario_posible(jugadores):
+    """Pks de los jugadores que tienen AL MENOS UN equipo secundario válido.
+
+    El botón "agregar equipo secundario" solo se muestra cuando el jugador
+    cumple los requisitos, así que esta función aplica exactamente las mismas
+    reglas que JugadorForm y que jugador_agregar_equipo_secundario:
+
+      - debe tener equipo principal;
+      - la categoría destino debe ser compatible con TODAS las categorías
+        donde ya juega (misma fuente: _allowed_secondary_category_ids);
+      - debe ser un alta nueva (no una categoría donde ya está registrado);
+      - la edad debe caer en el rango de la categoría, si tiene fecha de
+        nacimiento y la categoría define mínimo/máximo;
+      - si la categoría tiene temporada en curso, debe haber período de
+        altas abierto;
+      - no debe tener suspensión activa (bloquea los altas nuevas);
+      - la categoría destino debe tener al menos un equipo activo y pasar
+        las reglas de movimiento (ascenso/descenso).
+
+    Se resuelve con un número acotado de consultas (sin una por fila).
+    """
+    jugadores = list(jugadores)
+    if not jugadores:
+        return set()
+
+    from .forms import _allowed_secondary_category_ids, _compatibilidad_maps
+    from .reglas_movimientos import errores_movimiento_jugador
+
+    forward_map, reverse_map = _compatibilidad_maps()
+    cats = Categoria.objects.filter(activo=True).in_bulk()
+
+    # Equipos activos agrupados por categoría.
+    equipos_por_cat = {}
+    for eq in Equipo.objects.filter(activo=True).select_related("categoria"):
+        equipos_por_cat.setdefault(eq.categoria_id, []).append(eq)
+
+    # Temporadas en curso por categoría (el formulario usa .first()).
+    temp_por_cat = {}
+    for t in Temporada.objects.filter(iniciada=True, finalizada=False).order_by("id"):
+        temp_por_cat.setdefault(t.categoria_id, t)
+    cats_con_altas = set()
+    for categoria_id, t in temp_por_cat.items():
+        if t.periodos_altas.filter(activo=True).exists():
+            cats_con_altas.add(categoria_id)
+
+    pks = [j.pk for j in jugadores]
+
+    # Categorías donde el jugador ya tiene equipo secundario.
+    cats_registradas = {}
+    for row in JugadorEquipo.objects.filter(
+        jugador_id__in=pks, es_principal=False
+    ).values("jugador_id", "equipo__categoria_id"):
+        cats_registradas.setdefault(row["jugador_id"], []).append(row["equipo__categoria_id"])
+
+    # Una suspensión activa impide dar de alta en cualquier equipo nuevo.
+    suspendidos = set(
+        SuspensionJugador.objects.filter(jugador_id__in=pks, activo=True)
+        .values_list("jugador_id", flat=True)
+    )
+
+    def tiene_destino(jugador):
+        principal_cat_id = jugador.equipo.categoria_id
+        registradas = cats_registradas.get(jugador.pk, [])
+        permitidas = _allowed_secondary_category_ids(
+            jugador.equipo, jugador,
+            forward_map=forward_map, reverse_map=reverse_map,
+            categorias_registradas=registradas,
+        )
+        edad = jugador.edad()
+        for cid in permitidas:
+            # Un alta en una categoría donde ya está registrado no es un alta nueva.
+            if cid == principal_cat_id or cid in registradas:
+                continue
+            cat = cats.get(cid)
+            if cat is None:
+                continue
+            if edad is not None:
+                if cat.edad_minima is not None and edad < cat.edad_minima:
+                    continue
+                if cat.edad_maxima is not None and edad > cat.edad_maxima:
+                    continue
+            if cid in temp_por_cat and cid not in cats_con_altas:
+                continue
+            for eq in equipos_por_cat.get(cid, []):
+                try:
+                    if errores_movimiento_jugador(jugador, eq, cat):
+                        continue
+                except Exception:
+                    continue
+                return True
+        return False
+
+    resultado = set()
+    for jugador in jugadores:
+        if not jugador.equipo_id:
+            continue
+        if jugador.pk in suspendidos:
+            continue
+        if tiene_destino(jugador):
+            resultado.add(jugador.pk)
+    return resultado
+
+
 class JugadorListView(ListView):
     model = Jugador
     template_name = "league/jugador_list.html"
@@ -345,6 +448,9 @@ class JugadorListView(ListView):
             q_equipos = q_equipos.filter(categoria_id=cat_id)
         ctx["equipos"] = q_equipos
         ctx["categorias"] = Categoria.objects.filter(activo=True)
+        # Pks de jugadores con al menos un equipo secundario válido disponible:
+        # el botón "agregar equipo secundario" solo se muestra para esos.
+        ctx["puede_secundario"] = _jugadores_con_secundario_posible(ctx["jugadores"])
         # Categorías con edición de jugadores permitida:
         # - sin temporada activa iniciada (sin torneo abierto) -> permitido
         # - o con temporada activa iniciada y período de altas activo -> permitido
@@ -3988,7 +4094,6 @@ def temporada_movimientos(request, temporada_pk):
     })
 
 
-from django.http import JsonResponse
 def api_equipos_categoria(request):
     """API: retorna categorías compatibles con equipos para un equipo dado."""
     equipo_id = request.GET.get("equipo_id")
@@ -4007,7 +4112,7 @@ def api_equipos_categoria(request):
             jugador = Jugador.objects.get(id=jugador_id)
         except Jugador.DoesNotExist:
             pass
-    allowed = _get_allowed_secondary_categories(eq)
+    allowed = _get_allowed_secondary_categories(eq, jugador)
 
     # Build compatibility maps for frontend validation
     all_cats = list(Categoria.objects.prefetch_related("categorias_compatibles").all())
@@ -4034,6 +4139,8 @@ def api_equipos_categoria(request):
         compatibles.append({
             "id": acat.id,
             "nombre": acat.nombre,
+            "edad_minima": acat.edad_minima,
+            "edad_maxima": acat.edad_maxima,
             "equipos": equipos,
         })
 
@@ -4075,7 +4182,7 @@ def api_equipos_categoria(request):
         "categoria_nombre": cat.nombre,
         "compatibles": compatibles,
         "registros": registros,
-"forward_map": forward_map,
+        "forward_map": forward_map,
         "reverse_map": reverse_map,
         "temporadas_activas": list(temps_activas),
         "periodos_abiertos": periodos,
@@ -4083,174 +4190,149 @@ def api_equipos_categoria(request):
     })
 
 
-@csrf_exempt
 @require_POST
-def api_equipos_compatibles(request):
-    """API: retorna equipos compatibles para una categoría (para modal equipo secundario)."""
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+def jugador_agregar_equipo_secundario(request, pk):
+    """Registra un EQUIPO SECUNDARIO (categoría compatible) para un jugador.
 
-    cat_id = data.get("categoria_id")
-    jugador_id = data.get("jugador_id")
+    No modifica ningún dato del jugador: solo crea o reactiva el registro
+    JugadorEquipo con es_principal=False. Reutiliza las mismas reglas de
+    negocio ya aplicadas por JugadorForm (compatibilidad de categorías,
+    suspensiones, movimientos de ascenso/descenso, edad y períodos de altas),
+    de modo que el listado y la pantalla de jugador se comportan igual.
+    """
+    # --- Permiso: se responde JSON (no redirect) para que el modal lo muestre ---
+    user = request.user
+    if not (user.is_superuser or user.is_staff or user.tiene_permiso("jugador_editar")):
+        return JsonResponse(
+            {"ok": False, "error": "No tienes permiso para agregar equipos secundarios."},
+            status=403,
+        )
 
-    if not cat_id:
-        return JsonResponse({"error": "categoria_id requerido"}, status=400)
+    def fallo(mensaje, status=400, extra=None):
+        data = {"ok": False, "error": mensaje}
+        if extra:
+            data.update(extra)
+        return JsonResponse(data, status=status)
 
-    try:
-        cat = Categoria.objects.get(id=cat_id)
-    except Categoria.DoesNotExist:
-        return JsonResponse({"error": "Categoría no encontrada"}, status=404)
+    jugador = get_object_or_404(Jugador, pk=pk)
 
-    # Obtener categorías compatibles
-    compat_ids = list(cat.categorias_compatibles.values_list("id", flat=True))
-    # Incluir la propia categoría
-    compat_ids = list(set(compat_ids + [cat.id]))
+    equipo_id = (request.POST.get("equipo_id") or "").strip()
+    if not equipo_id.isdigit():
+        return fallo("No se recibió un equipo válido.")
+    equipo = (Equipo.objects.filter(pk=int(equipo_id), activo=True)
+              .select_related("categoria").first())
+    if not equipo:
+        return fallo("El equipo no existe o está inactivo.", status=404)
 
-    jugador = None
-    if jugador_id:
-        try:
-            jugador = Jugador.objects.get(id=jugador_id)
-        except Jugador.DoesNotExist:
-            jugador = None
+    if not jugador.equipo_id:
+        return fallo("El jugador no tiene equipo principal, así que no puede tener uno secundario.")
 
-    # Obtener edad del jugador
-    edad_jugador = jugador.edad() if jugador else 0
-
-    # Obtener equipos de categorías compatibles
-    equipos = Equipo.objects.filter(
-        categoria_id__in=compat_ids, activo=True
-    ).select_related("categoria").order_by("categoria__nombre", "nombre")
-
-    equipos_data = []
-    for eq in equipos:
-        edad_min = eq.categoria.edad_minima or 0
-        edad_max = eq.categoria.edad_maxima or 99
-        edad_ok = True
-        edad_msg = ""
-        if edad_jugador:
-            if edad_jugador < eq.categoria.edad_minima or edad_jugador > eq.categoria.edad_maxima:
-                edad_ok = False
-                edad_msg = f"El jugador tiene {edad_jugador} años. {eq.categoria.nombre} requiere edad entre {eq.categoria.edad_minima} y {eq.categoria.edad_maxima} años."
-
-        equipos_data.append({
-            "id": eq.id,
-            "nombre": eq.nombre,
-            "categoria_id": eq.categoria_id,
-            "categoria_nombre": eq.categoria.nombre,
-            "edad_minima": eq.categoria.edad_minima or 0,
-            "edad_maxima": eq.categoria.edad_maxima or 99,
-            "edad_ok": edad_ok,
-            "edad_msg": edad_msg,
-        })
-
-    # Verificar si el jugador ya está registrado en alguno
-    registrado_ids = []
-    if jugador:
-        registrados = JugadorEquipo.objects.filter(
-            jugador=jugador, activo=True, es_principal=False
-        ).values_list("equipo_id", flat=True)
-
-    return JsonResponse({
-        "equipos": equipos_data,
-    })
-
-
-@csrf_exempt
-@require_POST
-def api_agregar_equipo_secundario(request):
-    """API: agrega un equipo secundario a un jugador (bypassa validación de temporada activa)."""
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    jugador_id = data.get("jugador_id")
-    equipo_id = data.get("equipo_id")
-
-    if not jugador_id or not equipo_id:
-        return JsonResponse({"error": "jugador_id y equipo_id requeridos"}, status=400)
-
-    try:
-        jugador = Jugador.objects.get(id=jugador_id)
-    except Jugador.DoesNotExist:
-        return JsonResponse({"error": "Jugador no encontrado"}, status=404)
-
-    try:
-        equipo = Equipo.objects.get(id=equipo_id)
-    except Equipo.DoesNotExist:
-        return JsonResponse({"error": "Equipo no encontrado"}, status=404)
-
-    # Verificar que no esté ya registrado en ese equipo
-    if JugadorEquipo.objects.filter(jugador=jugador, equipo=equipo, activo=True).exists():
-        return JsonResponse({"error": "El jugador ya está registrado en ese equipo"}, status=400)
-
-    # Verificar compatibilidad de categorías
-    cat_principal = jugador.equipo.categoria if jugador.equipo else None
-    if cat_principal and cat_principal != equipo.categoria:
-        if equipo.categoria not in cat_principal.categorias_compatibles.all():
-            return JsonResponse({
-                "error": f"La categoría {equipo.categoria.nombre} no es compatible con {cat_principal.nombre}"
-            }, status=400)
-
-    # Verificar edad
-    if jugador.edad():
-        edad = jugador.edad()
-        if equipo.categoria.edad_minima and edad < equipo.categoria.edad_minima:
-            return JsonResponse({
-                "error": f"El jugador tiene {jugador.edad()} años. La categoría {equipo.categoria.nombre} requiere edad mínima de {equipo.categoria.edad_minima} años."
-            }, status=400)
-        if equipo.categoria.edad_maxima and edad > equipo.categoria.edad_maxima:
-            return JsonResponse({
-                "error": f"El jugador tiene {jugador.edad()} años. La categoría {equipo.categoria.nombre} requiere edad máxima de {equipo.categoria.edad_maxima} años."
-            }, status=400)
-
-    # Verificar límite de jugadores en el equipo
-    max_jug = equipo.categoria.max_jugadores
-    actuales = JugadorEquipo.objects.filter(equipo=equipo, activo=True).count()
-    if actuales >= max_jug:
-        return JsonResponse({
-            "error": f"El equipo {equipo.nombre} ya tiene {actuales} jugadores (máximo {max_jug})"
-        }, status=400)
-
-    # Verificar que no esté en otro equipo de la MISMA categoría con temporada activa
+    principal = jugador.equipo
     cat_destino = equipo.categoria
+
+    # 1) No agregar el propio equipo principal, ni otro de la MISMA categoría
+    if equipo.pk == principal.pk:
+        return fallo("Ese ya es el equipo principal del jugador.")
+    if cat_destino.pk == principal.categoria_id:
+        return fallo(
+            "{} ya tiene al jugador en la categoría {} y no puede estar en dos equipos "
+            "de la misma categoría.".format(principal.nombre, principal.categoria.nombre)
+        )
+
+    # 2) Compatibilidad de categoría: misma regla que aplica el formulario
+    #    (compatible con TODAS las categorías donde ya participa).
+    from .forms import _get_allowed_secondary_categories
+    permitidas = _get_allowed_secondary_categories(principal, jugador)
+    if not permitidas.filter(pk=cat_destino.pk).exists():
+        return fallo(
+            "{} no es una categoría compatible con {} ni con las categorías donde el "
+            "jugador ya participa.".format(cat_destino.nombre, principal.categoria.nombre)
+        )
+
+    # 3) ¿Ya está registrado en ese equipo?
+    ya_registrado = jugador.registros_equipo.filter(equipo=equipo, activo=True).exists()
+
+    # 4) Suspensión activa: bloquea el alta en cualquier equipo nuevo
+    susp = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
+    if susp and not ya_registrado:
+        return fallo(
+            "No se puede agregar el equipo porque el jugador tiene una suspensión activa "
+            "en {} (restan {} jornada(s)).".format(susp.categoria.nombre, susp.restantes())
+        )
+
+    # 5) Ascenso / descenso / desaparición de categoría
+    from .reglas_movimientos import errores_movimiento_jugador
+    errores = list(errores_movimiento_jugador(jugador, equipo, cat_destino))
+    if errores:
+        return fallo(errores[0], extra={"errores": errores})
+
+    # 6) Edad mínima / máxima de la categoría destino (criterio del formulario)
+    edad = jugador.edad()
+    if edad is not None:
+        if cat_destino.edad_minima is not None and edad < cat_destino.edad_minima:
+            return fallo(
+                "{} requiere edad mínima de {} años. El jugador tiene {}.".format(
+                    cat_destino.nombre, cat_destino.edad_minima, edad)
+            )
+        if cat_destino.edad_maxima is not None and edad > cat_destino.edad_maxima:
+            return fallo(
+                "{} permite edad máxima de {} años. El jugador tiene {}.".format(
+                    cat_destino.nombre, cat_destino.edad_maxima, edad)
+            )
+
+    # 7) Temporada en curso: el alta nueva solo se permite con período de altas activo
     temp_activa = Temporada.objects.filter(
-        categoria=cat_destino, iniciada=True, finalizada=False
+        categoria_id=cat_destino.pk, iniciada=True, finalizada=False
     ).first()
+    if temp_activa and not ya_registrado:
+        if not temp_activa.periodos_altas.filter(activo=True).exists():
+            return fallo(
+                "No hay un período de altas activo en {}, así que no se puede agregar "
+                "un equipo en esa categoría.".format(cat_destino.nombre)
+            )
 
-    if temp_activa:
-        # Verificar si ya está en otro equipo de la misma categoría con temporada activa
-        en_otro = JugadorEquipo.objects.filter(
+    # 8) Aviso de cupo. No bloquea, igual que en la pantalla de jugador.
+    avisos = []
+    maximo = cat_destino.max_jugadores
+    activos = equipo.registros_jugador.filter(activo=True).count()
+    if maximo and activos >= maximo:
+        avisos.append(
+            "{} ya tiene {}/{} jugadores activos.".format(equipo.nombre, activos, maximo)
+        )
+
+    # 9) Persistencia idempotente. unique_together = (jugador, equipo) NO mira
+    #    'activo', por eso update_or_create en vez de create.
+    with transaction.atomic():
+        JugadorEquipo.objects.update_or_create(
             jugador=jugador,
-            equipo__categoria=cat_destino,
-            activo=True,
-            es_principal=False
-        ).exclude(equipo=equipo).exists()
-
-        if en_otro:
-            return JsonResponse({
-                "error": f"El jugador ya está en otro equipo de {cat_destino.nombre} con temporada activa"
-            }, status=400)
-
-    # Crear el registro
-    JugadorEquipo.objects.create(
-        jugador=jugador,
-        equipo=equipo,
-        es_principal=False,
-        activo=True,
-    )
+            equipo=equipo,
+            defaults={"es_principal": False, "activo": True},
+        )
 
     return JsonResponse({
         "ok": True,
-        "mensaje": f"Equipo secundario '{equipo.nombre}' agregado correctamente",
+        "mensaje": "{} agregado a {} ({}).".format(
+            jugador, equipo.nombre, cat_destino.nombre),
+        "avisos": avisos,
         "equipo": {
-            "id": equipo.id,
+            "id": equipo.pk,
             "nombre": equipo.nombre,
-            "categoria": equipo.categoria.nombre,
-        }
+            "categoria_id": cat_destino.pk,
+            "categoria_nombre": cat_destino.nombre,
+        },
+        "categorias_secundarias": [
+            {
+                "categoria_id": r.equipo.categoria_id,
+                "categoria_nombre": r.equipo.categoria.nombre,
+                "equipo_id": r.equipo_id,
+                "equipo_nombre": r.equipo.nombre,
+            }
+            for r in jugador.registros_equipo.filter(
+                es_principal=False, activo=True
+            ).select_related("equipo__categoria").order_by("equipo__categoria__nombre")
+        ],
     })
+
 
 
 def reagendar_partido(request, pk):

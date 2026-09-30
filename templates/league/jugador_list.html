@@ -41,6 +41,9 @@
             <td>{% if j.fecha_nacimiento %}{{ j.edad }} años{% else %}-{% endif %}</td>
             <td>{{ j.get_posicion_display }}</td>
             <td>
+                <div id="equipos-cell-{{ j.pk }}"
+                     data-principal="{{ j.equipo.nombre }}"
+                     data-categoria="{{ j.equipo.categoria.nombre }}">
                 {% with secs=j.registros_equipo.all %}
                 <span class="badge bg-primary me-1">{{ j.equipo.nombre }}</span>
                 {% for r in secs %}
@@ -57,6 +60,7 @@
                     {% endfor %}
                 </div>
                 {% endwith %}
+                </div>
             </td>
             <td>{{ j.dorsal|default:"-" }}</td>
             <td>{% if j.activo %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
@@ -73,13 +77,15 @@
                 {% endif %}
                 {% endif %}
                 {% if user|tiene_permiso:"jugador_editar" %}
-                <!-- Botón para agregar equipo secundario (categorías compatibles) -->
-                {% if cat_id in categorias_editables or user.is_superuser %}
-                <button type="button" class="btn btn-sm btn-outline-info d-none" data-bs-toggle="modal" data-bs-target="#equipoSecundarioModal" 
-                    data-jugador-id="{{ j.pk }}" 
+                {# Solo si cumple requisitos: categoría compatible + edad + altas abiertas #}
+                {% if j.pk in puede_secundario %}
+                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#equipoSecundarioModal"
+                    data-jugador-id="{{ j.pk }}"
                     data-jugador-nombre="{{ j.nombre }} {{ j.apellido }}"
-                    data-jugador-curp="{{ j.curp }}"
-                    data-categoria-principal="{{ j.equipo.categoria_id }}"
+                    data-jugador-curp="{{ j.curp|default:'' }}"
+                    data-edad="{% if j.fecha_nacimiento %}{{ j.edad }}{% endif %}"
+                    data-equipo-principal-id="{{ j.equipo_id }}"
+                    data-categoria-principal-nombre="{{ j.equipo.categoria.nombre }}"
                     title="Agregar equipo secundario (categoría compatible)">
                     <i class="bi bi-people-fill"></i>
                 </button>
@@ -152,205 +158,366 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-<!-- Modal para agregar equipo secundario -->
+<!-- Modal: agregar EQUIPO SECUNDARIO (categoría compatible) -->
 <div class="modal fade" id="equipoSecundarioModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="bi bi-people-fill"></i> Agregar Equipo Secundario (Categoría Compatible)</h5>
+                <h5 class="modal-title"><i class="bi bi-people-fill"></i> Agregar Equipo Secundario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="equipoSecundarioForm" method="post">
-                {% csrf_token %}
-                <input type="hidden" name="jugador_id" id="sec_jugador_id">
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i>
-                        Agrega un equipo secundario en una <strong>categoría compatible</strong> con la categoría principal del jugador.
-                        El jugador podrá jugar en ambas categorías simultáneamente.
+            <div class="modal-body">
+                <div class="alert alert-info mb-3 py-2">
+                    <i class="bi bi-info-circle"></i>
+                    Se registra al jugador en una <strong>categoría compatible</strong> como equipo
+                    secundario. <strong>No se modifica ningún dato del jugador.</strong>
+                </div>
+
+                <div class="row mb-3 g-2">
+                    <div class="col-md-4">
+                        <label class="form-label mb-0 small">Jugador</label>
+                        <input type="text" class="form-control form-control-sm" id="sec_jugador_nombre" readonly>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Jugador</label>
-                            <input type="text" class="form-control" id="sec_jugador_nombre" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">CURP</label>
-                            <input type="text" class="form-control" id="sec_jugador_curp" readonly>
-                        </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-0 small">Documento</label>
+                        <input type="text" class="form-control form-control-sm" id="sec_jugador_curp" readonly>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Categoría principal</label>
-                            <input type="text" class="form-control" id="sec_categoria_principal" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Edad</label>
-                            <input type="text" class="form-control" id="sec_edad" readonly>
-                        </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-0 small">Categoría principal</label>
+                        <input type="form-control form-control-sm" id="sec_categoria_principal" readonly>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Equipo secundario (categoría compatible)</label>
-                        <select class="form-select" name="equipo_id" id="sec_equipo_id" required>
-                            <option value="">-- Seleccionar equipo compatible --</option>
-                        </select>
-                        <div class="form-text" id="sec_equipo_help"></div>
-                    </div>
-                    <div class="alert alert-warning d-none" id="sec_alerta_edad">
-                        <i class="bi bi-exclamation-triangle"></i> <span id="sec_edad_msg"></span>
+                    <div class="col-md-2">
+                        <label class="form-label mb-0 small">Edad</label>
+                        <input type="text" class="form-control form-control-sm" id="sec_edad" readonly>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-info" id="sec_guardar_btn"><i class="bi bi-plus-circle"></i> Agregar equipo secundario</button>
+
+                <div class="alert alert-danger d-none py-2" id="sec_error"></div>
+                <div class="alert alert-success d-none py-2" id="sec_ok"></div>
+
+                <div id="sec_loading" class="text-center py-3">
+                    <span class="spinner-border spinner-border-sm me-2"></span>Cargando categorías compatibles...
                 </div>
-            </form>
+                <div id="sec_categorias"></div>
+
+                <p class="text-muted small mb-0 mt-2">
+                    El servidor valida compatibilidad de categoría, edad, suspensiones, movimientos
+                    de ascenso/descenso y período de altas antes de registrar el equipo secundario.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-info" id="sec_guardar_btn" disabled>
+                    <i class="bi bi-plus-circle"></i> Agregar equipo secundario
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var fotoModal = document.getElementById('fotoModal');
-    var form = document.getElementById('foto-form');
-    var nombreEl = document.getElementById('foto-jugador-nombre');
-    var baseUrl = "{% url 'subir_foto_jugador' 0 %}";
-    modal.addEventListener('show.bs.modal', function(e) {
-        var btn = e.relatedTarget;
-        var jid = btn.getAttribute('data-jugador-id');
-        var jnom = btn.getAttribute('data-jugador-nombre');
-        form.action = baseUrl.replace('0', jid);
-        nombreEl.innerHTML = '<i class="bi bi-person-circle"></i> <strong>' + jnom + '</strong>';
-    });
-});
+document.addEventListener('DOMContentLoaded', function () {
+    var modalEl = document.getElementById('equipoSecundarioModal');
+    if (!modalEl) return;
 
-// Modal para equipo secundario
-document.addEventListener('DOMContentLoaded', function() {
-    var secModal = document.getElementById('equipoSecundarioModal');
-    var secForm = document.getElementById('equipoSecundarioForm');
-    var secEquipoSelect = document.getElementById('sec_equipo_id');
-    var secEquipoHelp = document.getElementById('sec_equipo_help');
-    var secAlertaEdad = document.getElementById('sec_alerta_edad');
-    var secEdadMsg = document.getElementById('sec_edad_msg');
-    var secGuardarBtn = document.getElementById('sec_guardar_btn');
-    
-    secModal.addEventListener('show.bs.modal', function(e) {
-        var btn = e.relatedTarget;
-        var jid = btn.getAttribute('data-jugador-id');
-        var jnom = btn.getAttribute('data-jugador-nombre');
-        var jcurp = btn.getAttribute('data-jugador-curp');
-        var catPrincipal = btn.getAttribute('data-categoria-principal');
-        
-        document.getElementById('sec_jugador_id').value = jid;
-        document.getElementById('sec_jugador_nombre').value = jnom;
-        document.getElementById('sec_jugador_curp').value = jcurp;
-        
-        // Cargar categorías compatibles y equipos
-        cargarEquiposCompatibles(catPrincipal);
-        
-        // Reset form
-        secForm.reset();
-        document.getElementById('sec_jugador_id').value = jid;
-        document.getElementById('sec_jugador_nombre').value = btn.getAttribute('data-jugador-nombre');
-        document.getElementById('sec_jugador_curp').value = jcurp;
-        document.getElementById('sec_categoria_principal').value = document.getElementById('cat-nombre-' + catPrincipal)?.textContent || 'Categoría ' + catPrincipal;
-        document.getElementById('sec_equipo_id').value = '';
-        document.getElementById('sec_equipo_help').textContent = '';
-        document.getElementById('sec_alerta_edad').classList.add('d-none');
-    });
-    
-    function cargarEquiposCompatibles(catPrincipalId) {
-        fetch('{% url "api_equipos_compatibles" %}', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-    },
-    body: JSON.stringify({ categoria_id: catPrincipalId })
-})
-            .then(response => response.json())
-            .then(data => {
-                var select = document.getElementById('sec_equipo_id');
-                select.innerHTML = '<option value="">-- Seleccionar equipo compatible --</option>';
-                data.equipos.forEach(function(eq) {
-                    var option = document.createElement('option');
-                    option.value = eq.id;
-                    option.textContent = eq.nombre + ' (' + eq.categoria_nombre + ')';
-                    option.dataset.categoria = eq.categoria_id;
-                    option.dataset.edad_minima = eq.edad_minima || 0;
-                    option.dataset.edad_maxima = eq.edad_maxima || 99;
-                    select.appendChild(option);
-                });
-            })
-            .catch(function(err) {
-                console.error('Error cargando equipos:', err);
-            });
+    var catBox = document.getElementById('sec_categorias');
+    var loading = document.getElementById('sec_loading');
+    var errBox = document.getElementById('sec_error');
+    var okBox = document.getElementById('sec_ok');
+    var btn = document.getElementById('sec_guardar_btn');
+
+    var apiUrl = '{% url "api_equipos_categoria" %}';
+    var saveUrl = '{% url "jugador_agregar_equipo_secundario" 0 %}';
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+
+    var ctx = { jugadorId: '', equipoPrincipalId: '' };
+
+    function showError(msg) {
+        errBox.textContent = msg;
+        errBox.classList.remove('d-none');
+        okBox.classList.add('d-none');
     }
-    
-    // Validar edad al seleccionar equipo
-    document.getElementById('sec_equipo_id').addEventListener('change', function() {
-        var option = this.options[this.selectedIndex];
-        var edadMin = parseInt(option.dataset.edad_minima) || 0;
-        var edadMax = parseInt(option.dataset.edad_maxima) || 99;
-        var edadJugador = parseInt(document.getElementById('sec_edad').value) || 0;
-        var categoriaNombre = option.text.split('(')[1]?.replace(')', '') || '';
-        
-        if (edadJugador < edadMin || edadJugador > edadMax) {
-            document.getElementById('sec_edad_msg').textContent = 
-                'El jugador tiene ' + edadJugador + ' años. La categoría ' + categoriaNombre + ' requiere edad entre ' + edadMin + ' y ' + edadMax + ' años.';
-            document.getElementById('sec_alerta_edad').classList.remove('d-none');
-            document.getElementById('sec_guardar_btn').disabled = true;
-        } else {
-            document.getElementById('sec_alerta_edad').classList.add('d-none');
-            document.getElementById('sec_guardar_btn').disabled = false;
+
+    function showOk(msg, avisos) {
+        errBox.classList.add('d-none');
+        okBox.textContent = msg + (avisos && avisos.length ? ' ' + avisos.join(' ') : '');
+        okBox.classList.remove('d-none');
+    }
+
+    function clearAlerts() {
+        errBox.classList.add('d-none');
+        okBox.classList.add('d-none');
+    }
+
+    // Devuelve el <select> habilitado que tenga un equipo elegido (o null).
+    function seleccionActual() {
+        var sels = catBox.querySelectorAll('select.secondary-team-select:not([disabled])');
+        for (var i = 0; i < sels.length; i++) {
+            if (sels[i].value) return sels[i];
         }
-    });
-    
-    // Enviar formulario
-    document.getElementById('equipoSecundarioForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        var equipoId = document.getElementById('sec_equipo_id').value;
-        if (!equipoId) {
-            alert('Selecciona un equipo');
+        return null;
+    }
+
+    function refreshGuard() {
+        btn.disabled = !seleccionActual();
+    }
+
+    // Una categoría es válida si es compatible con TODAS las categorías ya registradas.
+    function compatibleConTodas(catId, registradas, fwd, rev) {
+        var otras = registradas.filter(function (id) { return id !== catId; });
+        return otras.every(function (otra) {
+            return (fwd[catId] || []).indexOf(otra) !== -1
+                || (rev[catId] || []).indexOf(otra) !== -1;
+        });
+    }
+
+    function render(data) {
+        catBox.innerHTML = '';
+        var cats = data.compatibles || [];
+        if (cats.length === 0) {
+            catBox.innerHTML = '<p class="text-muted text-center mb-0">'
+                + 'Este jugador no tiene categorías compatibles disponibles.</p>';
+            refreshGuard();
             return;
         }
-        
-        var jugadorId = document.getElementById('sec_jugador_id').value;
-        
-        document.getElementById('sec_guardar_btn').disabled = true;
-        document.getElementById('sec_guardar_btn').innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
-        
-        fetch('{% url "api_agregar_equipo_secundario" %}', {
+
+        var fwd = data.forward_map || {};
+        var rev = data.reverse_map || {};
+        var registros = data.registros || {};
+        var tempsActivas = data.temporadas_activas || [];
+        var periodosAbiertos = data.periodos_abiertos || {};
+
+        var edad = parseInt(document.getElementById('sec_edad').value, 10);
+        var edadConocida = !isNaN(edad);
+
+        var registradas = cats
+            .filter(function (c) { return registros[String(c.id)] !== undefined; })
+            .map(function (c) { return c.id; });
+
+        cats.forEach(function (cat) {
+            var clave = String(cat.id);
+            var temporadaActiva = tempsActivas.indexOf(cat.id) !== -1;
+            var yaRegistrado = registros[clave] !== undefined;
+            var seleccion = yaRegistrado ? registros[clave] : null;
+
+            var card = document.createElement('div');
+            card.className = 'card mb-2';
+
+            // --- encabezado
+            var head = document.createElement('div');
+            head.className = 'card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-1';
+
+            var titulo = document.createElement('span');
+            titulo.className = 'fw-semibold';
+            titulo.textContent = cat.nombre;
+            head.appendChild(titulo);
+
+            var badges = document.createElement('span');
+            if (yaRegistrado) {
+                var bOk = document.createElement('span');
+                bOk.className = 'badge bg-success';
+                bOk.textContent = 'Ya registrado';
+                badges.appendChild(bOk);
+            }
+            if (cat.edad_minima !== null && cat.edad_minima !== undefined) {
+                var bEd = document.createElement('span');
+                bEd.className = 'badge bg-light text-dark';
+                bEd.textContent = 'Edad ' + cat.edad_minima
+                    + (cat.edad_maxima ? '-' + cat.edad_maxima : '+');
+                badges.appendChild(bEd);
+            }
+            if (temporadaActiva) {
+                var bT = document.createElement('span');
+                bT.className = 'badge bg-warning text-dark';
+                bT.textContent = 'Temporada en curso';
+                badges.appendChild(bT);
+            }
+            head.appendChild(badges);
+
+            // --- cuerpo
+            var body = document.createElement('div');
+            body.className = 'card-body py-2';
+
+            var aviso = '';
+
+            if (!yaRegistrado && temporadaActiva && !periodosAbiertos[clave]) {
+                aviso = 'No hay período de altas activo en ' + cat.nombre
+                    + ', por eso no se pueden agregar equipos nuevos ahí.';
+            } else if (!yaRegistrado && !compatibleConTodas(cat.id, registradas, fwd, rev)) {
+                aviso = 'Incompatible con las categorías donde el jugador ya está registrado.';
+            } else if (edadConocida) {
+                var cMin = cat.edad_minima, cMax = cat.edad_maxima;
+                if ((cMin !== null && cMin !== undefined && edad < cMin)
+                        || (cMax !== null && cMax !== undefined && edad > cMax)) {
+                    aviso = 'La edad del jugador no cumple el rango de ' + cat.nombre + '.';
+                }
+            }
+
+            var fila = document.createElement('div');
+            fila.className = 'row g-2 align-items-end';
+
+            var col = document.createElement('div');
+            col.className = 'col-md-8';
+
+            var lbl = document.createElement('label');
+            lbl.className = 'form-label mb-1 small';
+            lbl.textContent = 'Equipo de esta categoría';
+
+            var select = document.createElement('select');
+            select.className = 'form-select form-select-sm secondary-team-select';
+
+            var vacio = document.createElement('option');
+            vacio.value = '';
+            vacio.textContent = yaRegistrado ? '-- Ya registrado en: --' : '-- Elegir equipo --';
+            select.appendChild(vacio);
+
+            var opciones = (cat.equipos || []).filter(function (eq) {
+                return !yaRegistrado || String(eq.id) === String(seleccion);
+            });
+
+            if (opciones.length === 0) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Sin equipos activos en esta categoría';
+                select.appendChild(opt);
+            } else {
+                opciones.forEach(function (eq) {
+                    var o = document.createElement('option');
+                    o.value = eq.id;
+                    o.textContent = eq.nombre;
+                    select.appendChild(o);
+                });
+                if (yaRegistrado) select.value = seleccion;
+            }
+
+            if (aviso) {
+                select.disabled = true;
+                card.classList.add('opacity-50');
+                var nota = document.createElement('div');
+                nota.className = 'form-text text-danger';
+                nota.textContent = aviso;
+                col.appendChild(nota);
+            }
+
+            select.addEventListener('change', refreshGuard);
+
+            col.appendChild(lbl);
+            col.appendChild(select);
+            fila.appendChild(col);
+            body.appendChild(fila);
+            card.appendChild(head);
+            card.appendChild(body);
+            catBox.appendChild(card);
+        });
+
+        refreshGuard();
+    }
+
+    function cargar() {
+        clearAlerts();
+        catBox.innerHTML = '';
+        refreshGuard();
+
+        if (!ctx.equipoPrincipalId) {
+            loading.style.display = 'none';
+            catBox.innerHTML = '<p class="text-danger text-center mb-0">'
+                + 'El jugador no tiene equipo principal, así que no puede tener uno secundario.</p>';
+            return;
+        }
+
+        loading.style.display = 'block';
+        var url = apiUrl + '?equipo_id=' + encodeURIComponent(ctx.equipoPrincipalId)
+            + '&jugador_id=' + encodeURIComponent(ctx.jugadorId);
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                loading.style.display = 'none';
+                if (data.error) {
+                    catBox.innerHTML = '';
+                    showError(data.error);
+                    return;
+                }
+                render(data);
+            })
+            .catch(function () {
+                loading.style.display = 'none';
+                catBox.innerHTML = '';
+                showError('No se pudieron cargar las categorías compatibles.');
+            });
+    }
+
+    // Refresca la celda de equipos de la fila sin recargar la página (conserva filtros).
+    function pintarFila(jugadorId, lista) {
+        var celda = document.getElementById('equipos-cell-' + jugadorId);
+        if (!celda) return;
+        var html = '<span class="badge bg-primary me-1">'
+            + celda.dataset.principal + '</span>';
+        var cats = '<small class="text-muted me-2" style="font-size:.65rem">'
+            + celda.dataset.categoria + '</small>';
+        lista.forEach(function (it) {
+            html += '<span class="badge bg-secondary me-1">' + it.equipo_nombre + '</span>';
+            cats += '<small class="text-muted d-inline-block me-1" style="font-size:.65rem">'
+                + it.categoria_nombre + '</small>';
+        });
+        celda.innerHTML = html + '<div class="mt-1">' + cats + '</div>';
+    }
+
+    modalEl.addEventListener('show.bs.modal', function (e) {
+        var trigger = e.relatedTarget;
+        if (!trigger) return;
+        ctx.jugadorId = trigger.getAttribute('data-jugador-id');
+        ctx.equipoPrincipalId = trigger.getAttribute('data-equipo-principal-id');
+        document.getElementById('sec_jugador_nombre').value = trigger.getAttribute('data-jugador-nombre') || '';
+        document.getElementById('sec_jugador_curp').value = trigger.getAttribute('data-jugador-curp') || '—';
+        document.getElementById('sec_categoria_principal').value =
+            trigger.getAttribute('data-categoria-principal-nombre') || '';
+        var edad = trigger.getAttribute('data-edad');
+        document.getElementById('sec_edad').value = edad ? edad + ' años' : '—';
+        btn.disabled = true;
+        cargar();
+    });
+
+    btn.addEventListener('click', function () {
+        var sel = seleccionActual();
+        if (!sel) return;
+
+        var fd = new FormData();
+        fd.append('equipo_id', sel.value);
+
+        var label = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+
+        fetch(saveUrl.replace('/0/', '/' + ctx.jugadorId + '/'), {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrf ? csrf.value : ''
             },
-            body: JSON.stringify({
-                jugador_id: jugadorId,
-                equipo_id: equipoId
+            body: fd,
+            credentials: 'same-origin'
+        })
+            .then(function (r) {
+                return r.json().then(function (d) { return { status: r.status, data: d }; });
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                // Cerrar modal y recargar página
-                var modal = bootstrap.Modal.getInstance(document.getElementById('equipoSecundarioModal'));
-                modal.hide();
-                location.reload();
-            } else {
-                alert('Error: ' + (data.error || 'Error desconocido'));
-                document.getElementById('sec_guardar_btn').disabled = false;
-                document.getElementById('sec_guardar_btn').innerHTML = '<i class="bi bi-plus-circle"></i> Agregar equipo secundario';
-            }
-        })
-        .catch(function(err) {
-            console.error('Error:', err);
-            alert('Error de conexión');
-            document.getElementById('sec_guardar_btn').disabled = false;
-            document.getElementById('sec_guardar_btn').innerHTML = '<i class="bi bi-plus-circle"></i> Agregar equipo secundario';
-        });
+            .then(function (res) {
+                btn.innerHTML = label;
+                if (res.data && res.data.ok) {
+                    showOk(res.data.mensaje, res.data.avisos);
+                    pintarFila(ctx.jugadorId, res.data.categorias_secundarias || []);
+                    cargar();
+                } else {
+                    showError((res.data && res.data.error)
+                        || 'No se pudo agregar el equipo secundario.');
+                    refreshGuard();
+                }
+            })
+            .catch(function () {
+                btn.innerHTML = label;
+                showError('Error de conexión al guardar.');
+                refreshGuard();
+            });
     });
 });
 </script>
