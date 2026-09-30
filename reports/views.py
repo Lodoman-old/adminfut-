@@ -2335,7 +2335,7 @@ def reporte_registro_pdf(request):
         # Posición de la tarjeta
         x = margin_left + col * (card_w + gap_x)
         # y_base es la base (fondo) de la tarjeta en esta fila
-        y_base = draw_header(p) - card_h - row_in_page * (card_h + gap_y)
+        y = draw_header(p) - card_h - row_in_page * (card_h + gap_y)
         x = margin_left + col * (card_w + gap_x)
 
         # Fondo de la tarjeta (redondeada)
