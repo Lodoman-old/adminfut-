@@ -2415,7 +2415,22 @@ def reporte_registro_pdf(request):
             draw_footer(p, w, h)
             p.setFont("Helvetica", 8)
             p.setFillColor(colors.grey)
-            p.drawRightString(w - 30, 30, "Pagina {} de {}".format(page_idx + 1, total_pages))
+
+            # Numero de pagina (derecha)
+            pag_txt = "Pagina {} de {}".format(page_idx + 1, total_pages)
+            p.drawRightString(w - 30, 30, pag_txt)
+
+            # Dominio del sistema (centro), sin encimarse con las redes sociales
+            # (izquierda) ni con el numero de pagina (derecha)
+            from league.social import FALLBACK_SITE_URL
+            dominio = FALLBACK_SITE_URL.split("//", 1)[-1].rstrip("/")
+            dom_w = p.stringWidth(dominio, "Helvetica", 8)
+            redes = (ConfiguracionLiga.obtener().redes_sociales or "").strip()
+            redes_w = p.stringWidth(redes.split("\n")[0].strip(), "Helvetica", 8) if redes else 0
+            x0 = 30 + redes_w + 14
+            x1 = (w - 30 - p.stringWidth(pag_txt, "Helvetica", 8)) - 14
+            if x1 - x0 > dom_w:
+                p.drawCentredString((x0 + x1) / 2, 30, dominio)
 
         p.save()
         return response
