@@ -2285,7 +2285,7 @@ def reporte_registro_pdf(request):
                     p.drawImage(local_path, 15 * mm, h - 30 * mm, width=30 * mm, height=30 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
-        # Logo del equipo (más pequeño, a la derecha)
+        # Logo del equipo
         if equipo.logo:
             try:
                 local_path = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
@@ -2293,6 +2293,16 @@ def reporte_registro_pdf(request):
                     p.drawImage(local_path, w - 50 * mm, h - 28 * mm, width=20 * mm, height=20 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
+        # También intentar con _imagen_pdf para logos en Cloudinary
+        if equipo.logo:
+            try:
+                from reports.views import _imagen_pdf
+                img_reader = _imagen_pdf(equipo.logo)
+                if img_reader:
+                    p.drawImage(img_reader, w - 50 * mm, h - 28 * mm, width=20 * mm, height=20 * mm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
         p.setFont("Helvetica-Bold", 20)
         p.drawString(25 * mm, h - 18 * mm, cfg.nombre_liga)
         p.setFont("Helvetica", 11)
@@ -2319,7 +2329,7 @@ def reporte_registro_pdf(request):
     # Layout: tarjetas de jugadores en grid (2 columnas x 3 filas = 6 por página)
     # Márgenes amplios para impresión
     margin_left = 20 * mm
-    margin_right = 20 * mm
+    margin_right = 18 * mm
     margin_top = 50 * mm   # espacio para header
     margin_bottom = 18 * mm
     card_w = (w - 36 * mm) / 2  # (216mm - 36mm - 5mm gap) / 2 = 87.5mm
