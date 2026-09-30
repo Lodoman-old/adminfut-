@@ -112,6 +112,7 @@ urlpatterns = [
     path("api/cron-notificar-arbitros/", api_views.cron_notificar_arbitros, name="cron_notificar_arbitros"),
     path("api/enviar-credenciales-quiniela/", api_views.enviar_credenciales_quiniela, name="enviar_credenciales_quiniela"),
     path("api/jugador/<int:pk>/equipo-secundario/", views.jugador_agregar_equipo_secundario, name="jugador_agregar_equipo_secundario"),
+    path("api/jugador/<int:pk>/equipo-secundario/quitar/", views.jugador_quitar_equipo_secundario, name="jugador_quitar_equipo_secundario"),
     path("publicidad/<int:anuncio_id>/", views.detalle_anuncio, name="detalle_anuncio"),
     path("publicidad/<int:anuncio_id>/impresion/", views.impresion_anuncio, name="impresion_anuncio"),
     path("reportes/anuncio/<int:anuncio_id>/", views.reporte_anuncio, name="reporte_anuncio"),

@@ -228,6 +228,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var apiUrl = '{% url "api_equipos_categoria" %}';
     var saveUrl = '{% url "jugador_agregar_equipo_secundario" 0 %}';
+    var quitarUrl = '{% url "jugador_quitar_equipo_secundario" 0 %}';
     var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
 
     var ctx = { jugadorId: '', equipoPrincipalId: '' };
@@ -236,6 +237,12 @@ document.addEventListener('DOMContentLoaded', function () {
         errBox.textContent = msg;
         errBox.classList.remove('d-none');
         okBox.classList.add('d-none');
+    }
+
+    function showOk(msg, avisos) {
+        errBox.classList.add('d-none');
+        okBox.textContent = msg + (avisos && avisos.length ? ' ' + avisos.join(' ') : '');
+        okBox.classList.remove('d-none');
     }
 
     function clearAlerts() {
@@ -380,11 +387,13 @@ document.addEventListener('DOMContentLoaded', function () {
             fila.className = 'row g-2 align-items-end';
 
             var col = document.createElement('div');
-            col.className = 'col-md-8';
+            col.className = yaRegistrado ? 'col-md-7' : 'col-md-8';
 
             var lbl = document.createElement('label');
             lbl.className = 'form-label mb-1 small';
-            lbl.textContent = 'Equipo de esta categoría';
+            lbl.textContent = yaRegistrado
+                ? 'Equipo de esta categoría (puedes cambiarlo o quitarlo)'
+                : 'Equipo de esta categoría';
 
             var select = document.createElement('select');
             select.className = 'form-select form-select-sm secondary-team-select';
@@ -430,6 +439,24 @@ document.addEventListener('DOMContentLoaded', function () {
             col.appendChild(lbl);
             col.appendChild(select);
             fila.appendChild(col);
+
+            if (yaRegistrado) {
+                // Dar de baja el secundario de esta categoría.
+                var colQuitar = document.createElement('div');
+                colQuitar.className = 'col-md-5 d-flex align-items-end';
+
+                var btnQuitar = document.createElement('button');
+                btnQuitar.type = 'button';
+                btnQuitar.className = 'btn btn-sm btn-outline-danger w-100';
+                btnQuitar.innerHTML = '<i class="bi bi-x-circle"></i> Quitar equipo';
+                btnQuitar.title = 'Dar de baja el equipo secundario de ' + cat.nombre;
+                btnQuitar.addEventListener('click', function () {
+                    quitar(cat.id, cat.nombre, btnQuitar);
+                });
+                colQuitar.appendChild(btnQuitar);
+                fila.appendChild(colQuitar);
+            }
+
             body.appendChild(fila);
             card.appendChild(head);
             card.appendChild(body);
@@ -515,18 +542,10 @@ document.addEventListener('DOMContentLoaded', function () {
         refreshGuard();
     });
 
-    btn.addEventListener('click', function () {
-        var sel = seleccionActual();
-        if (!sel) return;
-
+    function post(url, campos) {
         var fd = new FormData();
-        fd.append('equipo_id', sel.value);
-
-        var label = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
-
-        fetch(saveUrl.replace('/0/', '/' + ctx.jugadorId + '/'), {
+        Object.keys(campos).forEach(function (k) { fd.append(k, campos[k]); });
+        return fetch(url, {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -534,10 +553,52 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: fd,
             credentials: 'same-origin'
+        }).then(function (r) {
+            return r.json().then(function (d) { return { status: r.status, data: d }; });
+        });
+    }
+
+    // Quitar el equipo secundario de una categoría.
+    function quitar(categoriaId, categoriaNombre, boton) {
+        var mensaje = '¿Quitar el equipo secundario de ' + categoriaNombre + '?\n\n'
+            + 'Se quitará de la lista hasta que vuelva a registrarse.';
+        if (!window.confirm(mensaje)) return;
+
+        var label = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        post(quitarUrl.replace('/0/', '/' + ctx.jugadorId + '/'), {
+            categoria_id: categoriaId
         })
-            .then(function (r) {
-                return r.json().then(function (d) { return { status: r.status, data: d }; });
+            .then(function (res) {
+                boton.innerHTML = label;
+                if (res.data && res.data.ok) {
+                    pintarFila(ctx.jugadorId, res.data.categorias_secundarias || []);
+                    showOk(res.data.mensaje, res.data.avisos);
+                    cargar();
+                } else {
+                    showError((res.data && res.data.error)
+                        || 'No se pudo quitar el equipo secundario.');
+                    boton.disabled = false;
+                }
             })
+            .catch(function () {
+                boton.innerHTML = label;
+                boton.disabled = false;
+                showError('Error de conexión al quitar el equipo secundario.');
+            });
+    }
+
+    btn.addEventListener('click', function () {
+        var sel = seleccionActual();
+        if (!sel) return;
+
+        var label = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+
+        post(saveUrl.replace('/0/', '/' + ctx.jugadorId + '/'), { equipo_id: sel.value })
             .then(function (res) {
                 btn.innerHTML = label;
                 if (res.data && res.data.ok) {

@@ -336,7 +336,7 @@ def _puede_cambiar_equipo_secundario(jugador, registro_actual, temporada=None, c
     if temporada is None:
         return True, ""
 
-    if not temporada.periodos_altas.filter(activo=True).exists():
+    if not temporada.periodo_altas_activo():
         return False, (
             "No hay un período de altas activo en {}. No se puede cambiar de equipo.".format(
                 cat.nombre)
@@ -355,12 +355,14 @@ def _puede_cambiar_equipo_secundario(jugador, registro_actual, temporada=None, c
 
 
 def _jugadores_con_secundario_posible(jugadores):
-    """Pks de los jugadores que tienen AL MENOS UN equipo secundario válido.
+    """Pks de los jugadores a los que se muestra el botón de equipo secundario.
 
-    El botón "agregar equipo secundario" solo se muestra cuando el jugador
-    cumple los requisitos, así que esta función aplica exactamente las mismas
-    reglas que JugadorForm y que jugador_agregar_equipo_secundario:
+    El botón aparece si el jugador puede AGREGAR un equipo secundario nuevo,
+    CAMBIAR de equipo en una categoría donde ya lo tiene, o simplemente QUITAR
+    uno que ya tiene (darse de baja). Se evalúa en el servidor para no mostrar
+    un botón que el endpoint vaya a rechazar.
 
+    Para AGREGAR en una categoría nueva se requiere:
       - debe tener equipo principal;
       - la categoría destino debe ser compatible con TODAS las categorías
         donde ya juega (misma fuente: _allowed_secondary_category_ids);
@@ -396,7 +398,9 @@ def _jugadores_con_secundario_posible(jugadores):
         temp_por_cat.setdefault(t.categoria_id, t)
     cats_con_altas = set()
     for categoria_id, t in temp_por_cat.items():
-        if t.periodos_altas.filter(activo=True).exists():
+        # periodo_altas_activo() valida el rango de fechas/jornadas, no solo
+        # el flag "activo": si el periodo ya vencio, la categoría queda cerrada.
+        if t.periodo_altas_activo():
             cats_con_altas.add(categoria_id)
 
     pks = [j.pk for j in jugadores]
@@ -406,7 +410,7 @@ def _jugadores_con_secundario_posible(jugadores):
     registros_por_jugador = {}
     for row in JugadorEquipo.objects.filter(
         jugador_id__in=pks, es_principal=False
-    ).values("id", "jugador_id", "equipo_id", "equipo__categoria_id"):
+    ).values("id", "jugador_id", "equipo_id", "equipo__categoria_id", "activo"):
         cats_registradas.setdefault(row["jugador_id"], []).append(row["equipo__categoria_id"])
         registros_por_jugador.setdefault(row["jugador_id"], []).append(row)
 
@@ -480,6 +484,11 @@ def _jugadores_con_secundario_posible(jugadores):
     resultado = set()
     for jugador in jugadores:
         if not jugador.equipo_id:
+            continue
+        # Si ya tiene algún secundario ACTIVO se le muestra el botón aunque no
+        # pueda agregar ni cambiar nada más: siempre debe poder darle de baja.
+        if any(r["activo"] for r in registros_por_jugador.get(jugador.pk, [])):
+            resultado.add(jugador.pk)
             continue
         if jugador.pk in suspendidos:
             continue
@@ -4222,14 +4231,16 @@ def api_equipos_categoria(request):
         Tmp.objects.filter(iniciada=True, finalizada=False)
         .values_list("categoria_id", flat=True)
     )
-    # Periodos de altas activos por categoría
+    # Periodos de altas activos por categoría.
+    # Ojo: se usa Temporada.periodo_altas_activo() y no solo el flag "activo",
+    # porque un periodo puede quedar marcado activo y aun asi tener vencidas
+    # sus fechas (o sus jornadas). Con el flag solo, una categoria con
+    # temporada ya iniciada se mostraría como disponible para dar de alta o
+    # cambiar de equipo a mitad de torneo.
     periodos = {}
     for tid in temps_activas:
         t = Tmp.objects.filter(categoria_id=tid, iniciada=True, finalizada=False).first()
-        if t:
-            periodos[str(tid)] = t.periodos_altas.filter(activo=True).exists()
-        else:
-            periodos[str(tid)] = False
+        periodos[str(tid)] = bool(t and t.periodo_altas_activo())
 
     # Jugador ha jugado partidos por categoría (para saber si puede cambiar)
     ha_jugado = {}
@@ -4270,6 +4281,75 @@ def _categorias_secundarias_payload(jugador):
             es_principal=False, activo=True
         ).select_related("equipo__categoria").order_by("equipo__categoria__nombre")
     ]
+
+
+@require_POST
+def jugador_quitar_equipo_secundario(request, pk):
+    """Quita el equipo secundario de una categoría (dar de baja el registro).
+
+    El formulario de jugador permite quitar un secundario simplemente dejando
+    de marcarlo, así que aquí se replica esa libertad. Solo borra el registro
+    JugadorEquipo con es_principal=False: nunca toca el equipo principal ni
+    ningún dato del jugador. Las participaciones de partidos (JugadorPartido)
+    conservan su propio equipo, por lo que el historial no se altera.
+    """
+    user = request.user
+    if not (user.is_superuser or user.is_staff or user.tiene_permiso("jugador_editar")):
+        return JsonResponse(
+            {"ok": False, "error": "No tienes permiso para quitar equipos secundarios."},
+            status=403,
+        )
+
+    def fallo(mensaje, status=400):
+        return JsonResponse({"ok": False, "error": mensaje}, status=status)
+
+    jugador = get_object_or_404(Jugador, pk=pk)
+
+    categoria_id = (request.POST.get("categoria_id") or "").strip()
+    if not categoria_id.isdigit():
+        return fallo("No se recibió una categoría válida.")
+
+    registros = list(
+        jugador.registros_equipo.filter(
+            es_principal=False, activo=True, equipo__categoria_id=int(categoria_id)
+        ).select_related("equipo__categoria")
+    )
+    cat = registros[0].equipo.categoria if registros else None
+    if cat is None:
+        # Idempotente: si ya no tiene nada en esa categoría, no es un error.
+        return JsonResponse({
+            "ok": True,
+            "sin_cambios": True,
+            "mensaje": "El jugador no tiene equipo secundario en esa categoría.",
+            "categorias_secundarias": _categorias_secundarias_payload(jugador),
+        })
+
+    # Aviso informative: el jugador yaTiene participaciones en esa categoría,
+    # pero se permite la baja (igual que en la pantalla de jugador).
+    from .models import JugadorPartido
+    participaciones = JugadorPartido.objects.filter(
+        jugador=jugador, equipo__categoria_id=cat.pk
+    ).count()
+
+    with transaction.atomic():
+        JugadorEquipo.objects.filter(pk__in=[r.pk for r in registros]).delete()
+
+    avisos = []
+    if participaciones:
+        avisos.append(
+            "{} conserva {} participacion(es) en partidos de {}.".format(
+                jugador, participaciones, cat.nombre)
+        )
+
+    return JsonResponse({
+        "ok": True,
+        "cambio": True,
+        "mensaje": "Equipo secundario de {} quitado.".format(cat.nombre),
+        "avisos": avisos,
+        "categoria_id": cat.pk,
+        "categoria_nombre": cat.nombre,
+        "categorias_secundarias": _categorias_secundarias_payload(jugador),
+    })
 
 
 @require_POST
@@ -4403,7 +4483,7 @@ def jugador_agregar_equipo_secundario(request, pk):
         if not permitido:
             return fallo(motivo)
     elif temp_activa and not ya_registrado:
-        if not temp_activa.periodos_altas.filter(activo=True).exists():
+        if not temp_activa.periodo_altas_activo():
             return fallo(
                 "No hay un período de altas activo en {}, así que no se puede agregar "
                 "un equipo en esa categoría.".format(cat_destino.nombre)

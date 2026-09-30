@@ -1994,11 +1994,19 @@ class BotonEquipoSecundarioTest(EquipoSecundarioBaseTest):
     def test_se_muestra_si_hay_categoria_compatible(self):
         self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
 
-    def test_no_se_muestra_si_no_hay_categoria_compatible(self):
-        # A es compatible con B, pero el jugador ya está en B como secundario:
-        # no queda ninguna categoría nueva válida.
+    def test_se_muestra_si_ya_tiene_secundario_para_poder_quitarlo(self):
+        # A solo es compatible con B y el jugador ya está en B: no hay categoría
+        # nueva, pero el botón debe verse para poder darle de baja.
         self.registrar(self.jugador, self.eq_b)
-        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_no_se_muestra_si_no_hay_categoria_compatible_ni_secundarios(self):
+        # Jugador en C, que no es compatible con nadie: sin rutas posibles.
+        j = Jugador.objects.create(
+            nombre="Solo", apellido="C", posicion="DEF",
+            equipo=self.eq_c, fecha_nacimiento=date(2000, 1, 1),
+        )
+        self.assertNotIn(j.pk, _jugadores_con_secundario_posible([j]))
 
     def test_no_se_muestra_si_la_edad_no_cumple(self):
         self.cat_b.edad_minima = 60
@@ -2033,7 +2041,8 @@ class BotonEquipoSecundarioTest(EquipoSecundarioBaseTest):
         # Con período de altas abierto -> sí.
         from .models import PeriodoAltas
         PeriodoAltas.objects.create(
-            temporada=t, fecha_inicio=date.today(), fecha_fin=date.today() + timedelta(days=30)
+            temporada=t, tipo="fechas", activo=True,
+            fecha_inicio=date.today(), fecha_fin=date.today() + timedelta(days=30)
         )
         self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
 
@@ -2212,7 +2221,8 @@ class CambioEquipoSecundarioTest(EquipoSecundarioBaseTest):
         if con_altas:
             from .models import PeriodoAltas
             PeriodoAltas.objects.create(
-                temporada=t, fecha_inicio=date.today(),
+                temporada=t, tipo="fechas", activo=True,
+                fecha_inicio=date.today(),
                 fecha_fin=date.today() + timedelta(days=30)
             )
         if con_partido:
@@ -2297,9 +2307,23 @@ class CambioEquipoSecundarioTest(EquipoSecundarioBaseTest):
         # el boton debe seguir visible porque puede cambiar de equipo en B.
         self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
 
-    def test_boton_se_oculta_si_no_se_puede_alta_ni_cambiar(self):
-        # Temporada en curso, sin altas y con partido: no se puede ni alta ni cambio.
+    def test_boton_sigue_visible_para_poder_quitar_aunque_no_se_pueda_cambiar(self):
+        # Temporada en curso, sin altas y con partido: no se puede ni alta ni
+        # cambio, pero el secundario se debe poder quitar, asi que el boton
+        # sigue visible.
         self.abrir_temporada_b(con_altas=False, con_partido=True)
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_boton_se_oculta_si_no_tiene_secundario_ni_se_puede_alta(self):
+        # Sin secundarios y con la categoría destino cerrada por falta de altas.
+        self.registros = JugadorEquipo.objects.filter(
+            jugador=self.jugador, es_principal=False).delete()
+        # Se cierra B para altas nuevas (temporada en curso sin periodo de altas)
+        # y no hay mas categorias compatibles: no hay nada que hacer.
+        t = self.abrir_temporada_b(con_altas=False)
+        JugadorEquipo.objects.filter(jugador=self.jugador).delete()
+        Jugador.objects.filter(pk=self.jugador.pk).update(equipo=self.eq_a)
+        # Ahora solo queda la principal en A; A~B compatible pero B sin altas.
         self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
 
     def test_no_modifica_datos_del_jugador_al_cambiar(self):
@@ -2315,3 +2339,175 @@ class CambioEquipoSecundarioTest(EquipoSecundarioBaseTest):
              self.jugador.fecha_nacimiento),
             antes,
         )
+
+
+class QuitarEquipoSecundarioTest(EquipoSecundarioBaseTest):
+    """Quitar (dar de baja) el equipo secundario de una categoría."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+        self.eq_b2 = Equipo.objects.create(nombre="EqB2", categoria=self.cat_b, activo=True)
+        self.registro = self.registrar(self.jugador, self.eq_b)
+        self.url = reverse("jugador_quitar_equipo_secundario", args=[self.jugador.pk])
+
+    def test_quita_el_equipo_secundario(self):
+        r = self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()
+        self.assertTrue(data["ok"], data)
+        self.assertTrue(data["cambio"])
+        self.assertFalse(JugadorEquipo.objects.filter(pk=self.registro.pk).exists())
+        self.assertEqual(data["categorias_secundarias"], [])
+
+    def test_no_toca_el_equipo_principal_ni_los_datos(self):
+        antes = (self.jugador.nombre, self.jugador.apellido,
+                 self.jugador.curp, self.jugador.equipo_id)
+        self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.jugador.refresh_from_db()
+        self.assertEqual(
+            (self.jugador.nombre, self.jugador.apellido,
+             self.jugador.curp, self.jugador.equipo_id),
+            antes,
+        )
+        self.assertEqual(self.jugador.equipo_id, self.eq_a.pk)
+
+    def test_conserva_el_registro_de_otra_categoria(self):
+        self.registrar(self.jugador, self.eq_c)
+        self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertTrue(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_c, es_principal=False).exists())
+
+    def test_es_idempotente(self):
+        self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        r = self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["sin_cambios"])
+
+    def test_no_puede_quitar_la_categoria_principal(self):
+        r = self.client.post(self.url, {"categoria_id": self.cat_a.pk})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["sin_cambios"])
+        # El equipo principal sigue intacto.
+        self.assertEqual(self.jugador.equipo_id, self.eq_a.pk)
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_a, es_principal=False).exists())
+
+    def test_avisa_si_conserva_partidos(self):
+        self._crear_partido()
+        r = self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["avisos"])
+        self.assertIn("participacion", data["avisos"][0].lower())
+
+    def test_exige_csrf(self):
+        client = self.client_class(enforce_csrf_checks=True)
+        client.force_login(self.admin)
+        r = client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertEqual(r.status_code, 403)
+
+    def test_usuario_sin_permiso_es_403(self):
+        usuario = get_user_model().objects.create_user(username="sinperm2", password="p")
+        self.client.force_login(usuario)
+        r = self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertEqual(r.status_code, 403)
+        self.assertTrue(JugadorEquipo.objects.filter(pk=self.registro.pk).exists())
+
+    def test_anonimo_es_bloqueado(self):
+        self.client.logout()
+        r = self.client.post(self.url, {"categoria_id": self.cat_b.pk})
+        self.assertIn(r.status_code, (302, 403))
+        self.assertTrue(JugadorEquipo.objects.filter(pk=self.registro.pk).exists())
+
+    def test_solo_post(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 405)
+
+    def test_categoria_invalida(self):
+        r = self.client.post(self.url, {"categoria_id": "abc"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_boton_visible_para_poder_quitar(self):
+        # Ya tiene secundario: el botón debe verse aunque no pueda agregar más.
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def test_boton_se_oculta_si_no_tiene_secundarios_ni_destinos(self):
+        JugadorEquipo.objects.filter(pk=self.registro.pk).delete()
+        # Quedan A~B compatibles, así que sigue habiendo alta nueva posible.
+        self.assertIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
+
+    def _crear_partido(self):
+        from .models import Campo, Jornada, Partido, JugadorPartido
+        temp = Temporada.objects.create(
+            categoria=self.cat_b, nombre="T-B",
+            fecha_inicio=date.today() - timedelta(days=30),
+            iniciada=True, activa=True, finalizada=False,
+        )
+        campo = Campo.objects.create(nombre="C", activo=True)
+        jornada = Jornada.objects.create(numero=1, nombre="J1", temporada=temp)
+        partido = Partido.objects.create(
+            temporada=temp, jornada=jornada,
+            equipo_local=self.eq_b, equipo_visitante=self.eq_b2, campo=campo,
+            fecha_hora=datetime(2026, 1, 1, 12, 0), estado="JUG",
+        )
+        JugadorPartido.objects.create(
+            jugador=self.jugador, partido=partido, equipo=self.eq_b
+        )
+
+
+class PeriodoAltasVencidoTest(EquipoSecundarioBaseTest):
+    """Un PeriodoAltas con activo=True pero cuyo rango ya venció NO cuenta.
+
+    Es el caso real que reporto el usuario: una categoría con temporada ya
+    iniciada cuyo "periodo de altas" quedo marcado activo pero vencio. Debe
+    quedar deshabilitada (no se puede dar de alta ni cambiar de equipo).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.t = Temporada.objects.create(
+            categoria=self.cat_b, nombre="T-B",
+            fecha_inicio=date.today() - timedelta(days=120),
+            iniciada=True, activa=True, finalizada=False,
+        )
+        from .models import PeriodoAltas
+        # activo=True pero el rango de fechas ya paso.
+        self.periodo = PeriodoAltas.objects.create(
+            temporada=self.t, tipo="fechas", activo=True,
+            fecha_inicio=date.today() - timedelta(days=60),
+            fecha_fin=date.today() - timedelta(days=30),
+        )
+
+    def test_el_periodo_vencido_no_cuenta_como_abierto(self):
+        self.assertFalse(self.t.periodo_altas_activo())
+        # El metodo ingenuo (solo el flag) si diria que si:
+        self.assertTrue(self.t.periodos_altas.filter(activo=True).exists())
+
+    def test_la_api_lo_informa_cerrado(self):
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("api_equipos_categoria"), {
+            "equipo_id": self.eq_a.pk, "jugador_id": self.jugador.pk,
+        })
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()
+        self.assertFalse(data["periodos_abiertos"][str(self.cat_b.pk)])
+
+    def test_el_endpoint_rechaza_el_alta(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            reverse("jugador_agregar_equipo_secundario", args=[self.jugador.pk]),
+            {"equipo_id": self.eq_b.pk},
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("per\u00edodo de altas", r.json()["error"])
+        self.assertFalse(JugadorEquipo.objects.filter(
+            jugador=self.jugador, equipo=self.eq_b).exists())
+
+    def test_el_boton_no_se_muestra(self):
+        # Unica categoria compatible y esta cerrada: no hay nada que hacer.
+        self.assertNotIn(self.jugador.pk, _jugadores_con_secundario_posible([self.jugador]))
