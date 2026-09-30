@@ -2285,6 +2285,14 @@ def reporte_registro_pdf(request):
                     p.drawImage(local_path, 20 * mm, h - 25 * mm, width=25 * mm, height=25 * mm, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
+        # Logo del equipo
+        if equipo.logo:
+            try:
+                local_path = os.path.join(settings.MEDIA_ROOT, equipo.logo.name)
+                if os.path.exists(local_path):
+                    p.drawImage(local_path, w - 45 * mm, h - 25 * mm, width=25 * mm, height=25 * mm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
         p.setFont("Helvetica-Bold", 18)
         p.drawString(25 * mm, h - 15 * mm, cfg.nombre_liga)
         p.setFont("Helvetica", 10)
@@ -2315,7 +2323,7 @@ def reporte_registro_pdf(request):
     margin_top = 45 * mm   # espacio para header
     margin_bottom = 20 * mm
     card_w = (w - margin_left - margin_right - 5 * mm) / 2  # 5mm gap entre columnas
-    card_h = 70 * mm  # un poco más pequeña para que quepa bien
+    card_h = 62 * mm  # más pequeña para que quepan 8 por página
     gap_x = 5 * mm
     gap_y = 10 * mm  # más espacio vertical entre filas
 
@@ -2373,11 +2381,17 @@ def reporte_registro_pdf(request):
         p.setFillColor(colors.black)
         p.drawString(card_x + 3 * mm, card_y_top - 10 * mm, j.nombre + " " + j.apellido)
 
-        # Dorsal
-        if j.dorsal:
-            p.setFont("Helvetica-Bold", 10)
-            p.setFillColor(colors.HexColor("#003366"))
-            p.drawString(card_x + 3 * mm, card_y_top - 18 * mm, "Dorsal: " + str(j.dorsal))
+        # Documento (incluye CURP si existe)
+        if j.curp or j.tipo_documento:
+            p.setFont("Helvetica", 7)
+            p.setFillColor(colors.grey)
+            doc_parts = []
+            if j.tipo_documento:
+                doc_parts.append(j.get_tipo_documento_display())
+            if j.curp:
+                doc_parts.append(j.curp)
+            doc_text = " | ".join(doc_parts) if doc_parts else "—"
+            p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "Doc: " + doc_text)
 
         # Posición
         if j.posicion:
