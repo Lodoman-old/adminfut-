@@ -2270,7 +2270,7 @@ def reporte_registro_pdf(request):
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
 
-    # Encabezado por página
+    # Encabezado por página - dibuja header y retorna Y de la base del header
     def draw_header(p):
         y = h - 20 * mm
         p.setFillColor(colors.black)
@@ -2323,9 +2323,6 @@ def reporte_registro_pdf(request):
     p.setTitle("Registro " + equipo.nombre)
     p.setAuthor(config.nombre_liga)
 
-    y = draw_header(p) - card_h  # Ajustar para que la tarjeta no se empalme con el header
-    page_num = 1
-
     # Iterar jugadores y dibujar tarjetas
     for idx, j in enumerate(jugadores_list):
         col = idx % 2
@@ -2362,8 +2359,12 @@ def reporte_registro_pdf(request):
             try:
                 local_path = os.path.join(settings.MEDIA_ROOT, j.foto.name)
                 if os.path.exists(local_path):
-                    p.drawImage(local_path, card_x + img_x, card_y_top - img_y - img_h, 
-                                width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
+                    # Usar _imagen_pdf para manejar URLs de Cloudinary
+                    from reports.views import _imagen_pdf
+                    img_reader = _imagen_pdf(j.foto)
+                    if img_reader:
+                        p.drawImage(img_reader, x + img_x, card_y_top - img_y - img_h, 
+                                    width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
 
@@ -2406,24 +2407,6 @@ def reporte_registro_pdf(request):
                 doc_parts.append(j.curp)
             doc_text = " | ".join(doc_parts) if doc_parts else "—"
             p.drawString(card_x + 3 * mm, card_y_top - 50 * mm, "Doc: " + doc_text)
-
-    # Footer en última página
-    p.setFont("Helvetica", 8)
-    p.setFillColor(colors.grey)
-    p.drawString(20 * mm, 10 * mm, "Generado por " + config.nombre_liga)
-    p.drawRightString(w - 20 * mm, 10 * mm, "Total jugadores: " + str(total_jugadores))
-
-    p.save()
-    return response
-
-    # Footer en última página
-    p.setFont("Helvetica", 8)
-    p.setFillColor(colors.grey)
-    p.drawString(20 * mm, 10 * mm, "Generado por " + config.nombre_liga)
-    p.drawRightString(w - 20 * mm, 10 * mm, "Total jugadores: " + str(total_jugadores))
-
-    p.save()
-    return response
 
     # Footer en última página
     p.setFont("Helvetica", 8)
