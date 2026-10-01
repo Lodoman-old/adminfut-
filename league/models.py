@@ -205,13 +205,23 @@ class Jugador(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Sincronizar equipo principal con JugadorEquipo
-        if self.equipo and not self.registros_equipo.filter(equipo=self.equipo, es_principal=True).exists():
-            JugadorEquipo.objects.get_or_create(
-                jugador=self,
-                equipo=self.equipo,
-                defaults={"es_principal": True},
-            )
+        # Sincronizar equipo principal con JugadorEquipo.
+        # Si un update_fields no incluye "equipo" el equipo no cambia, así que no
+        # hay nada que sincronizar.
+        campos = kwargs.get("update_fields")
+        if campos is None or "equipo" in campos:
+            if self.equipo:
+                if not self.registros_equipo.filter(equipo=self.equipo, es_principal=True).exists():
+                    JugadorEquipo.objects.get_or_create(
+                        jugador=self,
+                        equipo=self.equipo,
+                        defaults={"es_principal": True},
+                    )
+            else:
+                # Sin equipo principal no puede quedar viva ninguna inscripción
+                # principal: si queda, el jugador sigue figurando en el roster del
+                # equipo anterior y el reporte de Registro lo sigue listando.
+                self.registros_equipo.filter(es_principal=True).delete()
         if self.foto:
             try:
                 img = Image.open(self.foto.path)

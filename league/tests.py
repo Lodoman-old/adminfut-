@@ -2558,3 +2558,74 @@ class RegistroSecundarioInactivoTest(EquipoSecundarioBaseTest):
         ids = JugadorEquipo.objects.filter(equipo=eq, activo=True).values_list(
             "jugador_id", flat=True)
         self.assertNotIn(self.jugador.pk, list(ids))
+
+
+class SincronizacionEquipoPrincipalTest(TestCase):
+    """Jugador.equipo y la inscripcion principal (JugadorEquipo) deben quedar
+    siempre coherentes: quitar el equipo, por cualquier via, tiene que borrar
+    la inscripcion; si queda, el jugador sigue figurando en el roster del
+    equipo anterior y el reporte de Registro lo sigue listando.
+    """
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="SyncCat", es_principal=True)
+        self.eq = Equipo.objects.create(nombre="SyncEq", categoria=self.cat, activo=True)
+        self.eq2 = Equipo.objects.create(nombre="SyncEq2", categoria=self.cat, activo=True)
+        self.jug = Jugador.objects.create(nombre="Sync", fecha_nacimiento=date(1995, 1, 1))
+
+    def test_asignar_equipo_crea_la_inscripcion_principal(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        self.assertTrue(
+            JugadorEquipo.objects.filter(
+                jugador=self.jug, equipo=self.eq, es_principal=True
+            ).exists()
+        )
+
+    def test_quitar_equipo_borra_la_inscripcion_principal(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        self.jug.equipo = None
+        self.jug.save()
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=self.jug, es_principal=True).exists())
+
+    def test_quitar_equipo_con_update_fields_tambien_borra(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        self.jug.equipo = None
+        self.jug.save(update_fields=["equipo"])
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=self.jug, es_principal=True).exists())
+
+    def test_no_toca_los_registros_secundarios(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        sec = JugadorEquipo.objects.create(jugador=self.jug, equipo=self.eq2, es_principal=False)
+        self.jug.equipo = None
+        self.jug.save()
+        self.assertTrue(JugadorEquipo.objects.filter(pk=sec.pk, es_principal=False).exists())
+
+    def test_update_fields_de_otro_campo_no_borra_la_inscripcion(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        # Salvar otro campo no debe desincronizar nada.
+        self.jug.suspendido_pago = True
+        self.jug.save(update_fields=["suspendido_pago"])
+        self.assertTrue(
+            JugadorEquipo.objects.filter(
+                jugador=self.jug, equipo=self.eq, es_principal=True
+            ).exists()
+        )
+
+    def test_reasignar_equipo_recrea_la_inscripcion(self):
+        self.jug.equipo = self.eq
+        self.jug.save()
+        self.jug.equipo = None
+        self.jug.save()
+        self.jug.equipo = self.eq2
+        self.jug.save()
+        self.assertTrue(
+            JugadorEquipo.objects.filter(
+                jugador=self.jug, equipo=self.eq2, es_principal=True
+            ).exists()
+        )
+        self.assertFalse(JugadorEquipo.objects.filter(jugador=self.jug, equipo=self.eq).exists())
