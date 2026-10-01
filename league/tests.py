@@ -2629,3 +2629,100 @@ class SincronizacionEquipoPrincipalTest(TestCase):
             ).exists()
         )
         self.assertFalse(JugadorEquipo.objects.filter(jugador=self.jug, equipo=self.eq).exists())
+
+
+class CedulaAcentosYLogosTest(TestCase):
+    """La cedula no debe mostrar '?' donde iban acentos, y los logos de los
+    equipos deben dibujarse grandes en la franja de cada equipo del PDF."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from django.contrib.auth import get_user_model
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from django.urls import reverse
+        from PIL import Image as PILImage
+
+        self.media = tempfile.mkdtemp(prefix="cedula_media_")
+        ov = override_settings(MEDIA_ROOT=self.media)
+        ov.enable()
+        self.addCleanup(ov.disable)
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+
+        self.cat = Categoria.objects.create(nombre="CedulaLogoCat", dias_juego=["SAB"])
+        self.campo = Campo.objects.create(nombre="CampoCedula", activo=True)
+        self.local = Equipo.objects.create(nombre="SAN JUAN", categoria=self.cat, activo=True)
+        self.visit = Equipo.objects.create(nombre="PABELLON", categoria=self.cat, activo=True)
+        for eq in (self.local, self.visit):
+            buf = BytesIO()
+            PILImage.new("RGB", (200, 200), (200, 30, 30)).save(buf, format="PNG")
+            eq.logo.save(
+                f"{eq.nombre}.png",
+                SimpleUploadedFile(f"{eq.nombre}.png", buf.getvalue(), content_type="image/png"),
+                save=False,
+            )
+            eq.save()
+        self.temp = Temporada.objects.create(
+            categoria=self.cat, nombre="CedLogo", fecha_inicio=date(2026, 1, 3),
+            tipo_rol="TODOS", vueltas=1, min_jugadores=0,
+        )
+        self.partido = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.local, equipo_visitante=self.visit,
+            campo=self.campo, estado="PEND",
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+        )
+        for eq, prefijo in ((self.local, "L"), (self.visit, "V")):
+            for k in range(12):
+                Jugador.objects.create(equipo=eq, nombre=f"{prefijo}{k} JUAN",
+                                       apellido="PEREZ", dorsal=k + 1, activo=True)
+        u = get_user_model().objects.create_superuser(username="cedlogo", password="p")
+        self.client.force_login(u)
+        self.pdf_url = reverse("reporte_cedula_arbitral_pdf", args=[self.partido.id])
+        self.xlsx_url = reverse("reporte_cedula_arbitral_xlsx", args=[self.partido.id])
+
+    def _pdf(self):
+        import fitz
+        resp = self.client.get(self.pdf_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        doc = fitz.open(stream=resp.content, filetype="pdf")
+        return doc, "".join(pg.get_text() for pg in doc)
+
+    def test_pdf_no_tiene_interrogantes_en_la_cedula(self):
+        _, texto = self._pdf()
+        self.assertIn("CEDULA ARBITRAL", texto)
+        self.assertIn("Arbitro:", texto)
+        self.assertIn("Firma del Arbitro:", texto)
+        for trozo in ("C?DULA", "C?dula", "?rbitro", "Firma del ?rbitro"):
+            self.assertNotIn(trozo, texto)
+
+    def test_pdf_dibuja_los_logos_de_equipo_mas_grandes(self):
+        doc, texto = self._pdf()
+        self.assertIn("LOCAL - SAN JUAN", texto)
+        self.assertIn("VISITANTE - PABELLON", texto)
+        altos = []
+        for page in doc:
+            for info in page.get_image_info():
+                b = info["bbox"]
+                altos.append(round(b[3] - b[1], 1))
+        self.assertTrue(altos, "no se dibujo ningun logo en el PDF")
+        # Antes era 22x22 dentro de una franja de 26; ahora 36x36 en una de 40.
+        self.assertGreaterEqual(max(altos), 30.0, f"logos chicos: {altos}")
+
+    def test_xlsx_titulo_y_datos_sin_interrogantes(self):
+        import openpyxl
+        resp = self.client.get(self.xlsx_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("spreadsheetml", resp["Content-Type"].lower())
+        wb = openpyxl.load_workbook(BytesIO(resp.content))
+        ws = wb.active
+        self.assertEqual(ws.title, "Cedula")
+        joined = " ".join(
+            str(ws.cell(row=r, column=c).value)
+            for r in range(1, ws.max_row + 1)
+            for c in range(1, ws.max_column + 1)
+            if ws.cell(row=r, column=c).value is not None
+        )
+        self.assertIn("Arbitro:", joined)
+        self.assertNotIn("?", joined)

@@ -1354,7 +1354,7 @@ def reporte_jornadas_completo_xlsx(request):
     return response
 
 
-# ??? C?dula Arbitral ?????????????????????????????????????????????????????????
+# --- Cedula Arbitral ------------------------------------------------------------
 
 
 def reporte_cedula_arbitral_xlsx(request, partido_id):
@@ -1396,14 +1396,14 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
 
     wb, response = _xlsx_response(f"cedula_arbitral_{partido_id}")
     ws = wb.active
-    ws.title = "C?dula"
+    ws.title = "Cedula"
 
     # Filtros
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
     ws.cell(row=1, column=1, value=f"{partido.equipo_local} vs {partido.equipo_visitante}").font = openpyxl.styles.Font(bold=True, size=14)
     ws.cell(row=2, column=1, value=f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}").font = openpyxl.styles.Font(italic=True)
     ws.cell(row=3, column=1, value=f"Campo: {partido.campo.nombre if partido.campo else '-'}").font = openpyxl.styles.Font(italic=True)
-    ws.cell(row=4, column=1, value=f"?rbitro: {partido.arbitro.nombre_completo() if partido.arbitro else '---'}").font = openpyxl.styles.Font(italic=True)
+    ws.cell(row=4, column=1, value=f"Arbitro: {partido.arbitro.nombre_completo() if partido.arbitro else '---'}").font = openpyxl.styles.Font(italic=True)
     ws.append([])
     start = 6
 
@@ -1419,11 +1419,11 @@ def reporte_cedula_arbitral_xlsx(request, partido_id):
             ws.append([
                 j.dorsal or "-",
                 f"{j.nombre} {j.apellido}",
-                "S?" if part and part.titular else "",
-                "S?" if part and not part.titular else "",
+                "SI" if part and part.titular else "",
+                "SI" if part and not part.titular else "",
                 g if g > 0 else "",
-                "S?" if card["amarillas"] >= 1 else "",
-                "S?" if card["roja"] else "",
+                "SI" if card["amarillas"] >= 1 else "",
+                "SI" if card["roja"] else "",
             ])
 
     def _logo_src(equipo):
@@ -1526,7 +1526,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             if partido.jornada.numero <= fin:
                 suspendidos.add(r.jugador_id)
 
-    # Verificar elegibilidad para liguilla seg?n % m?nimo de juegos
+    # Verificar elegibilidad para liguilla segun % minimo de juegos
     no_elegibles = set()
     if partido.es_liguilla and partido.temporada.min_porcentaje_liguilla:
         min_pct = partido.temporada.min_porcentaje_liguilla
@@ -1547,7 +1547,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     col_widths = [9, 180, 17, 17, 17, 14, 14, 19]
     hdr = ["#", "Jugador", "Tit", "Camb", "Gol", "A1", "A2", "Roja"]
     row_h = 15
-    franja_h = 26
+    franja_h = 40
+    logo_franja = 36
     top_margin = 40
     table_w = sum(col_widths)
     gap = 7
@@ -1575,17 +1576,17 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.setFont("Helvetica-Bold", 10)
         p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
         p.setFont("Helvetica-Bold", 12)
-        p.drawRightString(w - x0, y0, "C?DULA ARBITRAL")
-        # El "Equipo A vs Equipo B" central se elimin?: los nombres ya van en
-        # la franja de cada equipo (LOCAL / VISITANTE) con su logo m?s grande.
+        p.drawRightString(w - x0, y0, "CEDULA ARBITRAL")
+        # El "Equipo A vs Equipo B" central se elimino: los nombres ya van en
+        # la franja de cada equipo (LOCAL / VISITANTE) con su logo mas grande.
         y2 = y0 - 24
         p.setFont("Helvetica", 8.5)
         p.drawString(x0, y2, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
         p.drawCentredString(w / 2, y2, f"Campo: {partido.campo.nombre if partido.campo else 'Por definir'}")
         if partido.arbitro:
-            p.drawRightString(w - x0, y2, f"?rbitro: {partido.arbitro.nombre_completo()}")
+            p.drawRightString(w - x0, y2, f"Arbitro: {partido.arbitro.nombre_completo()}")
         else:
-            p.drawRightString(w - x0, y2, "?rbitro: __________________________")
+            p.drawRightString(w - x0, y2, "Arbitro: __________________________")
         return y2 - 15
 
     table_top = cabecera_pagina()
@@ -1603,12 +1604,14 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(equipo.logo)
             if logo_src:
                 try:
-                    p.drawImage(logo_src, x_start + 4, y - franja_h + 2, width=22, height=22, preserveAspectRatio=True, mask='auto')
+                    p.drawImage(logo_src, x_start + 4, y - franja_h / 2 - logo_franja / 2,
+                                width=logo_franja, height=logo_franja,
+                                preserveAspectRatio=True, mask='auto')
                 except Exception:
                     pass
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 9)
-        p.drawCentredString(x_start + (table_w + 12) / 2, y - franja_h + 6, f"{titulo} - {equipo.nombre}")
+        p.drawCentredString(x_start + (table_w + 12) / 2, y - franja_h / 2 - 3, f"{titulo} - {equipo.nombre}")
 
     def dibuja_cabecera_columnas(x_start, y):
         p.setFont("Helvetica-Bold", 8.5)
@@ -1726,11 +1729,11 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
 
-    # Firmas en un solo rengl?n, al final de la hoja (sin nombres de capitanes)
+    # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 9)
     firma_y = footer_y - 28
     p.drawString(left_x, firma_y, "Firma local: ____________")
-    p.drawCentredString(w / 2, firma_y, "Firma del ?rbitro: ____________")
+    p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     draw_footer(p, w, h, 14)
