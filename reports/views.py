@@ -1779,7 +1779,7 @@ def reporte_suscriptores_pdf(request):
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
             extra += f" - {cat.nombre}"
-    draw_header(p, w, extra)
+    draw_header(p, w, h, extra)
     headers = ["Email", "Usuario", "Categorias", "Roles", "Estadisticas", "Activo", "Creado"]
     data = [headers]
     for s in qs:

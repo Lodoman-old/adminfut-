@@ -2779,3 +2779,60 @@ class InterrogantesPorAcentoTest(TestCase):
         html = re.sub(r"(?:href|src|action|data-href)\s*=\s*[\"'][^\"']*[\"']", " ", html, flags=re.I)
         ofensores = [l.strip() for l in html.splitlines() if self.PATRON_HTML.search(l)]
         self.assertEqual(ofensores, [], "\n".join(ofensores))
+
+
+class ReporteSuscriptoresTest(TestCase):
+    """El PDF de suscriptores se rompio cuando draw_header()gano un parametro
+    (height): hay que llamar draw_header(p, w, h, extra) y los titulos van sin
+    '?'."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        from accounts.models import Rol
+        from .models import SuscripcionEmail
+
+        self.rol = Rol.objects.create(
+            nombre="ReporteSubs", permisos={"reporte_suscriptores": True}
+        )
+        self.user = get_user_model().objects.create_user(
+            username="subs", password="p", rol=self.rol
+        )
+        self.cat = Categoria.objects.create(nombre="Libre", dias_juego=["SAB"])
+        self.sub = SuscripcionEmail.objects.create(
+            email="socio@ejemplo.com", usuario=self.user, activo=True
+        )
+        self.sub.categorias.add(self.cat)
+        self.client.force_login(self.user)
+        self.pdf_url = reverse("reporte_suscriptores_pdf")
+        self.xlsx_url = reverse("reporte_suscriptores_xlsx")
+
+    def test_pdf_se_genera_sin_interrogantes(self):
+        import fitz
+        resp = self.client.get(self.pdf_url, {"categoria": self.cat.id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        texto = "".join(
+            pg.get_text() for pg in fitz.open(stream=resp.content, filetype="pdf")
+        )
+        for trozo in ("Email", "Usuario", "Categorias", "Roles", "Estadisticas",
+                      "Activo", "Creado", "SI", "socio@ejemplo.com"):
+            self.assertIn(trozo, texto)
+        self.assertNotIn("?", texto)
+
+    def test_xlsx_titulos_sin_interrogantes(self):
+        import openpyxl
+        resp = self.client.get(self.xlsx_url, {"categoria": self.cat.id})
+        self.assertEqual(resp.status_code, 200)
+        ws = openpyxl.load_workbook(BytesIO(resp.content)).active
+        joined = " ".join(
+            str(ws.cell(row=r, column=c).value)
+            for r in range(1, ws.max_row + 1)
+            for c in range(1, ws.max_column + 1)
+            if ws.cell(row=r, column=c).value is not None
+        )
+        self.assertIn("Categorias", joined)
+        self.assertIn("Estadisticas", joined)
+        self.assertIn("SI", joined)
+        self.assertNotIn("?", joined)
