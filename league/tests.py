@@ -2713,6 +2713,29 @@ class CedulaAcentosYLogosTest(TestCase):
         # Antes era 22x22 dentro de una franja de 26; ahora 36x36 en una de 40.
         self.assertGreaterEqual(max(altos), 30.0, f"logos chicos: {altos}")
 
+    def test_pdf_dibuja_mas_grande_el_logo_de_la_liga(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image as PILImage
+        from league.models import ConfiguracionLiga
+        cfg = ConfiguracionLiga.obtener()
+        buf = BytesIO()
+        PILImage.new("RGB", (200, 200), (20, 60, 120)).save(buf, format="PNG")
+        cfg.logo.save(
+            "liga.png",
+            SimpleUploadedFile("liga.png", buf.getvalue(), content_type="image/png"),
+            save=True,
+        )
+        doc, texto = self._pdf()
+        self.assertIn("LOCAL - SAN JUAN", texto)
+        altos = []
+        for page in doc:
+            for info in page.get_image_info():
+                b = info["bbox"]
+                altos.append(round(b[3] - b[1], 1))
+        self.assertGreaterEqual(len(altos), 3, f"se esperaban 3 logos: {altos}")
+        # El de la liga (46) tiene que ser el mas grande; los equipos van en 36.
+        self.assertGreaterEqual(max(altos), 44.0, f"logo de liga chico: {altos}")
+
     def test_xlsx_titulo_y_datos_sin_interrogantes(self):
         import openpyxl
         resp = self.client.get(self.xlsx_url)

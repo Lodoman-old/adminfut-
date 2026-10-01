@@ -1549,6 +1549,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     row_h = 15
     franja_h = 40
     logo_franja = 36
+    logo_liga = 46
     top_margin = 40
     table_w = sum(col_widths)
     gap = 7
@@ -1558,6 +1559,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     def cabecera_pagina():
         cfg_liga = ConfiguracionLiga.obtener()
         x0 = left_x
+        y0 = h - top_margin - 6
         logo_src = None
         if cfg_liga.logo:
             local_path = os.path.join(settings.MEDIA_ROOT, cfg_liga.logo.name)
@@ -1567,11 +1569,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
             try:
-                p.drawImage(logo_src, x0, h - top_margin - 6 - 17, width=34, height=34, preserveAspectRatio=True, mask='auto')
+                p.drawImage(logo_src, x0, y0 - logo_liga / 2,
+                            width=logo_liga, height=logo_liga,
+                            preserveAspectRatio=True, mask='auto')
             except Exception:
                 logo_src = None
-        x_text = x0 + (42 if logo_src else 0)
-        y0 = h - top_margin - 6
+        x_text = x0 + (logo_liga + 8 if logo_src else 0)
         p.setFillColor(colors.black)
         p.setFont("Helvetica-Bold", 10)
         p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
