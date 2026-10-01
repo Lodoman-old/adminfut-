@@ -7,7 +7,7 @@
     <div class="d-flex gap-2 align-items-center">
         {% if user|tiene_permiso:"jornada_publicar" %}
         <button type="button" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#rolTodasModal">
-            <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categor?as</span>
+            <i class="bi bi-facebook"></i> <span class="d-none d-sm-inline">Rol todas las categorías</span>
         </button>
         {% if user.is_staff %}
         <form method="post" action="{% url 'enviar_rol_por_correo' %}">
@@ -61,7 +61,7 @@
                 <td><a href="{% url 'partido_list' %}?jornada={{ j.id }}" class="btn btn-sm btn-outline-info">{{ j.partidos.count }} partidos</a></td>
                 <td>
                     {% if user|tiene_permiso:"temporada_enviar" and j.temporada.iniciada %}
-                    <button data-href="{% url 'enviar_rol_jornada' j.id %}" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#enviarJornadaModal" title="Enviar rol + estad?sticas de esta jornada">
+                    <button data-href="{% url 'enviar_rol_jornada' j.id %}" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#enviarJornadaModal" title="Enviar rol + estadísticas de esta jornada">
                         <i class="bi bi-envelope"></i>
                     </button>
                     <button data-href="{% url 'publicar_jornada_facebook' j.id %}" class="btn btn-sm btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarJornadaModal" title="Publicar en Facebook">
@@ -76,7 +76,7 @@
                         {% else %}
                         <form method="post" action="{% url 'reactivar_jornada' j.id %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivar jornada" onclick="return confirm('?Reactivar la jornada {{ j.numero }}? Los partidos pasar?n a Pendiente.')">
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivar jornada" onclick="return confirm('¿Reactivar la jornada {{ j.numero }}? Los partidos pasarán a Pendiente.')">
                                 <i class="bi bi-play-circle"></i>
                             </button>
                         </form>
@@ -99,10 +99,10 @@
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-envelope-open text-info" style="font-size:3rem"></i>
-                <p class="mt-3 mb-0">?Enviar el rol de juegos + tabla de posiciones + goleadores + castigados por correo a los suscriptores?</p>
+                <p class="mt-3 mb-0">¿Enviar el rol de juegos + tabla de posiciones + goleadores + castigados por correo a los suscriptores?</p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" class="btn btn-info" id="confirmarJornadaBtn"><i class="bi bi-send"></i> S?, enviar</a>
+                <a href="#" class="btn btn-info" id="confirmarJornadaBtn"><i class="bi bi-send"></i> Sí, enviar</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -119,10 +119,10 @@
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-facebook" style="font-size:3rem;color:#1877F2"></i>
-                <p class="mt-3 mb-0">?Publicar el rol de juegos + tabla de posiciones + castigados en Facebook?</p>
+                <p class="mt-3 mb-0">¿Publicar el rol de juegos + tabla de posiciones + castigados en Facebook?</p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" class="btn btn-primary" id="confirmarPubJornadaBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> S?, publicar</a>
+                <a href="#" class="btn btn-primary" id="confirmarPubJornadaBtn" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -141,7 +141,7 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Motivo de suspensi?n</label>
+                        <label class="form-label">Motivo de suspensión</label>
                         <textarea name="motivo" class="form-control" rows="3" placeholder="Lluvia, causa de fuerza mayor, etc." required></textarea>
                     </div>
                     <div class="mb-3">
@@ -153,11 +153,11 @@
                             <option value="3">3 semanas</option>
                             <option value="4">4 semanas</option>
                         </select>
-                        <div class="form-text text-muted">Todo el calendario desde esta jornada se recorrer? esta cantidad de semanas.</div>
+                        <div class="form-text text-muted">Todo el calendario desde esta jornada se recorrerá esta cantidad de semanas.</div>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-center">
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-pause-circle"></i> S?, suspender</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-pause-circle"></i> Sí, suspender</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 </div>
             </form>
@@ -175,28 +175,28 @@
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-facebook" style="font-size:3rem;color:#1877F2"></i>
-                <p class="mt-3 mb-0">?Publicar el rol de juegos en Facebook?</p>
+                <p class="mt-3 mb-0">¿Publicar el rol de juegos en Facebook?</p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" class="btn btn-primary" id="confirmarPubRolFbBtnHolder" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> S?, publicar</a>
+                <a href="#" class="btn btn-primary" id="confirmarPubRolFbBtnHolder" style="background-color:#1877F2;border-color:#1877F2;color:#fff"><i class="bi bi-facebook"></i> Sí, publicar</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Rol todas las categor?as -->
+<!-- Modal Rol todas las categorías -->
 <div class="modal fade" id="rolTodasModal" tabindex="-1" aria-labelledby="rolTodasModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header" style="background-color:#1877F2;color:#fff">
-                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categor?as</h5>
+                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categorías</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-calendar2-week" style="font-size:3rem;color:#1877F2"></i>
-                <p class="mt-3 mb-1">Rol de la pr?xima jornada de todas las categor?as.</p>
-                <p class="text-muted small mb-0">Descarga la imagen del rol o publ?cala directamente en Facebook.</p>
+                <p class="mt-3 mb-1">Rol de la próxima jornada de todas las categorías.</p>
+                <p class="text-muted small mb-0">Descarga la imagen del rol o publícala directamente en Facebook.</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-success">
@@ -245,17 +245,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Modal Rol todas las categor?as -->
+<!-- Modal Rol todas las categorías -->
 <div class="modal fade" id="rolTodasModal" tabindex="-1" aria-labelledby="rolTodasModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header" style="background-color:#1877F2;color:#fff">
-                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categor?as</h5>
+                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categorías</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body text-center py-4">
                 <i class="bi bi-calendar2-week" style="font-size:3rem;color:#1877F2"></i>
-                <p class="mt-3 mb-0">Imagen del rol de la pr?xima jornada de <b>todas las categor?as</b>.</p>
+                <p class="mt-3 mb-0">Imagen del rol de la próxima jornada de <b>todas las categorías</b>.</p>
                 <p class="text-muted small mb-0">Elige descargarla o publicarla directamente en Facebook.</p>
             </div>
             <div class="modal-footer justify-content-center">

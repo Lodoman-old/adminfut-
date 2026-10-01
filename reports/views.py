@@ -83,7 +83,7 @@ def draw_header(p, width, height, extra_line="", right_reserved=0):
     p.setLineWidth(1.5)
     p.line(30, y_sep, width - 30, y_sep)
 
-    # L?nea extra (categor?a, temporada, etc.)
+    # Linea extra (categoria, temporada, etc.)
     if extra_line:
         lines = extra_line.split("\n")
         y_line = y_sep - 16
@@ -98,7 +98,7 @@ def draw_header(p, width, height, extra_line="", right_reserved=0):
 
 
 def draw_footer(p, width, height, font_size=7):
-    """Dibuja el pie de p?gina (redes sociales)."""
+    """Dibuja el pie de pagina (redes sociales)."""
     cfg = ConfiguracionLiga.obtener()
     if cfg.redes_sociales:
         p.setFont("Helvetica", font_size)
@@ -130,7 +130,7 @@ def reporte_posiciones_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categor?a: {cat.nombre}")
+            partes_extra.append(f"Categoria: {cat.nombre}")
     extra = "\n".join(partes_extra)
     y = draw_header(p, width, height, extra)
 
@@ -218,7 +218,7 @@ def reporte_goleo_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categor?a: {cat.nombre}")
+            partes_extra.append(f"Categoria: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -280,7 +280,7 @@ def reporte_ingresos_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categor?a: {cat.nombre}")
+            partes_extra.append(f"Categoria: {cat.nombre}")
     if concepto_id:
         from finance.models import ConceptoIngreso
         conc = ConceptoIngreso.objects.filter(id=concepto_id).first()
@@ -361,7 +361,7 @@ def reporte_tarjetas_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categor?a: {cat.nombre}")
+            partes_extra.append(f"Categoria: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -432,7 +432,7 @@ def reporte_castigados_pdf(request):
     if cat_id:
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            partes_extra.append(f"Categor?a: {cat.nombre}")
+            partes_extra.append(f"Categoria: {cat.nombre}")
     if jornada_id:
         j = Jornada.objects.filter(id=jornada_id).first()
         if j:
@@ -451,7 +451,7 @@ def reporte_castigados_pdf(request):
             tipo="ROJA", suspension_jornadas__gt=0,
             partido__temporada_id=temp_id,
         ).select_related("jugador", "equipo", "partido__jornada").order_by("-partido__fecha_hora")
-        data = [["#", "Jugador", "Equipo", "Susp.", "Expulsi?n", "Pendientes"]]
+        data = [["#", "Jugador", "Equipo", "Susp.", "Expulsion", "Pendientes"]]
         procesados = set()
         for i, c in enumerate(castigados, 1):
             info = susp_dict.get(c.jugador_id)
@@ -465,7 +465,7 @@ def reporte_castigados_pdf(request):
                         for p in pend_list
                     )
                 else:
-                    pend_text = f"Pendiente ({restantes}) - pr?xima temporada"
+                    pend_text = f"Pendiente ({restantes}) - proxima temporada"
             else:
                 pend_text = "Cumplida"
             data.append([
@@ -494,14 +494,14 @@ def reporte_castigados_pdf(request):
                 )
                 susp_col = env.suspension_jornadas
             else:
-                pend_text = f"Pendiente ({info['restantes']}) - pr?xima temporada"
+                pend_text = f"Pendiente ({info['restantes']}) - proxima temporada"
                 susp_col = env.suspension_jornadas
             data.append([
                 len(data),
                 Paragraph(f"{env.jugador.nombre} {env.jugador.apellido}", ps),
                 Paragraph(env.equipo.nombre if env.equipo else "Expulsado de la liga", ps),
                 susp_col,
-                Paragraph("Suspensi?n manual", ps),
+                Paragraph("Suspension manual", ps),
                 Paragraph(pend_text, ps),
             ])
         col_widths = [25, 150, 100, 40, 200, 200]
@@ -617,7 +617,7 @@ def reporte_pagos_temporada(request):
                     or 0
                 )
                 pagos[conc.nombre] = total
-            # "Completo" = tiene Inscripci?n pagada (lo ?nico necesario para iniciar)
+            # "Completo" = tiene Inscripcion pagada (lo unico necesario para iniciar)
             inscripcion_pagada = any(
                 "inscripci" in c.nombre.lower() and pagos.get(c.nombre, 0) > 0
                 for c in conceptos_pago
@@ -699,7 +699,7 @@ def _get_filtros_comunes(request):
     if cat_id:
         categoria = Categoria.objects.filter(id=cat_id).first()
         if categoria:
-            filtros.append(("Categor?a", categoria.nombre))
+            filtros.append(("Categoria", categoria.nombre))
     if temp_id:
         temporada = Temporada.objects.filter(id=temp_id).first()
         if temporada:
@@ -854,7 +854,7 @@ def reporte_castigados_xlsx(request):
         if jornada_id:
             qs = qs.filter(partido__jornada_id=jornada_id)
         castigados = qs.select_related("jugador", "equipo", "partido__jornada").order_by("-partido__fecha_hora")
-        ws.append(["#", "Jugador", "Equipo", "Suspensi?n (J)", "Expulsi?n", "Pendientes"])
+        ws.append(["#", "Jugador", "Equipo", "Suspension (J)", "Expulsion", "Pendientes"])
         for i, c in enumerate(castigados, 1):
             prox = Partido.objects.filter(
                 temporada=temp,
@@ -907,7 +907,7 @@ def reporte_castigados_xlsx(request):
                         for p in pend_list
                     )
                 else:
-                    pend_str = f"Pendiente ({rst}) - pr?xima temporada"
+                    pend_str = f"Pendiente ({rst}) - proxima temporada"
                 susp_col = m.jornadas
             num_fila = ws.max_row or 2
             ws.append([
@@ -915,7 +915,7 @@ def reporte_castigados_xlsx(request):
                 f"{m.jugador.nombre} {m.jugador.apellido}",
                 m.equipo.nombre if m.equipo else "Expulsado de la liga",
                 susp_col,
-                "Suspensi?n manual",
+                "Suspension manual",
                 pend_str,
             ])
     else:
@@ -999,7 +999,7 @@ def reporte_pagos_pdf(request):
     extra = "Reporte de Pagos por Temporada"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Reporte de Pagos\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
+        extra = f"Reporte de Pagos\nTemporada: {temp.nombre}\nCategoria: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1065,7 +1065,7 @@ def reporte_pagos_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categor?a", temp.categoria.nombre))
+            filtros.append(("Categoria", temp.categoria.nombre))
 
     wb, response = _xlsx_response("pagos_temporada")
     ws = wb.active
@@ -1128,7 +1128,7 @@ def reporte_jornadas_pdf(request):
     extra = "Juegos por Jornada"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Juegos por Jornada\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
+        extra = f"Juegos por Jornada\nTemporada: {temp.nombre}\nCategoria: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1158,7 +1158,7 @@ def reporte_jornadas_pdf(request):
             p.setFillColor(colors.black)
             page_y -= 16
 
-            hdr = ["Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "?rbitro"]
+            hdr = ["Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "Arbitro"]
             data = [hdr]
             for partido in partidos:
                 data.append([
@@ -1198,7 +1198,7 @@ def reporte_jornadas_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categor?a", temp.categoria.nombre))
+            filtros.append(("Categoria", temp.categoria.nombre))
 
     wb, response = _xlsx_response("juegos_jornada")
     ws = wb.active
@@ -1209,7 +1209,7 @@ def reporte_jornadas_xlsx(request):
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
         jornadas = Jornada.objects.filter(temporada=temp).order_by("numero")
-        headers = ["Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "?rbitro"]
+        headers = ["Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "Arbitro"]
         ws.append(headers)
         for col in range(1, len(headers) + 1):
             cell = ws.cell(row=start, column=col)
@@ -1251,7 +1251,7 @@ def reporte_jornadas_completo_pdf(request):
     extra = "Todos los Juegos"
     if temp_id:
         temp = Temporada.objects.get(id=temp_id)
-        extra = f"Todos los Juegos\nTemporada: {temp.nombre}\nCategor?a: {temp.categoria.nombre}"
+        extra = f"Todos los Juegos\nTemporada: {temp.nombre}\nCategoria: {temp.categoria.nombre}"
     y = draw_header(p, width, height, extra)
 
     if temp_id:
@@ -1260,7 +1260,7 @@ def reporte_jornadas_completo_pdf(request):
             "jornada", "equipo_local", "equipo_visitante", "campo", "arbitro"
         ).order_by("jornada__numero", "fecha_hora")
 
-        hdr = ["#", "Jor.", "Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "?rbitro"]
+        hdr = ["#", "Jor.", "Local", "Goles", "", "Goles", "Visitante", "Campo", "Fecha/Hora", "Arbitro"]
         data = [hdr]
         for i, partido in enumerate(partidos, 1):
             data.append([
@@ -1321,14 +1321,14 @@ def reporte_jornadas_completo_xlsx(request):
         temp = Temporada.objects.filter(id=temp_id).first()
         if temp:
             filtros.append(("Temporada", temp.nombre))
-            filtros.append(("Categor?a", temp.categoria.nombre))
+            filtros.append(("Categoria", temp.categoria.nombre))
 
     wb, response = _xlsx_response("todos_juegos")
     ws = wb.active
     ws.title = "Todos los Juegos"
 
     start = _add_filtros(ws, filtros)
-    headers = ["#", "Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "?rbitro"]
+    headers = ["#", "Jornada", "Local", "Goles Local", "vs", "Goles Visit", "Visitante", "Campo", "Fecha", "Hora", "Arbitro"]
     ws.append(headers)
     for col in range(1, len(headers) + 1):
         cell = ws.cell(row=start, column=col)
@@ -1744,7 +1744,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
 
 def reporte_suscriptores(request):
-    """P?gina web con lista de suscriptores."""
+    """Pagina web con lista de suscriptores."""
     if not request.user.is_authenticated or not request.user.rol or not request.user.rol.permisos.get("reporte_suscriptores", False):
         return redirect("login")
     from league.models import Categoria
@@ -1780,16 +1780,16 @@ def reporte_suscriptores_pdf(request):
         if cat:
             extra += f" - {cat.nombre}"
     draw_header(p, w, extra)
-    headers = ["Email", "Usuario", "Categor?as", "Roles", "Estad?sticas", "Activo", "Creado"]
+    headers = ["Email", "Usuario", "Categorias", "Roles", "Estadisticas", "Activo", "Creado"]
     data = [headers]
     for s in qs:
         cats = ", ".join(s.categorias.values_list("nombre", flat=True)) if s.categorias.exists() else "Todas"
         usuario = s.usuario.username if s.usuario else "-"
         data.append([
             s.email, usuario, cats,
-            "S?" if s.recibir_roles else "No",
-            "S?" if s.recibir_estadisticas else "No",
-            "S?" if s.activo else "No",
+            "SI" if s.recibir_roles else "No",
+            "SI" if s.recibir_estadisticas else "No",
+            "SI" if s.activo else "No",
             s.creado.strftime("%d/%m/%Y"),
         ])
     table = Table(data, colWidths=[180, 100, 120, 60, 60, 60, 80])
@@ -1839,7 +1839,7 @@ def _imagen_pdf(filefield, timeout=15):
 
 
 def _suspensos_globales():
-    """Jugadores con suspensi?n en toda la liga (sin equipo): no generan credencial."""
+    """Jugadores con suspension en toda la liga (sin equipo): no generan credencial."""
     return set(SuspensionJugador.objects.filter(activo=True, equipo__isnull=True).values_list("jugador_id", flat=True))
 
 
@@ -2123,7 +2123,7 @@ def reporte_credenciales_pdf(request):
                 outlined_text(name_cx - ln_w / 2, ly, ln, name_font, name_size)
 
             # Category (9pt)
-            outlined_text(text_x, content_y + content_h - 56, f"Categor?a: {cat.nombre}", data_font, 9)
+            outlined_text(text_x, content_y + content_h - 56, f"Categoria: {cat.nombre}", data_font, 9)
 
             # Documento (9pt)
             tipo_label = {"CURP": "CURP", "PAS": "PASAPORTE", "INM": "INM", "OTR": "DOC"}.get(j.tipo_documento, "CURP")
@@ -2170,7 +2170,7 @@ def reporte_credenciales_pdf(request):
                     p.setStrokeColor(colors.HexColor("#9a9a9a"))
                     p.drawPath(star, fill=1, stroke=1)
 
-            # Dorsal badge (rectangular, opcional seg?n el checkbox "n?mero")
+            # Dorsal badge (rectangular, opcional segun el checkbox "numero")
             if mostrar_numero:
                 jersey_w = 28
                 jersey_body_h = 20
@@ -2216,12 +2216,12 @@ def reporte_suscriptores_xlsx(request):
         from league.models import Categoria
         cat = Categoria.objects.filter(id=cat_id).first()
         if cat:
-            filtros.append(("Categor?a", cat.nombre))
+            filtros.append(("Categoria", cat.nombre))
     start = _add_filtros(ws, filtros)
     qs = SuscripcionEmail.objects.all().order_by("-creado")
     if cat_id:
         qs = qs.filter(categorias__id=cat_id)
-    headers = ["Email", "Usuario", "Categor?as", "Recibe Roles", "Recibe Estad?sticas", "Activo", "Creado"]
+    headers = ["Email", "Usuario", "Categorias", "Recibe Roles", "Recibe Estadisticas", "Activo", "Creado"]
     from openpyxl.styles import Font, PatternFill
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=start, column=col, value=h)
@@ -2233,9 +2233,9 @@ def reporte_suscriptores_xlsx(request):
         ws.cell(row=i, column=1, value=s.email)
         ws.cell(row=i, column=2, value=usuario)
         ws.cell(row=i, column=3, value=cats)
-        ws.cell(row=i, column=4, value="S?" if s.recibir_roles else "No")
-        ws.cell(row=i, column=5, value="S?" if s.recibir_estadisticas else "No")
-        ws.cell(row=i, column=6, value="S?" if s.activo else "No")
+        ws.cell(row=i, column=4, value="SI" if s.recibir_roles else "No")
+        ws.cell(row=i, column=5, value="SI" if s.recibir_estadisticas else "No")
+        ws.cell(row=i, column=6, value="SI" if s.activo else "No")
         ws.cell(row=i, column=7, value=s.creado.strftime("%d/%m/%Y"))
     # Ajustar ancho de columnas
     for col in range(1, len(headers) + 1):

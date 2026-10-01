@@ -1,3 +1,6 @@
+import ast
+import os
+import re
 from datetime import date, datetime, timedelta, time
 from io import BytesIO
 
@@ -2726,3 +2729,53 @@ class CedulaAcentosYLogosTest(TestCase):
         )
         self.assertIn("Arbitro:", joined)
         self.assertNotIn("?", joined)
+
+
+class InterrogantesPorAcentoTest(TestCase):
+    """Varios archivos se escribieron con un encoder que cambio los acentos por
+    '?' (Categor?a, suspensi?n, S?, pr?xima). Estos tests evitan que vuelva."""
+
+    PATRON = re.compile(
+        r"(?<![¿¡])[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\?"
+        r"|(?<![¿¡])\?[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ]"
+    )
+    LETRAS = "0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ"
+    # En HTML el '?' de cierre de pregunta es legitimo ("¿Va? </p>"), asi que
+    # solo se marca si va dentro de una palabra, si abre un texto o si hace de
+    # coma ("S?, enviar" era "Si, enviar").
+    PATRON_HTML = re.compile(
+        rf"[{LETRAS}]\?[{LETRAS}]"
+        rf"|[{LETRAS}]\?[,;:]"
+        rf"|[A-Za-zÁÉÍÓÚÑáéíóñ]\?\s"
+        rf"|(?:>|\"|'|\(|\s)\?[{LETRAS}]"
+    )
+
+    @staticmethod
+    def _raiz():
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def test_reports_views_no_tiene_interrogantes_en_los_textos(self):
+        ruta = os.path.join(self._raiz(), "reports", "views.py")
+        with open(ruta, encoding="utf-8-sig") as fh:
+            arbol = ast.parse(fh.read())
+        ofensores = []
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, ast.Constant) or not isinstance(nodo.value, str):
+                continue
+            texto = nodo.value
+            if "://" in texto or texto.strip() == "?":
+                continue  # URLs y el '?' de respaldo para iniciales
+            if self.PATRON.search(texto):
+                ofensores.append("reports/views.py:%s -> %r" % (nodo.lineno, texto))
+        self.assertEqual(ofensores, [], "\n".join(ofensores))
+
+    def test_jornada_list_no_tiene_interrogantes_en_acentos(self):
+        ruta = os.path.join(self._raiz(), "templates", "league", "jornada_list.html")
+        with open(ruta, encoding="utf-8-sig") as fh:
+            html = fh.read()
+        # Se ignoran tags de Django y URLs: ahí el '?' es legitimo.
+        html = re.sub(r"\{%.*?%\}", " ", html, flags=re.S)
+        html = re.sub(r"\{\{.*?\}\}", " ", html, flags=re.S)
+        html = re.sub(r"(?:href|src|action|data-href)\s*=\s*[\"'][^\"']*[\"']", " ", html, flags=re.I)
+        ofensores = [l.strip() for l in html.splitlines() if self.PATRON_HTML.search(l)]
+        self.assertEqual(ofensores, [], "\n".join(ofensores))
