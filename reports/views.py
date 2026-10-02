@@ -1549,7 +1549,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     row_h = 15
     franja_h = 40
     logo_franja = 36
-    logo_liga = 46
+    logo_liga = 60
     top_margin = 40
     table_w = sum(col_widths)
     gap = 7
@@ -1559,7 +1559,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     def cabecera_pagina():
         cfg_liga = ConfiguracionLiga.obtener()
         x0 = left_x
-        y0 = h - top_margin - 6
+        y0 = h - top_margin - 20
+        y2 = y0 - 26
         logo_src = None
         if cfg_liga.logo:
             local_path = os.path.join(settings.MEDIA_ROOT, cfg_liga.logo.name)
@@ -1568,9 +1569,10 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             else:
                 logo_src = _imagen_pdf(cfg_liga.logo)
         if logo_src:
+            # El logo se ancla por su base sobre la fila de la fecha para que no
+            # se empalme con ella (preserveAspectRatio lo dibuja desde abajo).
             try:
-                p.drawImage(logo_src, x0, y0 - logo_liga / 2,
-                            width=logo_liga, height=logo_liga,
+                p.drawImage(logo_src, x0, y2 + 14, width=logo_liga, height=logo_liga,
                             preserveAspectRatio=True, mask='auto')
             except Exception:
                 logo_src = None
@@ -1582,7 +1584,6 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.drawRightString(w - x0, y0, "CEDULA ARBITRAL")
         # El "Equipo A vs Equipo B" central se elimino: los nombres ya van en
         # la franja de cada equipo (LOCAL / VISITANTE) con su logo mas grande.
-        y2 = y0 - 24
         p.setFont("Helvetica", 8.5)
         p.drawString(x0, y2, f"Fecha: {localtime(partido.fecha_hora).strftime('%d/%m/%Y %H:%M') if partido.fecha_hora else 'Pendiente'}")
         p.drawCentredString(w / 2, y2, f"Campo: {partido.campo.nombre if partido.campo else 'Por definir'}")

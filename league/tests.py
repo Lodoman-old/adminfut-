@@ -2733,8 +2733,35 @@ class CedulaAcentosYLogosTest(TestCase):
                 b = info["bbox"]
                 altos.append(round(b[3] - b[1], 1))
         self.assertGreaterEqual(len(altos), 3, f"se esperaban 3 logos: {altos}")
-        # El de la liga (46) tiene que ser el mas grande; los equipos van en 36.
-        self.assertGreaterEqual(max(altos), 44.0, f"logo de liga chico: {altos}")
+        # El de la liga (60) tiene que ser el mas grande; los equipos van en 36.
+        self.assertGreaterEqual(max(altos), 55.0, f"logo de liga chico: {altos}")
+
+    def test_pdf_el_logo_de_la_liga_no_toca_la_fecha(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image as PILImage
+        from league.models import ConfiguracionLiga
+        cfg = ConfiguracionLiga.obtener()
+        buf = BytesIO()
+        PILImage.new("RGB", (200, 200), (20, 60, 120)).save(buf, format="PNG")
+        cfg.logo.save(
+            "liga.png",
+            SimpleUploadedFile("liga.png", buf.getvalue(), content_type="image/png"),
+            save=True,
+        )
+        doc, _ = self._pdf()
+        page = doc[0]
+        # El logo de la liga es el mas ancho de la pagina.
+        liga = max((i["bbox"] for i in page.get_image_info()), key=lambda b: b[2] - b[0])
+        fechas = [b[:4] for b in page.get_text("blocks") if "Fecha:" in b[4]]
+        self.assertTrue(fechas, "no se encontro la fila de la fecha")
+        fx0, fy0, fx1, fy1 = fechas[0]
+        se_pisan = not (liga[3] <= fy0 or liga[1] >= fy1)
+        self.assertFalse(
+            se_pisan, f"el logo {tuple(round(v) for v in liga)} se empalma con "
+            f"la fecha {tuple(round(v) for v in (fx0, fy0, fx1, fy1))}"
+        )
+        # Tambien tiene que quedar por debajo del borde superior de la hoja.
+        self.assertGreaterEqual(liga[1], 4.0, f"logo pegado al borde: {liga}")
 
     def test_xlsx_titulo_y_datos_sin_interrogantes(self):
         import openpyxl
