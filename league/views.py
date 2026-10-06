@@ -5107,6 +5107,8 @@ def reporte_registro(request):
         "cat_id": cat_id,
         "temp_id": temp_id,
         "eq_id": eq_id,
+        "total_jugadores": jugadores.count() if equipo else 0,
+        "max_jugadores": equipo.categoria.max_jugadores if equipo else None,
     }
     if request.GET.get("imprimir"):
         from django.template.loader import render_to_string

@@ -2303,6 +2303,10 @@ def reporte_registro_pdf(request):
             "REPORTE DE REGISTRO - {}".format(equipo.nombre.upper())
             + "\n"
             + "Categoria: {}  |  Temporada: {}".format(equipo.categoria.nombre, temp_name)
+            + "\n"
+            + "{} jugadores registrados de {} posibles".format(
+                len(jugadores_list), equipo.categoria.max_jugadores
+            )
         )
 
         pages = [jugadores_list[i:i + per_page] for i in range(0, len(jugadores_list), per_page)]
