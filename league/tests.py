@@ -213,6 +213,120 @@ class TablaPenalizacionDefaultTest(TestCase):
         self.assertIsNotNone(p.fecha_hora)
 
 
+class CedulaBanderasDefaultTest(TestCase):
+    """Las dos banderas de default deben guardarse siempre, tal como quedaron
+    las casillas (regresión del bug donde la bandera no marcada quedaba pegada
+    del guardado anterior y el partido terminaba con default en LOS DOS equipos:
+    ambos perdian puntos en la tabla y la leyenda anunciaba al ganador
+    equivocado)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.cat = Categoria.objects.create(nombre="Banderas", dias_juego=["SAB"])
+        self.temp = Temporada.objects.create(
+            nombre="TDef", categoria=self.cat, fecha_inicio=date(2026, 1, 3),
+            min_jugadores=0, max_titulares=99, cambios_permitidos=None,
+            goles_default=3, puntos_default=3,
+        )
+        # El partido queda FIN al marcar un default, así que hace falta un usuario
+        # con permiso de reapertura para poder reencadenar guardados (como en prod).
+        self.user = get_user_model().objects.create_superuser(
+            username="banderasadmin", password="p",
+        )
+        self.local = Equipo.objects.create(nombre="LOCAL", categoria=self.cat, activo=True)
+        self.visit = Equipo.objects.create(nombre="VISIT", categoria=self.cat, activo=True)
+        self.partido = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.local, equipo_visitante=self.visit,
+            fecha_hora=timezone.make_aware(datetime.combine(date(2026, 1, 10), time(15, 0))),
+            estado="PEND",
+        )
+
+    def _guardar(self, **flags):
+        data = {"arbitro": "", "finalizar": "0"}
+        data.update(flags)
+        r = procesar_cedula(self.partido, data, self.user)
+        self.assertTrue(r["ok"], r["errors"])
+        self.partido.refresh_from_db()
+        return self.partido
+
+    def test_solo_visitante_marca_limpia_default_team(self):
+        """Caso real de producción: default_team='local' viejo + solo visitante
+        marcado. Debe quedar solo el visitante como perdedor."""
+        Partido.objects.filter(pk=self.partido.pk).update(default_team="local")
+        p = self._guardar(defaultVisitCheck="on", motivo_default_visitante="EN LA MESA")
+        self.assertIsNone(p.default_team)
+        self.assertTrue(p.default_visitante)
+        self.assertEqual((p.goles_local, p.goles_visitante), (3, 0))
+        self.assertEqual(p.motivo_default, "EN LA MESA")
+        self.assertEqual(p.estado, "FIN")
+        # El local gana: +3 y NO pierde por default.
+        self.assertFalse(p.pierde_por_default(self.local))
+        self.assertTrue(p.pierde_por_default(self.visit))
+        self.assertEqual(p.ganador_walkover, self.local)
+
+    def test_solo_local_marca_limpia_default_visitante(self):
+        Partido.objects.filter(pk=self.partido.pk).update(default_visitante=True)
+        p = self._guardar(defaultLocalCheck="on", motivo_default_local="Ausentes")
+        self.assertEqual(p.default_team, "local")
+        self.assertFalse(p.default_visitante)
+        self.assertEqual((p.goles_local, p.goles_visitante), (0, 3))
+        self.assertTrue(p.pierde_por_default(self.local))
+        self.assertFalse(p.pierde_por_default(self.visit))
+        self.assertEqual(p.ganador_walkover, self.visit)
+
+    def test_ambas_marcadas_siguen_siendo_validas(self):
+        """Los dos pueden perder por default (nadie gana): sigue siendo un caso
+        válido, con 0-0 y ambos penalizados."""
+        p = self._guardar(
+            defaultLocalCheck="on", defaultVisitCheck="on",
+            motivo_default_local="Sin jugadores", motivo_default_visitante="Sin local",
+        )
+        self.assertEqual(p.default_team, "local")
+        self.assertTrue(p.default_visitante)
+        self.assertEqual((p.goles_local, p.goles_visitante), (0, 0))
+        self.assertTrue(p.pierde_por_default(self.local))
+        self.assertTrue(p.pierde_por_default(self.visit))
+        self.assertIn("Sin jugadores", p.motivo_default)
+        self.assertIn("Sin local", p.motivo_default)
+
+    def test_ninguna_marcada_limpia_ambas(self):
+        Partido.objects.filter(pk=self.partido.pk).update(
+            default_team="local", default_visitante=True, motivo_default="viejo",
+        )
+        p = self._guardar()
+        self.assertIsNone(p.default_team)
+        self.assertFalse(p.default_visitante)
+        self.assertEqual(p.motivo_default, "")
+
+    def test_alternar_casillas_no_deja_bandera_pegada(self):
+        """El ciclo que rompía producción: visitante -> ninguna -> visitante."""
+        p = self._guardar(defaultVisitCheck="on", motivo_default_visitante="A")
+        self.assertTrue(p.default_visitante)
+        p = self._guardar(defaultLocalCheck="on", motivo_default_local="B")
+        self.assertEqual(p.default_team, "local")
+        self.assertFalse(p.default_visitante)
+        p = self._guardar(defaultVisitCheck="on", motivo_default_visitante="C")
+        self.assertIsNone(p.default_team)
+        self.assertTrue(p.default_visitante)
+        self.assertEqual(p.motivo_default, "C")
+
+    def test_tabla_no_resta_puntos_al_ganador_por_default(self):
+        """El ganador por default debe cobrar los 3 puntos: no puede perderlos."""
+        Jornada.objects.create(temporada=self.temp, numero=1, nombre="J1")
+        self.partido.jornada = Jornada.objects.get(temporada=self.temp, numero=1)
+        self.partido.save()
+        self._guardar(defaultVisitCheck="on", motivo_default_visitante="EN LA MESA")
+        tabla = {r["equipo"].nombre: r for r in self.temp.calcular_tabla()}
+        self.assertEqual(tabla["LOCAL"]["pts"], 3)
+        self.assertEqual(tabla["VISIT"]["pts"], -3)
+
+    def test_casillas_se_reflejan_al_reabrir(self):
+        """Lo que se ve marcado al reabrir debe ser exactamente lo guardado."""
+        self._guardar(defaultVisitCheck="on", motivo_default_visitante="EN LA MESA")
+        self.assertEqual(self.partido.default_team, None)
+        self.assertTrue(self.partido.default_visitante)
+
+
 class RolDespuesDeVueltaCompletaTest(TestCase):
     """Si las jornadas pasadas cubren una (o más) vueltas completas, las vueltas
     restantes (que repiten parejas) sí deben generarse (regresión del bug que

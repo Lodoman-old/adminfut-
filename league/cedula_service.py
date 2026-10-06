@@ -187,19 +187,24 @@ def procesar_cedula(partido, post_data, user):
             update_kwargs = {"estado": "FIN"}
         # El partido por default no se juega: liberar el campo
         update_kwargs["campo"] = None
-        if default_local:
-            update_kwargs["default_team"] = "local"
-            update_kwargs["motivo_default"] = motivo_default_local
+        # Las dos banderas se escriben SIEMPRE, no solo la de la casilla marcada:
+        # antes solo se escribía la marcada y la otra quedaba pegada del guardado
+        # anterior, dejando partidos con default en los dos equipos (los dos
+        # perdian puntos y la leyenda anunciaba al ganador equivocado).
+        update_kwargs["default_team"] = "local" if default_local else None
+        update_kwargs["default_visitante"] = bool(default_visit)
+        motivos = [m for m in (motivo_default_local, motivo_default_visit) if m]
+        update_kwargs["motivo_default"] = " / ".join(motivos)
+        if default_local and default_visit:
+            # Ambos equipos pierden por default: nadie gana.
+            update_kwargs["goles_local"] = 0
+            update_kwargs["goles_visitante"] = 0
+        elif default_local:
             update_kwargs["goles_local"] = 0
             update_kwargs["goles_visitante"] = goles_default
-        if default_visit:
-            update_kwargs["default_visitante"] = True
-            update_kwargs["motivo_default"] = motivo_default_visit
+        else:
             update_kwargs["goles_visitante"] = 0
             update_kwargs["goles_local"] = goles_default
-        if default_local and default_visit:
-            update_kwargs["goles_local"] = 0
-            update_kwargs["goles_visitante"] = 0
         Partido.objects.filter(pk=partido.pk).update(**update_kwargs)
         if default_forzado_local or default_forzado_visit:
             Partido.objects.filter(pk=partido.pk).update(estado=partido.estado if partido.estado != "FIN" else "PEND")

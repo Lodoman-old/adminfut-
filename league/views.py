@@ -720,6 +720,10 @@ class JugadorUpdateView(JugadorGeneroContextMixin, UpdateView):
                     ).select_related("partido")
                     for jp in participaciones:
                         partido = jp.partido
+                        # Limpiar cualquier bandera de default previa: este walkover
+                        # decide el perdedor y si se hereda una bandera vieja el
+                        # partido queda con default en ambos equipos.
+                        partido.default_team = None
                         if partido.equipo_local == eq:
                             partido.default_visitante = False
                             partido.goles_local = 0
