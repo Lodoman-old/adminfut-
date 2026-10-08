@@ -893,7 +893,7 @@ def reporte_castigados_xlsx(request):
                 susp_col = "Por vida"
             else:
                 prox = Partido.objects.filter(
-                    temporada=temp, estado__in=("PRO", "PROG"),
+                    temporada=temp, estado__in=("PEND", "SUSP", "JUG"),
                 )
                 if m.equipo_id:
                     prox = prox.filter(

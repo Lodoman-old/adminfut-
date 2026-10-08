@@ -2040,7 +2040,7 @@ def _suspensiones_temporada(temporada, jug_ids=None):
             continue
         prox = Partido.objects.filter(
             temporada=temporada,
-            estado__in=("PRO", "PROG"),
+            estado__in=("PEND", "SUSP", "JUG"),
         )
         if m.equipo_id:
             prox = prox.filter(
@@ -2099,7 +2099,7 @@ def _castigados_hasta_jornada(temporada, jornada_numero):
                 jug = info["_tarjeta"].jugador
                 prox = Partido.objects.filter(
                     temporada=temporada,
-                    estado__in=("PRO", "PROG"),
+                    estado__in=("PEND", "SUSP", "JUG"),
                 ).filter(
                     Q(equipo_local=jug.equipo) | Q(equipo_visitante=jug.equipo)
                 ).order_by("fecha_hora", "id")[:info["restantes"]]
@@ -3455,7 +3455,7 @@ def cedula_arbitral(request, partido_id):
                         # Suspensión cruza a esta temporada, buscar el partido actual
                         prox_nueva = Partido.objects.filter(
                             temporada=partido.temporada,
-                            estado__in=("PRO", "PROG"),
+                            estado__in=("PEND", "SUSP", "JUG"),
                         ).filter(
                             Q(equipo_local=j.equipo) | Q(equipo_visitante=j.equipo)
                         ).order_by("fecha_hora", "id")[:len(pend_prev)]
@@ -3629,7 +3629,7 @@ def tabla_castigados(request):
                 jug = info["_tarjeta"].jugador
                 prox = Partido.objects.filter(
                     temporada=temp,
-                    estado__in=("PRO", "PROG"),
+                    estado__in=("PEND", "SUSP", "JUG"),
                 ).filter(
                     Q(equipo_local=jug.equipo) | Q(equipo_visitante=jug.equipo)
                 ).order_by("fecha_hora", "id")[:info["restantes"]]
