@@ -1239,6 +1239,26 @@ class SuspensionJugadorTest(TestCase):
         self.assertEqual(susp.restantes(), 0)
         self.assertFalse(susp.vigente())
 
+    def test_restantes_cuenta_solo_partidos_desde_fecha_inicio(self):
+        # Heredado a mitad de temporada: la temporada empezó antes que el castigo
+        self.temporada.fecha_inicio = date.today() - timedelta(days=30)
+        self.temporada.save(update_fields=["fecha_inicio"])
+        susp = SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            jornadas=3, fecha_inicio=date.today() - timedelta(days=7),
+        )
+        j = self._jornada(1)
+        # Partido FINALIZADO antes del castigo: no debe descontar
+        self._partido(j, self.eq1, self.eq2, timezone.now() - timedelta(days=10))
+        self.assertEqual(susp.restantes(), 3)
+        # Partido de la misma jornada jugado despues del castigo: sí descuenta
+        self._partido(j, self.eq2, self.eq1, timezone.now() - timedelta(days=1))
+        self.assertEqual(susp.restantes(), 2)
+        # Otra jornada jugada despues: descuenta una jornada mas
+        j2 = self._jornada(2)
+        self._partido(j2, self.eq1, self.eq2, timezone.now())
+        self.assertEqual(susp.restantes(), 1)
+
     def test_tabla_castigados_incluye_suspension_manual(self):
         SuspensionJugador.objects.create(
             jugador=self.jugador, categoria=self.cat, equipo=self.eq1,

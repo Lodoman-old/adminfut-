@@ -2237,7 +2237,8 @@ class SuspensionJugador(models.Model):
         return f"{self.jugador} ({self.categoria}) - {self.jornadas} J"
 
     def consumidos(self):
-        """Partidos finalizados (FIN) que descontaron la suspensión desde fecha_inicio.
+        """Partidos finalizados (FIN) jugados desde fecha_inicio que descontaron
+        la suspensión (incluye liguilla y partidos resueltos por default).
 
         Con equipo: cuenta los partidos FIN de ese equipo en la categoría.
         Sin equipo: cuenta las jornadas distintas de la categoría con al
@@ -2246,7 +2247,7 @@ class SuspensionJugador(models.Model):
         from django.db.models import Q
         qs = Partido.objects.filter(
             temporada__categoria_id=self.categoria_id,
-            temporada__fecha_inicio__gte=self.fecha_inicio,
+            fecha_hora__date__gte=self.fecha_inicio,
             estado="FIN",
         )
         if self.equipo_id:
