@@ -77,7 +77,7 @@
             <td>{{ c.equipo.nombre }}</td>
             <td>{% if c.es_manual %}Suspensión manual{% else %}{{ c.expulsion_partido.jornada.nombre }}{% endif %}</td>
             <td>{% if c.vitalicia %}Por vida{% else %}{{ c.suspension_jornadas }} jornada{{ c.suspension_jornadas|pluralize:"s" }}{% endif %}</td>
-            <td>{% if c.vitalicia %}Expulsado de por vida{% elif c.pendientes %}{{ c.restantes }} restante{{ c.restantes|pluralize:"s" }}: {% for p in c.pendientes %}{{ p.equipo_local }} vs {{ p.equipo_visitante }} ({{ p.jornada.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}{% else %}Cumplida{% endif %}</td>
+            <td>{% if c.vitalicia %}Expulsado de por vida{% elif c.pendientes %}{{ c.restantes }} restante{{ c.restantes|pluralize:"s" }}: {% for p in c.pendientes %}{% if c.es_manual and not c.equipo %}{{ p.jornada.nombre }}{% else %}{{ p.equipo_local }} vs {{ p.equipo_visitante }} ({{ p.jornada.nombre }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}Cumplida{% endif %}</td>
         </tr>
         {% endfor %}
     </table>

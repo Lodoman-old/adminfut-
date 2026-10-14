@@ -1259,17 +1259,56 @@ class SuspensionJugadorTest(TestCase):
         self._partido(j2, self.eq1, self.eq2, timezone.now())
         self.assertEqual(susp.restantes(), 1)
 
-    def test_tabla_castigados_manual_muestra_partidos_pendientes(self):
-        # Suspendido manual con partidos por jugar: debe listarlos y NO decir
-        # "próxima temporada"
+    def test_partidos_pendientes_sin_equipo_agrupa_por_jornada(self):
+        # Una suspensión sin equipo se mide en jornadas: los pendientes deben
+        # ser una entrada por jornada, no cada partido de la jornada.
+        susp = SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        j1 = self._jornada(1)
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j1, equipo_local=self.eq1,
+            equipo_visitante=self.eq2, fecha_hora=timezone.now() + timedelta(days=7),
+            campo=self.campo, estado="PEND",
+        )
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j1, equipo_local=self.eq2,
+            equipo_visitante=self.eq1, fecha_hora=timezone.now() + timedelta(days=8),
+            campo=self.campo, estado="PEND",
+        )
+        j2 = self._jornada(2)
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j2, equipo_local=self.eq1,
+            equipo_visitante=self.eq2, fecha_hora=timezone.now() + timedelta(days=14),
+            campo=self.campo, estado="PEND",
+        )
+        pend = susp.partidos_pendientes(self.temporada, 2)
+        self.assertEqual([p.jornada_id for p in pend], [j1.id, j2.id])
+
+    def test_tabla_castigados_manual_muestra_jornadas_pendientes(self):
+        # Suspendido manual SIN equipo: cuenta jornadas completas, así que debe
+        # listar las JORNADAS pendientes (una por jornada), no cada partido.
         SuspensionJugador.objects.create(
             jugador=self.jugador, categoria=self.cat, equipo=None,
             temporada=self.temporada, jornadas=2, fecha_inicio=date.today() - timedelta(days=1),
         )
-        j = self._jornada(1)
+        j1 = self._jornada(1)
         Partido.objects.create(
-            temporada=self.temporada, jornada=j, equipo_local=self.eq1,
+            temporada=self.temporada, jornada=j1, equipo_local=self.eq1,
             equipo_visitante=self.eq2, fecha_hora=timezone.now() + timedelta(days=7),
+            campo=self.campo, estado="PEND",
+        )
+        # Dos partidos más en la misma jornada: no deben duplicar la jornada
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j1, equipo_local=self.eq2,
+            equipo_visitante=self.eq1, fecha_hora=timezone.now() + timedelta(days=8),
+            campo=self.campo, estado="PEND",
+        )
+        j2 = self._jornada(2)
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j2, equipo_local=self.eq1,
+            equipo_visitante=self.eq2, fecha_hora=timezone.now() + timedelta(days=14),
             campo=self.campo, estado="PEND",
         )
         r = Client().get(f"/tabla-castigados/?temporada={self.temporada.id}")
@@ -1277,7 +1316,10 @@ class SuspensionJugadorTest(TestCase):
         self.assertContains(r, "Juan Perez")
         self.assertContains(r, "Pendientes (2)")
         self.assertNotContains(r, "próxima temporada")
-        self.assertContains(r, "Aguilas (Libre) vs Toros (Libre)")
+        # Muestra las jornadas pendientes, no los partidos
+        self.assertContains(r, "J1")
+        self.assertContains(r, "J2")
+        self.assertNotContains(r, "Aguilas (Libre) vs Toros (Libre)")
 
     def test_tabla_castigados_incluye_suspension_manual(self):
         SuspensionJugador.objects.create(
@@ -1335,6 +1377,49 @@ class SuspensionJugadorTest(TestCase):
                 r = client.get(f"/reportes/castigados/{fmt}/?temporada={self.temporada.id}")
                 self.assertEqual(r.status_code, 200)
                 self.assertGreater(len(r.content), 1000)
+
+    def test_exportar_castigados_sin_equipo_muestra_jornadas(self):
+        # La exportación debe reflejar la pantalla: sin equipo muestra las
+        # JORNADAS pendientes, no cada partido.
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            temporada=self.temporada, jornadas=2,
+            fecha_inicio=date.today() - timedelta(days=1),
+        )
+        j1 = self._jornada(1)
+        for d in (7, 8):
+            Partido.objects.create(
+                temporada=self.temporada, jornada=j1, equipo_local=self.eq1,
+                equipo_visitante=self.eq2,
+                fecha_hora=timezone.now() + timedelta(days=d),
+                campo=self.campo, estado="PEND",
+            )
+        j2 = self._jornada(2)
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j2, equipo_local=self.eq1,
+            equipo_visitante=self.eq2,
+            fecha_hora=timezone.now() + timedelta(days=14),
+            campo=self.campo, estado="PEND",
+        )
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        User.objects.create_superuser(username="adminexp2", password="p")
+        client = Client()
+        client.force_login(User.objects.get(username="adminexp2"))
+        r = client.get(f"/reportes/castigados/xlsx/?temporada={self.temporada.id}")
+        self.assertEqual(r.status_code, 200)
+        from io import BytesIO
+        from openpyxl import load_workbook
+        wb = load_workbook(BytesIO(r.content))
+        ws = wb.active
+        texto = " ".join(
+            str(c.value)
+            for row in ws.iter_rows() for c in row
+            if c.value is not None
+        )
+        self.assertIn("J1", texto)
+        self.assertIn("J2", texto)
+        self.assertNotIn("Aguilas (Libre) vs Toros (Libre)", texto)
 
     def test_tabla_castigados_usa_categoria_preferida_del_usuario(self):
         from django.contrib.auth import get_user_model

@@ -2038,16 +2038,7 @@ def _suspensiones_temporada(temporada, jug_ids=None):
                 "es_manual": True,
             }
             continue
-        prox = Partido.objects.filter(
-            temporada=temporada,
-            estado__in=("PEND", "SUSP", "JUG"),
-        )
-        if m.equipo_id:
-            prox = prox.filter(
-                Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
-            )
-        prox = prox.order_by("jornada__numero", "fecha_hora", "id")[:restantes]
-        pendientes = list(prox)
+        pendientes = m.partidos_pendientes(temporada, restantes)
         env = _SuspensionManualEnvelope(m, restantes, pendientes)
         result[m.jugador_id] = {
             "pendientes": pendientes,

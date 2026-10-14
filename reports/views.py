@@ -415,6 +415,25 @@ def reporte_tarjetas_pdf(request):
     return response
 
 
+def _pendientes_castigados_texto(pend_list, sin_equipo=False, restantes=None):
+    """Texto de la columna 'Pendientes' de Castigados, igual que en la pantalla.
+
+    - Sin equipo (suspensión manual de toda la categoría): lista las JORNADAS
+      pendientes, no cada partido.
+    - Con equipo (o expulsión por tarjeta): lista los partidos.
+    """
+    if not pend_list:
+        if restantes is not None:
+            return f"Pendiente ({restantes}) - proxima temporada"
+        return None
+    if sin_equipo:
+        return "; ".join(p.jornada.nombre for p in pend_list)
+    return "; ".join(
+        f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
+        for p in pend_list
+    )
+
+
 def reporte_castigados_pdf(request):
     temp_id = request.GET.get("temporada")
     cat_id = request.GET.get("categoria")
@@ -458,14 +477,9 @@ def reporte_castigados_pdf(request):
             restantes = info["restantes"] if info else 0
             if restantes > 0:
                 procesados.add(c.jugador_id)
-                pend_list = info["pendientes"]
-                if pend_list:
-                    pend_text = "; ".join(
-                        f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
-                        for p in pend_list
-                    )
-                else:
-                    pend_text = f"Pendiente ({restantes}) - proxima temporada"
+                pend_text = _pendientes_castigados_texto(
+                    info["pendientes"], restantes=restantes
+                )
             else:
                 pend_text = "Cumplida"
             data.append([
@@ -488,9 +502,8 @@ def reporte_castigados_pdf(request):
                 pend_text = "Por vida"
                 susp_col = "Por vida"
             elif pend_list:
-                pend_text = "; ".join(
-                    f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
-                    for p in pend_list
+                pend_text = _pendientes_castigados_texto(
+                    pend_list, env.equipo is None
                 )
                 susp_col = env.suspension_jornadas
             else:
@@ -892,22 +905,10 @@ def reporte_castigados_xlsx(request):
                 pend_str = "Por vida"
                 susp_col = "Por vida"
             else:
-                prox = Partido.objects.filter(
-                    temporada=temp, estado__in=("PEND", "SUSP", "JUG"),
+                pend_list = m.partidos_pendientes(temp, rst)
+                pend_str = _pendientes_castigados_texto(
+                    pend_list, m.equipo is None, restantes=rst
                 )
-                if m.equipo_id:
-                    prox = prox.filter(
-                        Q(equipo_local=m.equipo) | Q(equipo_visitante=m.equipo)
-                    )
-                prox = prox.order_by("jornada__numero", "fecha_hora", "id")[:rst]
-                pend_list = list(prox)
-                if pend_list:
-                    pend_str = "; ".join(
-                        f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
-                        for p in pend_list
-                    )
-                else:
-                    pend_str = f"Pendiente ({rst}) - proxima temporada"
                 susp_col = m.jornadas
             num_fila = ws.max_row or 2
             ws.append([

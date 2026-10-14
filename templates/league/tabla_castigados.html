@@ -128,7 +128,7 @@
                 <small class="text-white-50">Pendientes ({{ c.restantes }}):</small>
                 <div class="d-flex flex-wrap gap-1 justify-content-center mt-1">
                     {% for p in c.pendientes %}
-                    <span class="badge bg-warning text-dark" style="white-space:normal;width:100%">{{ p.equipo_local }} vs {{ p.equipo_visitante }}<br><small>{{ p.jornada.nombre }}{% if p.fecha_hora %} {{ p.fecha_hora|date:"d/m" }}{% endif %}</small></span>
+                    <span class="badge bg-warning text-dark" style="white-space:normal;width:100%">{% if c.es_manual and not c.equipo %}{{ p.jornada.nombre }}{% if p.fecha_hora %} {{ p.fecha_hora|date:"d/m" }}{% endif %}{% else %}{{ p.equipo_local }} vs {{ p.equipo_visitante }}<br><small>{{ p.jornada.nombre }}{% if p.fecha_hora %} {{ p.fecha_hora|date:"d/m" }}{% endif %}</small>{% endif %}</span>
                     {% endfor %}
                 </div>
             </div>

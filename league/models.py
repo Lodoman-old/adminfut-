@@ -2266,6 +2266,41 @@ class SuspensionJugador(models.Model):
             return 1
         return max(0, self.jornadas - self.consumidos())
 
+    def partidos_pendientes(self, temporada, restantes=None):
+        """Próximos partidos que descuentan la suspensión en `temporada`.
+
+        Con equipo: los próximos N partidos de ese equipo.
+        Sin equipo: las próximas N JORNADAS de la categoría (un partido
+        representativo por jornada), porque sin equipo la suspensión se mide
+        en jornadas completas de la categoría. Es el mismo criterio que usa
+        la pantalla de Castigados.
+        """
+        from django.db.models import Q
+        if restantes is None:
+            restantes = self.restantes()
+        if restantes <= 0:
+            return []
+        qs = Partido.objects.filter(
+            temporada=temporada,
+            estado__in=("PEND", "SUSP", "JUG"),
+        ).select_related("equipo_local", "equipo_visitante", "jornada")
+        if self.equipo_id:
+            return list(
+                qs.filter(
+                    Q(equipo_local=self.equipo) | Q(equipo_visitante=self.equipo)
+                ).order_by("jornada__numero", "fecha_hora", "id")[:restantes]
+            )
+        pendientes = []
+        vistos_jornadas = set()
+        for p in qs.order_by("jornada__numero", "fecha_hora", "id"):
+            if p.jornada_id in vistos_jornadas:
+                continue
+            vistos_jornadas.add(p.jornada_id)
+            pendientes.append(p)
+            if len(pendientes) >= restantes:
+                break
+        return pendientes
+
     def vigente(self):
         return self.restantes() > 0
 
