@@ -1960,6 +1960,7 @@ class _SuspensionManualEnvelope:
         self.jornada_expulsion = None
         self.restantes = restantes
         self.pendientes = pendientes
+        self.faltan = max(0, restantes - len(pendientes))
         self._manual = record
 
 
@@ -2113,6 +2114,7 @@ def _castigados_hasta_jornada(temporada, jornada_numero):
             r = info["_tarjeta"]
             r.pendientes = info["pendientes"]
             r.restantes = info["restantes"]
+            r.faltan = max(0, info["restantes"] - len(info["pendientes"]))
             r.expulsion_partido = info["expulsion_partido"]
             r.jornada_expulsion = (
                 info["expulsion_partido"].jornada.numero
@@ -3603,6 +3605,7 @@ def tabla_castigados(request):
                 r = info["_tarjeta"]
                 r.pendientes = info["pendientes"]
                 r.restantes = info["restantes"]
+                r.faltan = max(0, info["restantes"] - len(info["pendientes"]))
                 r.expulsion_partido = info["expulsion_partido"]
                 castigados.append(r)
                 processed.add(jug_id)
@@ -3629,6 +3632,7 @@ def tabla_castigados(request):
                     r = info["_tarjeta"]
                     r.pendientes = pendientes
                     r.restantes = len(pendientes)
+                    r.faltan = 0
                     r.expulsion_partido = info["expulsion_partido"]
                     castigados.append(r)
 

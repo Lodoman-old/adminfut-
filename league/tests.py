@@ -1320,6 +1320,27 @@ class SuspensionJugadorTest(TestCase):
         self.assertContains(r, "J1")
         self.assertContains(r, "J2")
         self.assertNotContains(r, "Aguilas (Libre) vs Toros (Libre)")
+        # Alcanzan las jornadas: no se muestra la leyenda de continuación
+        self.assertNotContains(r, "continúan en el siguiente torneo")
+
+    def test_tabla_castigados_avisa_cuando_no_alcanza_el_torneo(self):
+        # Castigo de 3 jornadas pero solo queda 1 jornada por jugar: debe
+        # avisar que las 2 restantes continúan en el siguiente torneo.
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            temporada=self.temporada, jornadas=3,
+            fecha_inicio=date.today() - timedelta(days=1),
+        )
+        j1 = self._jornada(1)
+        Partido.objects.create(
+            temporada=self.temporada, jornada=j1, equipo_local=self.eq1,
+            equipo_visitante=self.eq2, fecha_hora=timezone.now() + timedelta(days=7),
+            campo=self.campo, estado="PEND",
+        )
+        r = Client().get(f"/tabla-castigados/?temporada={self.temporada.id}")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Se cumplen 1 de 3 jornadas en este torneo")
+        self.assertContains(r, "Las 2 restantes continúan en el siguiente torneo")
 
     def test_tabla_castigados_incluye_suspension_manual(self):
         SuspensionJugador.objects.create(
@@ -1380,10 +1401,11 @@ class SuspensionJugadorTest(TestCase):
 
     def test_exportar_castigados_sin_equipo_muestra_jornadas(self):
         # La exportación debe reflejar la pantalla: sin equipo muestra las
-        # JORNADAS pendientes, no cada partido.
+        # JORNADAS pendientes, no cada partido, y avisa si el castigo se
+        # continúa en el siguiente torneo.
         SuspensionJugador.objects.create(
             jugador=self.jugador, categoria=self.cat, equipo=None,
-            temporada=self.temporada, jornadas=2,
+            temporada=self.temporada, jornadas=3,
             fecha_inicio=date.today() - timedelta(days=1),
         )
         j1 = self._jornada(1)
@@ -1420,6 +1442,12 @@ class SuspensionJugadorTest(TestCase):
         self.assertIn("J1", texto)
         self.assertIn("J2", texto)
         self.assertNotIn("Aguilas (Libre) vs Toros (Libre)", texto)
+        self.assertIn("Se cumplen 2 de 3 jornadas en este torneo", texto)
+        self.assertIn("Las 1 restantes continúan en el siguiente torneo", texto)
+        # El PDF con la leyenda (acentos) no debe fallar
+        r_pdf = client.get(f"/reportes/castigados/pdf/?temporada={self.temporada.id}")
+        self.assertEqual(r_pdf.status_code, 200)
+        self.assertGreater(len(r_pdf.content), 1000)
 
     def test_tabla_castigados_usa_categoria_preferida_del_usuario(self):
         from django.contrib.auth import get_user_model

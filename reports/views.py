@@ -427,11 +427,19 @@ def _pendientes_castigados_texto(pend_list, sin_equipo=False, restantes=None):
             return f"Pendiente ({restantes}) - proxima temporada"
         return None
     if sin_equipo:
-        return "; ".join(p.jornada.nombre for p in pend_list)
-    return "; ".join(
-        f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
-        for p in pend_list
-    )
+        texto = "; ".join(p.jornada.nombre for p in pend_list)
+    else:
+        texto = "; ".join(
+            f"{p.equipo_local} vs {p.equipo_visitante} ({p.jornada.nombre})"
+            for p in pend_list
+        )
+    if restantes is not None and len(pend_list) < restantes:
+        faltan = restantes - len(pend_list)
+        texto += (
+            f" | Se cumplen {len(pend_list)} de {restantes} jornadas en este torneo. "
+            f"Las {faltan} restantes continúan en el siguiente torneo hasta completar el castigo."
+        )
+    return texto
 
 
 def reporte_castigados_pdf(request):
@@ -503,7 +511,7 @@ def reporte_castigados_pdf(request):
                 susp_col = "Por vida"
             elif pend_list:
                 pend_text = _pendientes_castigados_texto(
-                    pend_list, env.equipo is None
+                    pend_list, env.equipo is None, restantes=info["restantes"]
                 )
                 susp_col = env.suspension_jornadas
             else:
