@@ -331,15 +331,13 @@ body {
   }
   .hero-sub { font-size: 0.7rem; margin-top: 0.4rem; padding-left: 0.3rem; }
 }
-/* Banner con imagen (franja): imagen a todo el ancho de la tarjeta, con ancho maximo fijo y centrada */
+/* Banner con imagen (franja): la imagen ocupa el ancho de su contenedor
+   (PREMIUM: pantalla completa; MEDIO: la columna de la card) */
 .banner-anuncio.banner-premium,
 .banner-anuncio.banner-medio {
   overflow: hidden;
   border-radius: 12px;
   backdrop-filter: none;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
 }
 .banner-franja {
   position: relative;
@@ -352,6 +350,14 @@ body {
   height: auto;
   display: block;
   border-radius: 12px;
+}
+/* En escritorio el PREMIUM ocupa todo el ancho con un alto fijo (la imagen cubre el marco) */
+@media (min-width: 992px) {
+  .banner-anuncio.banner-premium .banner-franja-img {
+    height: 270px;
+    object-fit: cover;
+    object-position: center;
+  }
 }
 .banner-franja-badge {
   position: absolute;
