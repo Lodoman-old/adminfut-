@@ -331,8 +331,9 @@ body {
   }
   .hero-sub { font-size: 0.7rem; margin-top: 0.4rem; padding-left: 0.3rem; }
 }
-/* Banner PREMIUM con imagen: franja a todo el ancho con botón superpuesto */
+/* Banner con imagen (franja): imagen a todo el ancho y los datos/CTA superpuestos */
 .banner-anuncio.banner-premium { overflow: hidden; }
+.banner-anuncio.banner-medio { overflow: hidden; }
 .banner-franja { position: relative; }
 .banner-franja-img {
   width: 100%;
@@ -359,11 +360,17 @@ body {
   .banner-franja-badge { top: .4rem; left: .4rem; font-size: .62rem; }
   .banner-franja-btn { right: .5rem; bottom: .5rem; font-size: .72rem; padding: .2rem .5rem; }
 }
-/* En escritorio el banner PREMIUM se reduce (~30% menos ancho) y se centra */
+/* En escritorio la franja tiene alto fijo (recorta la imagen para que todas midan igual) */
 @media (min-width: 768px) {
-  .banner-anuncio.banner-premium { max-width: 70%; margin-left: auto; margin-right: auto; }
+  .banner-anuncio.banner-premium .banner-franja-img,
+  .banner-anuncio.banner-medio .banner-franja-img {
+    height: clamp(150px, 18vw, 230px);
+    object-fit: cover;
+    object-position: center;
+  }
 }
 </style>
+
 
 
 {% endblock %}
