@@ -351,12 +351,11 @@ body {
   display: block;
   border-radius: 12px;
 }
-/* En escritorio el PREMIUM ocupa todo el ancho con un alto fijo (la imagen cubre el marco) */
+/* En escritorio el PREMIUM ocupa todo el ancho con un alto fijo.
+   La imagen se estira (object-fit: fill, por defecto) para verse completa en el marco. */
 @media (min-width: 992px) {
   .banner-anuncio.banner-premium .banner-franja-img {
     height: 270px;
-    object-fit: cover;
-    object-position: center;
   }
 }
 .banner-franja-badge {
