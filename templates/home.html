@@ -332,13 +332,23 @@ body {
   .hero-sub { font-size: 0.7rem; margin-top: 0.4rem; padding-left: 0.3rem; }
 }
 /* Banner con imagen (franja): imagen a todo el ancho y los datos/CTA superpuestos */
-.banner-anuncio.banner-premium { overflow: hidden; }
-.banner-anuncio.banner-medio { overflow: hidden; }
-.banner-franja { position: relative; }
+.banner-anuncio.banner-premium,
+.banner-anuncio.banner-medio {
+  overflow: hidden;
+  border-radius: 12px;
+  backdrop-filter: none;
+}
+.banner-franja {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
 .banner-franja-img {
   width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
+  border-radius: 12px;
 }
 .banner-franja-badge {
   position: absolute;
