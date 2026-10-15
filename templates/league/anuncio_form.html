@@ -5,6 +5,19 @@
 <div class="card mt-3" style="max-width:800px;margin:0 auto">
     <div class="card-header bg-success text-white"><h5 class="mb-0">Datos del Anuncio</h5></div>
     <div class="card-body">
+        <div class="alert alert-info d-flex" role="alert">
+            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+            <div>
+                <strong>Tamaño recomendado de las imágenes</strong> (informativo):
+                <ul class="mb-1 mt-1 small">
+                    <li><strong>Premium</strong> (franja a todo el ancho del inicio): ≈ <strong>1920 × 270 px</strong>.</li>
+                    <li><strong>Medio</strong> (columna, junto a las tarjetas): ≈ <strong>960 × 290 px</strong>.</li>
+                    <li><strong>Económico</strong> (franja fina): ≈ <strong>200 × 80 px</strong>.</li>
+                    <li><strong>Imagen cuadrada</strong> (pantalla del anuncio): ≈ <strong>1000 × 1000 px</strong>.</li>
+                </ul>
+                <span class="small">Formato JPG o PNG. Si la imagen es más pequeña se verá borrosa; si es más grande, se reduce automáticamente.</span>
+            </div>
+        </div>
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             {% for field in form %}
