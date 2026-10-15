@@ -358,6 +358,14 @@ body {
     height: 270px;
   }
 }
+/* En móvil, alto fijo para que la franja no quede delgada con imágenes muy anchas
+   (la imagen se estira para llenar el marco) */
+@media (max-width: 991.98px) {
+  .banner-anuncio.banner-premium .banner-franja-img,
+  .banner-anuncio.banner-medio .banner-franja-img {
+    height: 150px;
+  }
+}
 .banner-franja-badge {
   position: absolute;
   top: .55rem;
