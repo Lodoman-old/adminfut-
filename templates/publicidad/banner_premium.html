@@ -4,7 +4,10 @@
   <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none d-block">
     {% if a.imagen %}
     <div class="banner-franja">
-      <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="banner-franja-img">
+      <picture>
+        {% if a.imagen_movil %}<source media="(max-width: 991.98px)" srcset="{{ a.imagen_movil.url }}">{% endif %}
+        <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="banner-franja-img{% if a.imagen_movil %} banner-franja-img-movil{% endif %}">
+      </picture>
       <span class="badge bg-light text-dark banner-franja-badge"><i class="bi bi-stars"></i> Publicidad</span>
       {% if a.enlace %}<span class="btn btn-light btn-sm btn-anuncio banner-franja-btn"><i class="bi bi-box-arrow-up-right"></i> Ver más</span>{% endif %}
     </div>

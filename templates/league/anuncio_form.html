@@ -11,6 +11,7 @@
                 <strong>Tamaño recomendado de las imágenes</strong> (informativo):
                 <ul class="mb-1 mt-1 small">
                     <li><strong>Premium</strong> (franja a todo el ancho del inicio): ≈ <strong>1920 × 270 px</strong>.</li>
+                    <li><strong>Imagen para móvil</strong> (solo Premium, opcional): más alta, ≈ <strong>1000 × 330 px</strong>. Si no la subes, en celular se usa la de Premium estirada.</li>
                     <li><strong>Medio</strong> (columna, junto a las tarjetas): ≈ <strong>960 × 290 px</strong>.</li>
                     <li><strong>Económico</strong> (franja fina): ≈ <strong>200 × 80 px</strong>.</li>
                     <li><strong>Imagen cuadrada</strong> (pantalla del anuncio): ≈ <strong>1000 × 1000 px</strong>.</li>
@@ -37,6 +38,12 @@
             <div class="mb-3">
                 <label class="form-label">Imagen cuadrada actual (pantalla del anuncio)</label><br>
                 <img src="{{ object.imagen_cuadrada.url }}" alt="{{ object.titulo }}" style="max-height: 160px; object-fit: contain;">
+            </div>
+            {% endif %}
+            {% if object and object.imagen_movil %}
+            <div class="mb-3">
+                <label class="form-label">Imagen para móvil actual (solo Premium)</label><br>
+                <img src="{{ object.imagen_movil.url }}" alt="{{ object.titulo }}" style="max-height: 160px; object-fit: contain;">
             </div>
             {% endif %}
             <div class="d-flex gap-2">

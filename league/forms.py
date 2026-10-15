@@ -998,11 +998,12 @@ class CategoriaForm(forms.ModelForm):
 class AnuncioForm(forms.ModelForm):
     class Meta:
         model = Anuncio
-        fields = ["titulo", "descripcion", "imagen", "imagen_cuadrada", "color_fondo", "enlace", "tamano", "activo", "fecha_inicio", "fecha_fin", "orden"]
+        fields = ["titulo", "descripcion", "imagen", "imagen_movil", "imagen_cuadrada", "color_fondo", "enlace", "tamano", "activo", "fecha_inicio", "fecha_fin", "orden"]
         widgets = {
             "titulo": forms.TextInput(attrs={"class": "form-control"}),
             "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
             "imagen": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "imagen_movil": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "imagen_cuadrada": forms.FileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "color_fondo": forms.TextInput(attrs={"class": "form-control", "type": "color"}),
             "enlace": forms.URLInput(attrs={"class": "form-control", "placeholder": "https://..."}),
