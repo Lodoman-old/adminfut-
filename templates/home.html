@@ -370,15 +370,7 @@ body {
   .banner-franja-badge { top: .4rem; left: .4rem; font-size: .62rem; }
   .banner-franja-btn { right: .5rem; bottom: .5rem; font-size: .72rem; padding: .2rem .5rem; }
 }
-/* En escritorio la franja tiene alto fijo (recorta la imagen para que todas midan igual) */
-@media (min-width: 768px) {
-  .banner-anuncio.banner-premium .banner-franja-img,
-  .banner-anuncio.banner-medio .banner-franja-img {
-    height: clamp(150px, 18vw, 230px);
-    object-fit: cover;
-    object-position: center;
-  }
-}
+/* La franja es responsiva: la imagen siempre se ve completa (sin recorte) */
 </style>
 
 
