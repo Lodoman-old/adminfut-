@@ -359,7 +359,12 @@ body {
   .banner-franja-badge { top: .4rem; left: .4rem; font-size: .62rem; }
   .banner-franja-btn { right: .5rem; bottom: .5rem; font-size: .72rem; padding: .2rem .5rem; }
 }
+/* En escritorio el banner PREMIUM se reduce (~30% menos ancho) y se centra */
+@media (min-width: 768px) {
+  .banner-anuncio.banner-premium { max-width: 70%; margin-left: auto; margin-right: auto; }
+}
 </style>
+
 
 {% endblock %}
 {% block content %}
