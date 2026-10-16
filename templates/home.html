@@ -369,10 +369,12 @@ body {
     height: auto;
   }
 }
+/* Posición: badge abajo a la izquierda (común a todos los banners con imagen) */
 .banner-franja-badge {
   position: absolute;
-  top: .55rem;
+  top: auto;
   left: .55rem;
+  bottom: .55rem;
   font-size: .7rem;
   font-weight: 600;
   opacity: .92;
@@ -386,7 +388,7 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.35);
 }
 @media (max-width: 768px) {
-  .banner-franja-badge { top: .4rem; left: .4rem; font-size: .62rem; }
+  .banner-franja-badge { top: auto; left: .4rem; bottom: .4rem; font-size: .62rem; }
   .banner-franja-btn { right: .5rem; bottom: .5rem; font-size: .72rem; padding: .2rem .5rem; }
 }
 /* La franja es responsiva: la imagen siempre se ve completa (sin recorte) */
