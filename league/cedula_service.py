@@ -37,6 +37,35 @@ def procesar_cedula(partido, post_data, user):
     jugadores_local_ids = {str(j.id) for j in jugadores_local}
     jugadores_visit_ids = {str(j.id) for j in jugadores_visit}
 
+    # Suspensiones manuales: la categoría del partido no puede alinear a un jugador
+    # suspendido (escalera → toda la escalera del mismo género; no escalera → su categoría).
+    cat_partido = partido.temporada.categoria if partido.temporada_id else None
+    if cat_partido is not None:
+        suspendidos = {
+            int(j.id): j
+            for j in (jugadores_local + jugadores_visit)
+            if j.suspension_que_bloquea(cat_partido)
+        }
+        if suspendidos:
+            nombres = []
+            for key, value in post_data.items():
+                if key.startswith("participacion_") and value:
+                    try:
+                        jid = int(key.split("_")[1])
+                    except (ValueError, IndexError):
+                        continue
+                else:
+                    continue
+                if jid in suspendidos:
+                    j = suspendidos[jid]
+                    nombres.append(f"{j.nombre} {j.apellido}".strip())
+            if nombres:
+                errors.append(
+                    "No se puede registrar la participación de jugadores "
+                    "suspendidos: " + ", ".join(sorted(set(nombres))) + "."
+                )
+                return {"ok": False, "errors": errors, "warnings": warnings, "finalizado": False}
+
     cuenta_local = 0
     cuenta_visit = 0
     for key, value in post_data.items():

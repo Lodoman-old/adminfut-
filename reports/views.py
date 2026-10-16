@@ -900,10 +900,11 @@ def reporte_castigados_xlsx(request):
                 f"{c.partido.equipo_local} vs {c.partido.equipo_visitante} ({c.partido.jornada.nombre})",
                 pend_str,
             ])
-        from league.models import SuspensionJugador
-        manuales = SuspensionJugador.objects.filter(
-            categoria=temp.categoria, activo=True
-        ).select_related("jugador", "equipo")
+        from league.views import (
+            _suspensiones_manuales_que_bloquean,
+            _temporada_para_suspension,
+        )
+        manuales = _suspensiones_manuales_que_bloquean(temp.categoria)
         num_fila = 1
         for m in manuales:
             rst = m.restantes()
@@ -913,7 +914,8 @@ def reporte_castigados_xlsx(request):
                 pend_str = "Por vida"
                 susp_col = "Por vida"
             else:
-                pend_list = m.partidos_pendientes(temp, rst)
+                temp_cont = _temporada_para_suspension(m, temp)
+                pend_list = m.partidos_pendientes(temp_cont, rst) if temp_cont else []
                 pend_str = _pendientes_castigados_texto(
                     pend_list, m.equipo is None, restantes=rst
                 )

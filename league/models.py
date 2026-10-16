@@ -92,6 +92,15 @@ class Categoria(models.Model):
             return None
         return self._escalera_qs().filter(nivel=self.nivel + 1).first()
 
+    def pertenece_a_escalera(self):
+        """True si la categoría forma parte de la escalera de ascenso/descenso.
+
+        Se considera de escalera cuando tiene `nivel` asignado (p. ej. Primera=1,
+        Intermedia=2, Segunda=3). Las categorías sin nivel (p. ej. Veteranos)
+        quedan fuera de la escalera.
+        """
+        return self.nivel is not None
+
     def save(self, *args, **kwargs):
         if self.es_principal:
             Categoria.objects.filter(es_principal=True).exclude(pk=self.pk).update(es_principal=False)
@@ -202,6 +211,16 @@ class Jugador(models.Model):
         return hoy.year - self.fecha_nacimiento.year - (
             (hoy.month, hoy.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day)
         )
+
+    def suspension_que_bloquea(self, categoria):
+        """Primera suspensión manual activa que impide jugar/registrarse en
+        `categoria`, o None si no hay ninguna."""
+        if categoria is None:
+            return None
+        for s in self.suspensiones_manuales.filter(activo=True):
+            if s.bloquea_categoria(categoria):
+                return s
+        return None
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -2303,6 +2322,30 @@ class SuspensionJugador(models.Model):
 
     def vigente(self):
         return self.restantes() > 0
+
+    def bloquea_categoria(self, categoria):
+        """True si esta suspensión impide jugar/registrarse en `categoria`.
+
+        Reglas:
+        - Si la categoría donde se suspendió pertenece a la escalera, bloquea
+          TODAS las categorías de la misma escalera (mismo género).
+        - Si no pertenece a la escalera, bloquea únicamente su propia categoría.
+        """
+        if not self.vigente():
+            return False
+        orig = self.categoria
+        if orig.pertenece_a_escalera():
+            return categoria.genero == orig.genero and categoria.pertenece_a_escalera()
+        return categoria.pk == orig.pk
+
+    def categorias_bloqueadas(self):
+        """QuerySet de categorías que esta suspensión bloquea."""
+        orig = self.categoria
+        if not self.vigente():
+            return Categoria.objects.none()
+        if orig.pertenece_a_escalera():
+            return Categoria.objects.filter(genero=orig.genero, nivel__isnull=False)
+        return Categoria.objects.filter(pk=orig.pk)
 
 
 class JugadorHerencia(models.Model):

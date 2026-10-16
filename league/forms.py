@@ -224,13 +224,13 @@ class JugadorForm(forms.ModelForm):
         if not equipo:
             return None
         if self.instance and self.instance.pk:
-            activa = SuspensionJugador.objects.filter(jugador=self.instance, activo=True).first()
+            activa = self.instance.suspension_que_bloquea(equipo.categoria)
             if activa and self.instance.equipo_id != equipo.id:
                 nomin = activa.equipo.nombre if activa.equipo else activa.categoria.nombre
                 raise ValidationError(
                     f"El jugador tiene una suspensión activa ({nomin}, "
                     f"restan {activa.restantes()} jornada(s)). No puede cambiar de equipo ni "
-                    f"darse de alta en otra categoría hasta cumplir la suspensión."
+                    f"darse de alta en {equipo.categoria.nombre} hasta cumplir la suspensión."
                 )
         if self.instance and self.instance.pk:
             mov_errs = errores_movimiento_jugador(self.instance, equipo, equipo.categoria)
@@ -570,22 +570,25 @@ class JugadorForm(forms.ModelForm):
                         msg = f"{cats[a].nombre} y {cats[b].nombre} no son compatibles entre sí."
                         self.add_error("secondary_data", msg)
 
-            # Alta bloqueada en cualquier categoría mientras haya suspensión manual activa
-            susp_activa = None
+            # Alta bloqueada en las categorías que la suspensión manual bloquee
             regs_actuales = set()
             if self.instance and self.instance.pk:
-                susp_activa = SuspensionJugador.objects.filter(jugador=self.instance, activo=True).first()
                 regs_actuales = set(self.instance.registros_equipo.values_list("equipo_id", flat=True))
 
             # Validar cada equipo secundario
             for cid, eid in secondary.items():
-                if susp_activa and eid not in regs_actuales:
-                    cat_name = cats.get(cid, None).nombre if cats.get(cid) else Categoria(id=cid)
-                    self.add_error("secondary_data",
-                        f"No se puede dar de alta en {cat_name} porque el jugador tiene una "
-                        f"suspensión activa ({susp_activa.equipo.nombre}, restan "
-                        f"{susp_activa.restantes()} jornada(s)).")
-                    continue
+                c_obj_susp = cats.get(cid)
+                if self.instance and self.instance.pk and eid not in regs_actuales:
+                    susp_activa = self.instance.suspension_que_bloquea(c_obj_susp)
+                    if susp_activa:
+                        cat_name = c_obj_susp.nombre if c_obj_susp else Categoria(id=cid)
+                        nomin = (susp_activa.equipo.nombre if susp_activa.equipo
+                                 else susp_activa.categoria.nombre)
+                        self.add_error("secondary_data",
+                            f"No se puede dar de alta en {cat_name} porque el jugador tiene una "
+                            f"suspensión activa ({nomin}, restan "
+                            f"{susp_activa.restantes()} jornada(s)).")
+                        continue
                 try:
                     eq_obj = Equipo.objects.get(id=eid)
                 except Equipo.DoesNotExist:

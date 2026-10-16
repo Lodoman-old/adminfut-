@@ -414,11 +414,15 @@ def _jugadores_con_secundario_posible(jugadores):
         cats_registradas.setdefault(row["jugador_id"], []).append(row["equipo__categoria_id"])
         registros_por_jugador.setdefault(row["jugador_id"], []).append(row)
 
-    # Una suspensión activa impide dar de alta en cualquier equipo nuevo.
-    suspendidos = set(
-        SuspensionJugador.objects.filter(jugador_id__in=pks, activo=True)
-        .values_list("jugador_id", flat=True)
-    )
+    # Suspensiones manuales activas por jugador (bloquean por grupo de categorías).
+    manual_por_jugador = {}
+    for s in SuspensionJugador.objects.filter(jugador_id__in=pks, activo=True).select_related("categoria"):
+        manual_por_jugador.setdefault(s.jugador_id, []).append(s)
+
+    def bloqueada(jugador, cat):
+        if cat is None:
+            return False
+        return any(s.bloquea_categoria(cat) for s in manual_por_jugador.get(jugador.pk, []))
 
     def edad_valida(cat, edad):
         if edad is None:
@@ -446,6 +450,8 @@ def _jugadores_con_secundario_posible(jugadores):
             cat = cats.get(cid)
             if cat is None or not edad_valida(cat, edad):
                 continue
+            if bloqueada(jugador, cat):
+                continue
             if cid in temp_por_cat and cid not in cats_con_altas:
                 continue
             for eq in equipos_por_cat.get(cid, []):
@@ -464,6 +470,8 @@ def _jugadores_con_secundario_posible(jugadores):
                 continue
             cat = cats.get(cid)
             if cat is None or not edad_valida(cat, edad):
+                continue
+            if bloqueada(jugador, cat):
                 continue
             otros = [eq for eq in equipos_por_cat.get(cid, [])
                      if eq.pk != reg["equipo_id"]]
@@ -489,8 +497,6 @@ def _jugadores_con_secundario_posible(jugadores):
         # pueda agregar ni cambiar nada más: siempre debe poder darle de baja.
         if any(r["activo"] for r in registros_por_jugador.get(jugador.pk, [])):
             resultado.add(jugador.pk)
-            continue
-        if jugador.pk in suspendidos:
             continue
         if tiene_destino(jugador):
             resultado.add(jugador.pk)
@@ -1964,6 +1970,37 @@ class _SuspensionManualEnvelope:
         self._manual = record
 
 
+def _suspensiones_manuales_que_bloquean(categoria):
+    """Suspensiones manuales activas que impiden jugar/registrarse en `categoria`.
+
+    - Categoría de escalera → suspensiones de la misma escalera (mismo género,
+      `nivel` no nulo).
+    - Categoría sin escalera → suspensiones de esa misma categoría.
+    """
+    if categoria is None:
+        return SuspensionJugador.objects.none()
+    if categoria.pertenece_a_escalera():
+        return SuspensionJugador.objects.filter(
+            activo=True, categoria__genero=categoria.genero, categoria__nivel__isnull=False,
+        ).select_related("jugador", "equipo", "categoria")
+    return SuspensionJugador.objects.filter(
+        activo=True, categoria_id=categoria.id,
+    ).select_related("jugador", "equipo", "categoria")
+
+
+def _temporada_para_suspension(susp, temporada):
+    """Temporada donde se cumplen las jornadas de una suspensión manual.
+
+    Las jornadas solo cuentan en la categoría donde se suspendió, así que si la
+    suspensión es de otra categoría del grupo se busca su temporada activa.
+    """
+    if susp.categoria_id == temporada.categoria_id:
+        return temporada
+    return Temporada.objects.filter(
+        categoria_id=susp.categoria_id, iniciada=True, finalizada=False,
+    ).order_by("id").first()
+
+
 def _suspensiones_temporada(temporada, jug_ids=None):
     """Retorna dict {jugador_id: info} con suspensiones activas.
 
@@ -2012,13 +2049,10 @@ def _suspensiones_temporada(temporada, jug_ids=None):
                 "_tarjeta": r,
             }
 
-    # Suspensiones manuales de la categoría (arrastran entre temporadas)
-    manual_qs = SuspensionJugador.objects.filter(
-        categoria_id=temporada.categoria_id, activo=True,
-    )
+    # Suspensiones manuales que bloquean esta categoría (arrastran entre temporadas)
+    manual_qs = _suspensiones_manuales_que_bloquean(temporada.categoria)
     if jug_ids is not None:
         manual_qs = manual_qs.filter(jugador_id__in=jug_ids)
-    manual_qs = manual_qs.select_related("jugador", "equipo")
     for m in manual_qs:
         if m.jugador_id in result:
             continue
@@ -2039,7 +2073,8 @@ def _suspensiones_temporada(temporada, jug_ids=None):
                 "es_manual": True,
             }
             continue
-        pendientes = m.partidos_pendientes(temporada, restantes)
+        temp_cont = _temporada_para_suspension(m, temporada)
+        pendientes = m.partidos_pendientes(temp_cont, restantes) if temp_cont else []
         env = _SuspensionManualEnvelope(m, restantes, pendientes)
         result[m.jugador_id] = {
             "pendientes": pendientes,
@@ -2070,9 +2105,8 @@ def _castigados_hasta_jornada(temporada, jornada_numero):
     # Filtrar solo las que corresponden a tarjetas hasta jornada_numero
     ids_ok = set(qs.values_list("jugador_id", flat=True))
     ids_ok.update(
-        SuspensionJugador.objects.filter(
-            categoria_id=temporada.categoria_id, activo=True
-        ).values_list("jugador_id", flat=True)
+        _suspensiones_manuales_que_bloquean(temporada.categoria)
+        .values_list("jugador_id", flat=True)
     )
     susp = {k: v for k, v in susp.items() if k in ids_ok}
 
@@ -2950,18 +2984,20 @@ def gestionar_altas_bajas(request, pk):
                 for msg in mov_errs:
                     messages.error(request, msg)
                 return redirect("gestionar_altas_bajas", pk=pk)
-            # Suspensión activa: no cambiar de equipo principal hasta cumplirla
-            if es_principal and jug.equipo_id and jug.equipo_id != eq.id:
-                susp_activa = SuspensionJugador.objects.filter(jugador=jug, activo=True).first()
-                if susp_activa:
-                    nomin = susp_activa.equipo.nombre if susp_activa.equipo else susp_activa.categoria.nombre
-                    messages.error(
-                        request,
-                        f"{jug} tiene una suspensión activa ({nomin}, restan "
-                        f"{susp_activa.restantes()} jornada(s)). No puede darse de alta en otro equipo "
-                        f"hasta cumplir la suspensión."
-                    )
-                    return redirect("gestionar_altas_bajas", pk=pk)
+            # Suspensión activa: no darse de alta en categorías bloqueadas por la sanción
+            susp_activa = jug.suspension_que_bloquea(eq.categoria)
+            ya_en_equipo = JugadorEquipo.objects.filter(
+                jugador=jug, equipo=eq, activo=True
+            ).exists()
+            if susp_activa and not ya_en_equipo:
+                nomin = susp_activa.equipo.nombre if susp_activa.equipo else susp_activa.categoria.nombre
+                messages.error(
+                    request,
+                    f"{jug} tiene una suspensión activa ({nomin}, restan "
+                    f"{susp_activa.restantes()} jornada(s)). No puede darse de alta en "
+                    f"{eq.categoria.nombre} hasta cumplir la suspensión."
+                )
+                return redirect("gestionar_altas_bajas", pk=pk)
             # Verificar cupo
             total_actual = (
                 Jugador.objects.filter(equipo=eq).count()
@@ -3460,6 +3496,17 @@ def cedula_arbitral(request, partido_id):
                     if j.esta_suspendido:
                         break
 
+    # Suspensiones manuales: bloquean la categoría del partido según su grupo
+    # (escalera → toda la escalera del mismo género; no escalera → solo su categoría)
+    if partido.temporada_id:
+        cat_partido = partido.temporada.categoria
+        for j in jugadores_local + jugadores_visit:
+            if j.esta_suspendido:
+                continue
+            if j.suspension_que_bloquea(cat_partido):
+                j.esta_suspendido = True
+                j.jornadas_pendientes = 1
+
     # Verificar elegibilidad para liguilla según % mínimo de juegos
     if partido.es_liguilla and partido.temporada.min_porcentaje_liguilla:
         min_pct = partido.temporada.min_porcentaje_liguilla
@@ -3639,9 +3686,13 @@ def tabla_castigados(request):
     if not temp_id:
         # Sin temporada (o categoría sin temporada creada): mostrar igual las
         # suspensiones manuales/heredadas vigentes, como hace el dashboard
-        manual_qs = SuspensionJugador.objects.filter(activo=True).select_related("jugador", "equipo", "categoria")
         if filtro_cat:
-            manual_qs = manual_qs.filter(categoria_id=filtro_cat)
+            cat_filtro = Categoria.objects.filter(pk=filtro_cat).first()
+            manual_qs = _suspensiones_manuales_que_bloquean(cat_filtro)
+        else:
+            manual_qs = SuspensionJugador.objects.filter(activo=True).select_related(
+                "jugador", "equipo", "categoria"
+            )
         vistos = {
             getattr(c, "jugador_id", getattr(getattr(c, "jugador", None), "id", None))
             for c in castigados
@@ -4443,12 +4494,13 @@ def jugador_agregar_equipo_secundario(request, pk):
     # 3) ¿Ya está registrado en ese equipo?
     ya_registrado = jugador.registros_equipo.filter(equipo=equipo, activo=True).exists()
 
-    # 4) Suspensión activa: bloquea el alta en cualquier equipo nuevo
-    susp = SuspensionJugador.objects.filter(jugador=jugador, activo=True).first()
+    # 4) Suspensión activa: bloquea el alta en las categorías que la sanción cubra
+    susp = jugador.suspension_que_bloquea(cat_destino)
     if susp and not ya_registrado:
+        nomin = susp.equipo.nombre if susp.equipo else susp.categoria.nombre
         return fallo(
             "No se puede agregar el equipo porque el jugador tiene una suspensión activa "
-            "en {} (restan {} jornada(s)).".format(susp.categoria.nombre, susp.restantes())
+            "en {} (restan {} jornada(s)).".format(nomin, susp.restantes())
         )
 
     # 5) Ascenso / descenso / desaparición de categoría

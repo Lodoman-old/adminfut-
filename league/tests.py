@@ -8,7 +8,7 @@ from django.test import TestCase, Client
 from django.utils import timezone
 from django.core.management import call_command
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro, JugadorPartido
 from .cedula_service import procesar_cedula
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
 from .views import _hora_por_defecto_partido
@@ -1500,6 +1500,135 @@ class SuspensionJugadorTest(TestCase):
         susp.activo = False
         susp.save(update_fields=["activo"])
         self.assertEqual(susp.restantes(), 0)
+
+
+class SuspensionGrupoEscaleraTest(TestCase):
+    """La suspensión manual bloquea por grupo:
+    - categoría de escalera → toda la escalera (mismo género)
+    - categoría sin escalera → solo su propia categoría
+    Las jornadas cuentan solo en la categoría donde se suspendió."""
+
+    def setUp(self):
+        self.primera = Categoria.objects.create(nombre="Primera", nivel=1, genero="Masculino")
+        self.intermedia = Categoria.objects.create(nombre="Intermedia", nivel=2, genero="Masculino")
+        self.segunda = Categoria.objects.create(nombre="Segunda", nivel=3, genero="Masculino")
+        self.veteranos = Categoria.objects.create(nombre="Veteranos", nivel=None, genero="Masculino")
+        self.femenil = Categoria.objects.create(nombre="Femenil", nivel=1, genero="Femenino")
+        self.eq_seg = Equipo.objects.create(nombre="EqSeg", categoria=self.segunda, activo=True)
+        self.eq_seg2 = Equipo.objects.create(nombre="EqSeg2", categoria=self.segunda, activo=True)
+        self.eq_vet = Equipo.objects.create(nombre="EqVet", categoria=self.veteranos, activo=True)
+        self.eq_pri = Equipo.objects.create(nombre="EqPri", categoria=self.primera, activo=True)
+        self.jugador = Jugador.objects.create(nombre="Juan", apellido="Perez", equipo=self.eq_seg)
+
+    def _susp(self, cat, equipo=None, jornadas=3):
+        return SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=cat, equipo=equipo,
+            jornadas=jornadas, fecha_inicio=date.today(),
+        )
+
+    def test_suspension_escalera_bloquea_toda_la_escalera(self):
+        s = self._susp(self.segunda)
+        self.assertTrue(s.bloquea_categoria(self.segunda))
+        self.assertTrue(s.bloquea_categoria(self.intermedia))
+        self.assertTrue(s.bloquea_categoria(self.primera))
+        self.assertFalse(s.bloquea_categoria(self.veteranos))
+        self.assertFalse(s.bloquea_categoria(self.femenil))
+
+    def test_suspension_no_escalera_bloquea_solo_su_categoria(self):
+        s = self._susp(self.veteranos)
+        self.assertTrue(s.bloquea_categoria(self.veteranos))
+        self.assertFalse(s.bloquea_categoria(self.segunda))
+        self.assertFalse(s.bloquea_categoria(self.intermedia))
+        self.assertFalse(s.bloquea_categoria(self.primera))
+
+    def test_jugador_suspension_que_bloquea(self):
+        s = self._susp(self.segunda)
+        self.assertEqual(self.jugador.suspension_que_bloquea(self.primera), s)
+        self.assertEqual(self.jugador.suspension_que_bloquea(self.intermedia), s)
+        self.assertIsNone(self.jugador.suspension_que_bloquea(self.veteranos))
+
+    def test_categorias_bloqueadas_query(self):
+        s = self._susp(self.segunda)
+        ids = set(s.categorias_bloqueadas().values_list("id", flat=True))
+        self.assertEqual(ids, {self.primera.id, self.intermedia.id, self.segunda.id})
+
+    def test_form_bloquea_alta_en_primera_con_suspension_escalera(self):
+        from .forms import JugadorForm
+        self._susp(self.segunda)
+        form = JugadorForm(
+            data={
+                "nombre": "Juan", "apellido": "Perez", "posicion": "DEL",
+                "equipo": self.eq_pri.id, "tipo_documento": "CURP",
+            },
+            instance=self.jugador,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("suspensión activa", str(form.errors.get("equipo", "")))
+
+    def test_form_permite_alta_en_veteranos_con_suspension_escalera(self):
+        from .forms import JugadorForm
+        self._susp(self.segunda)
+        form = JugadorForm(
+            data={
+                "nombre": "Juan", "apellido": "Perez", "posicion": "DEL",
+                "equipo": self.eq_vet.id, "tipo_documento": "CURP",
+            },
+            instance=self.jugador,
+        )
+        form.is_valid()
+        self.assertNotIn("suspensión activa", str(form.errors.get("equipo", "")))
+
+
+class CedulaSuspensionManualTest(TestCase):
+    """La cédula no debe registrar la participación de un jugador suspendido
+    en una categoría bloqueada por su sanción."""
+
+    def setUp(self):
+        self.intermedia = Categoria.objects.create(nombre="Intermedia", nivel=2, genero="Masculino")
+        self.segunda = Categoria.objects.create(nombre="Segunda", nivel=3, genero="Masculino")
+        self.veteranos = Categoria.objects.create(nombre="Veteranos", genero="Masculino")
+        self.eq_int = Equipo.objects.create(nombre="EqInt", categoria=self.intermedia, activo=True)
+        self.eq_int2 = Equipo.objects.create(nombre="EqInt2", categoria=self.intermedia, activo=True)
+        self.eq_vet = Equipo.objects.create(nombre="EqVet", categoria=self.veteranos, activo=True)
+        self.eq_vet2 = Equipo.objects.create(nombre="EqVet2", categoria=self.veteranos, activo=True)
+        self.suspendido = Jugador.objects.create(nombre="Sus", apellido="Pendido", equipo=self.eq_int)
+        self.activo_vet = Jugador.objects.create(nombre="Vet", apellido="Activo", equipo=self.eq_vet)
+        # Suspendido en una categoría de escalera (Segunda)
+        SuspensionJugador.objects.create(
+            jugador=self.suspendido, categoria=self.segunda, jornadas=5, fecha_inicio=date.today(),
+        )
+        self.temp_int = Temporada.objects.create(
+            categoria=self.intermedia, nombre="TInt", fecha_inicio=date(2026, 1, 1), min_jugadores=0,
+        )
+        self.temp_vet = Temporada.objects.create(
+            categoria=self.veteranos, nombre="TVet", fecha_inicio=date(2026, 1, 1), min_jugadores=0,
+        )
+        self.part_int = Partido.objects.create(
+            temporada=self.temp_int, equipo_local=self.eq_int, equipo_visitante=self.eq_int2,
+            fecha_hora=timezone.now(), estado="PEND",
+        )
+        self.part_vet = Partido.objects.create(
+            temporada=self.temp_vet, equipo_local=self.eq_vet, equipo_visitante=self.eq_vet2,
+            fecha_hora=timezone.now(), estado="PEND",
+        )
+
+    def test_rechaza_participacion_en_escalera(self):
+        data = {f"participacion_{self.suspendido.id}": "titular", "finalizar": "0"}
+        r = procesar_cedula(self.part_int, data, None)
+        self.assertFalse(r["ok"])
+        self.assertTrue(any("suspendidos" in e for e in r["errors"]))
+
+    def test_permite_participacion_en_veteranos(self):
+        data = {
+            f"participacion_{self.activo_vet.id}": "titular",
+            f"equipo_{self.activo_vet.id}": self.eq_vet.id,
+            "finalizar": "0",
+        }
+        r = procesar_cedula(self.part_vet, data, None)
+        self.assertTrue(r["ok"], r["errors"])
+        self.assertTrue(JugadorPartido.objects.filter(
+            partido=self.part_vet, jugador=self.activo_vet
+        ).exists())
 
 
 class MovimientosEquipoTest(TestCase):
