@@ -96,7 +96,7 @@
     <div class="col-auto">
         <select name="jornada" class="form-select filter-select" onchange="this.form.submit()">
             <option value="">Todas las jornadas</option>
-            {% for j in jornadas %}<option value="{{ j.id }}" {% if jornada_id == j.id %}selected{% endif %}>{{ j.nombre }}</option>{% endfor %}
+            {% for j in jornadas %}<option value="{{ j.id }}" {% if jornada_id|stringformat:"s" == j.id|stringformat:"s" %}selected{% endif %}>{% if not temp_id %}{{ j.temporada.nombre }} · {% endif %}{{ j.nombre }}</option>{% endfor %}
         </select>
     </div>
 </form>

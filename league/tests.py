@@ -1501,6 +1501,58 @@ class SuspensionJugadorTest(TestCase):
         susp.save(update_fields=["activo"])
         self.assertEqual(susp.restantes(), 0)
 
+    def test_tabla_castigados_todas_las_categorias_muestra_union(self):
+        cat2 = Categoria.objects.create(
+            nombre="Otra", dias_juego=["DOM"], curp_obligatoria=False
+        )
+        Temporada.objects.create(
+            categoria=cat2, nombre="Temp 2", fecha_inicio=date.today(),
+            tipo_rol="TODOS", vueltas=1, iniciada=True,
+        )
+        jug2 = Jugador.objects.create(
+            nombre="Pedro", apellido="Lopez", equipo=None, posicion="DEF"
+        )
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=self.cat, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        SuspensionJugador.objects.create(
+            jugador=jug2, categoria=cat2, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        client = Client()
+        # Filtrar por una categoría muestra solo la de esa categoría
+        r = client.get(f"/tabla-castigados/?categoria={self.cat.id}")
+        self.assertContains(r, "Juan Perez")
+        self.assertNotContains(r, "Pedro Lopez")
+        # "Todas las categorías" muestra la unión de todas
+        r = client.get("/tabla-castigados/?categoria=&temporada=&jornada=")
+        self.assertContains(r, "Juan Perez")
+        self.assertContains(r, "Pedro Lopez")
+
+    def test_tabla_castigados_filtra_solo_categoria_exacta_en_escalera(self):
+        primera = Categoria.objects.create(
+            nombre="Primera", nivel=1, genero="Masculino"
+        )
+        intermedia = Categoria.objects.create(
+            nombre="Intermedia", nivel=2, genero="Masculino"
+        )
+        Temporada.objects.create(
+            categoria=intermedia, nombre="Temp Inter", fecha_inicio=date.today(),
+            tipo_rol="TODOS", vueltas=1, iniciada=True,
+        )
+        SuspensionJugador.objects.create(
+            jugador=self.jugador, categoria=intermedia, equipo=None,
+            jornadas=2, fecha_inicio=date.today(),
+        )
+        client = Client()
+        # La suspensión de Intermedia no se lista al filtrar Primera
+        r = client.get(f"/tabla-castigados/?categoria={primera.id}")
+        self.assertNotContains(r, "Juan Perez")
+        # Sí se lista en su propia categoría
+        r = client.get(f"/tabla-castigados/?categoria={intermedia.id}")
+        self.assertContains(r, "Juan Perez")
+
 
 class SuspensionGrupoEscaleraTest(TestCase):
     """La suspensión manual bloquea por grupo:

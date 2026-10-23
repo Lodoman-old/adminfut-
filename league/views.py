@@ -3602,13 +3602,41 @@ def tabla_tarjetas(request):
 
 
 def tabla_castigados(request):
-    cat_id = request.GET.get("categoria")
-    temp_id = request.GET.get("temporada")
+    cat_param = request.GET.get("categoria")
+    temp_param = request.GET.get("temporada")
     jornada_id = request.GET.get("jornada")
-    categorias = Categoria.objects.filter(activo=True)
-    filtro_cat = int(cat_id) if cat_id else None
-    qs_temp = Temporada.objects.all().select_related("categoria").order_by("finalizada", "-iniciada", "nombre")
-    if filtro_cat:
+    # "Todas las categorías/temporadas" llega como cadena vacía: hay que
+    # distinguirla de un parámetro ausente (donde se aplica la preferida).
+    ver_todas_categorias = "categoria" in request.GET and not cat_param
+    ver_todas_temporadas = "temporada" in request.GET and not temp_param
+
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
+    filtro_cat = int(cat_param) if cat_param else None
+    cat_filtro = None
+
+    qs_temp = (
+        Temporada.objects.filter(categoria__activo=True)
+        .select_related("categoria")
+        .order_by("finalizada", "-iniciada", "nombre")
+    )
+
+    temporada_sel = None
+    if temp_param and not ver_todas_categorias:
+        temporada_sel = (
+            Temporada.objects.select_related("categoria").filter(pk=temp_param).first()
+        )
+
+    if ver_todas_categorias:
+        filtro_cat = None
+    elif filtro_cat:
+        cat_filtro = Categoria.objects.filter(pk=filtro_cat).first()
+        if cat_filtro is None:
+            filtro_cat = None
+        else:
+            qs_temp = qs_temp.filter(categoria_id=filtro_cat)
+    elif temporada_sel:
+        filtro_cat = temporada_sel.categoria_id
+        cat_filtro = temporada_sel.categoria
         qs_temp = qs_temp.filter(categoria_id=filtro_cat)
     else:
         # Misma lógica que el dashboard: categoría preferida del usuario,
@@ -3620,52 +3648,66 @@ def tabla_castigados(request):
             default_cat = Categoria.objects.filter(es_principal=True).first()
         if default_cat:
             filtro_cat = default_cat.id
+            cat_filtro = default_cat
             qs_temp = qs_temp.filter(categoria=default_cat)
+
     temporadas = qs_temp
 
-    if not temp_id and temporadas.exists():
-        temp_id = temporadas.first().id
+    # Si la temporada elegida no pertenece a la categoría filtrada, se ignora.
+    if temporada_sel and cat_filtro and temporada_sel.categoria_id != cat_filtro.id:
+        temporada_sel = None
+
+    if temporada_sel:
+        temps_sel = [temporada_sel]
+    elif ver_todas_temporadas or ver_todas_categorias:
+        temps_sel = list(temporadas)
+    else:
+        temps_sel = list(temporadas[:1])
+
+    temp_id = temps_sel[0].id if len(temps_sel) == 1 else None
+    cat_id = filtro_cat if cat_filtro else None
 
     jornadas = []
-    if temp_id:
-        jornadas = Jornada.objects.filter(temporada_id=temp_id).order_by("numero")
+    if temps_sel:
+        jornadas = (
+            Jornada.objects
+            .filter(temporada_id__in=[t.id for t in temps_sel])
+            .select_related("temporada")
+            .order_by("temporada_id", "numero")
+        )
 
     castigados = []
-    if temp_id:
-        temp = Temporada.objects.get(id=temp_id)
+    por_jugador = {}
+    try:
+        jornada_filtro_id = int(jornada_id) if jornada_id else None
+    except (TypeError, ValueError):
+        jornada_filtro_id = None
 
-        # Suspensiones activas de esta temporada (basado en próximos N partidos)
-        susp = _suspensiones_temporada(temp)
-        processed = set()
+    # 1) Tarjetas rojas de las temporadas en alcance.
+    for temp in temps_sel:
+        for jug_id, info in _suspensiones_temporada(temp).items():
+            if info.get("es_manual") or info["restantes"] <= 0:
+                continue
+            tarjeta = info["_tarjeta"]
+            if jornada_filtro_id and not (
+                tarjeta.partido and tarjeta.partido.jornada_id == jornada_filtro_id
+            ):
+                continue
+            previo = por_jugador.get(jug_id)
+            if previo is None or info["restantes"] > previo["restantes"]:
+                por_jugador[jug_id] = info
 
-        if jornada_id:
-            # Filtrar solo las que expulsaron en la jornada específica
-            # (las manuales aplican desde el inicio de la temporada)
-            susp = {
-                k: v for k, v in susp.items()
-                if v.get("es_manual")
-                or (v["_tarjeta"].partido and v["_tarjeta"].partido.jornada_id == int(jornada_id))
-            }
-
-        for jug_id, info in susp.items():
-            if info["restantes"] > 0:
-                r = info["_tarjeta"]
-                r.pendientes = info["pendientes"]
-                r.restantes = info["restantes"]
-                r.faltan = max(0, info["restantes"] - len(info["pendientes"]))
-                r.expulsion_partido = info["expulsion_partido"]
-                castigados.append(r)
-                processed.add(jug_id)
-
-        # Arrastrar suspensiones activas de la temporada anterior
+    # 2) Arrastrar suspensiones activas de la temporada anterior.
+    if len(temps_sel) == 1 and not jornada_filtro_id:
+        temp = temps_sel[0]
         temp_anterior = Temporada.objects.filter(
             categoria=temp.categoria,
             fecha_inicio__lt=temp.fecha_inicio,
         ).order_by("-fecha_inicio").first()
-        if temp_anterior and not jornada_id:
+        if temp_anterior:
             prev = _suspensiones_temporada(temp_anterior)
             for jug_id, info in prev.items():
-                if jug_id in processed or info["restantes"] == 0:
+                if info.get("es_manual") or jug_id in por_jugador or info["restantes"] == 0:
                     continue
                 jug = info["_tarjeta"].jugador
                 prox = Partido.objects.filter(
@@ -3676,41 +3718,67 @@ def tabla_castigados(request):
                 ).order_by("fecha_hora", "id")[:info["restantes"]]
                 pendientes = list(prox)
                 if pendientes:
-                    r = info["_tarjeta"]
-                    r.pendientes = pendientes
-                    r.restantes = len(pendientes)
-                    r.faltan = 0
-                    r.expulsion_partido = info["expulsion_partido"]
-                    castigados.append(r)
+                    por_jugador[jug_id] = {
+                        "pendientes": pendientes,
+                        "todos": pendientes,
+                        "expulsion_partido": info["expulsion_partido"],
+                        "expulsion_equipo": info["expulsion_equipo"],
+                        "suspension_jornadas": info["suspension_jornadas"],
+                        "restantes": len(pendientes),
+                        "_tarjeta": info["_tarjeta"],
+                    }
 
-    if not temp_id:
-        # Sin temporada (o categoría sin temporada creada): mostrar igual las
-        # suspensiones manuales/heredadas vigentes, como hace el dashboard
-        if filtro_cat:
-            cat_filtro = Categoria.objects.filter(pk=filtro_cat).first()
-            manual_qs = _suspensiones_manuales_que_bloquean(cat_filtro)
-        else:
-            manual_qs = SuspensionJugador.objects.filter(activo=True).select_related(
-                "jugador", "equipo", "categoria"
-            )
-        vistos = {
-            getattr(c, "jugador_id", getattr(getattr(c, "jugador", None), "id", None))
-            for c in castigados
+    # 3) Suspensiones manuales vigentes de las categorías en alcance.
+    manual_qs = SuspensionJugador.objects.filter(activo=True).select_related(
+        "jugador", "equipo", "categoria"
+    )
+    if cat_filtro is not None:
+        manual_qs = manual_qs.filter(categoria_id=cat_filtro.id)
+    for m in manual_qs:
+        if m.jugador_id in por_jugador:
+            continue
+        restantes = m.restantes()
+        if restantes <= 0:
+            continue
+        temp_cont = next(
+            (t for t in temps_sel if t.categoria_id == m.categoria_id), None
+        )
+        if temp_cont is None:
+            temp_cont = Temporada.objects.filter(
+                categoria_id=m.categoria_id, iniciada=True, finalizada=False,
+            ).order_by("id").first()
+        pendientes = (
+            [] if m.vitalicia
+            else (m.partidos_pendientes(temp_cont, restantes) if temp_cont else [])
+        )
+        env = _SuspensionManualEnvelope(m, restantes, pendientes)
+        por_jugador[m.jugador_id] = {
+            "pendientes": pendientes,
+            "todos": pendientes,
+            "expulsion_partido": None,
+            "expulsion_equipo": m.equipo,
+            "suspension_jornadas": m.jornadas,
+            "restantes": restantes,
+            "_tarjeta": env,
+            "es_manual": True,
         }
-        for m in manual_qs:
-            if m.jugador_id in vistos or m.restantes() <= 0:
-                continue
-            env = _SuspensionManualEnvelope(m, m.restantes(), [])
-            castigados.append(env)
+
+    for info in por_jugador.values():
+        r = info["_tarjeta"]
+        r.pendientes = info["pendientes"]
+        r.restantes = info["restantes"]
+        r.faltan = max(0, info["restantes"] - len(info["pendientes"]))
+        r.expulsion_partido = info["expulsion_partido"]
+        castigados.append(r)
 
     return render(request, "league/tabla_castigados.html", {
         "castigados": castigados,
         "categorias": categorias,
-        "cat_id": int(cat_id) if cat_id else None,
+        "cat_id": cat_id,
         "temporadas": temporadas,
-        "temp_id": int(temp_id) if temp_id else None,
+        "temp_id": temp_id,
         "jornadas": jornadas,
-        "jornada_id": int(jornada_id) if jornada_id else None,
+        "jornada_id": jornada_filtro_id,
     })
 
 
