@@ -103,6 +103,7 @@ PREFIJOS_PUBLICOS = (
     '/api/offline/',  # autenticación propia con Bearer token
     '/pwa-icon/',
     '/publicidad/',  # página pública de detalle de anuncios
+    '/equipo/',  # ficha pública de equipo
 )
 
 # url_name -> permiso(s) requerido(s). '__staff__' exige is_staff.
