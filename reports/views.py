@@ -1966,6 +1966,90 @@ def reporte_credenciales_pdf(request):
         bar_h = 26
         content_pad = 4
 
+        def _envolver_texto(texto, font_name, size, ancho):
+            """Reparte `texto` en líneas que quepan en `ancho`.
+
+            Las palabras demasiado anchas (p. ej. un apellido compuesto sin
+            espacios) se parten por caracteres para que nunca se desborden.
+            """
+            lineas, actual = [], ""
+            for palabra in texto.split():
+                piezas = [palabra]
+                if p.stringWidth(palabra, font_name, size) > ancho:
+                    piezas, trozo = [], ""
+                    for ch in palabra:
+                        if p.stringWidth(trozo + ch, font_name, size) <= ancho:
+                            trozo += ch
+                        else:
+                            if trozo:
+                                piezas.append(trozo)
+                            trozo = ch
+                    if trozo:
+                        piezas.append(trozo)
+                for pieza in piezas:
+                    cand = (actual + " " + pieza).strip()
+                    if actual and p.stringWidth(cand, font_name, size) > ancho:
+                        lineas.append(actual)
+                        actual = pieza
+                    else:
+                        actual = cand
+            if actual:
+                lineas.append(actual)
+            return lineas
+
+        def _layout_nombre_credencial(nombre_completo, ancho):
+            """Ajusta el nombre del jugador a la columna de la credencial.
+
+            Antes se reducía la fuente sin límite hasta que cupiera en 2 líneas;
+            con un nombre largo en mayúsculas no cabía ni a 8pt, el bucle
+            terminaba sin líneas y la credencial salía SIN nombre. Ahora:
+              1) se prefieren 1-2 líneas con fuente de al menos 9pt;
+              2) si no cabe, se usa la mayor fuente que quepa en 3 líneas;
+              3) en el caso extremo se corta con "..." (nunca queda vacío).
+            """
+            tam_max, tam_min = 11, 7
+            if not nombre_completo.strip():
+                return tam_max, [nombre_completo]
+            tam = tam_max
+            while tam >= 9:
+                lineas = _envolver_texto(nombre_completo, name_font, tam, ancho)
+                if len(lineas) <= 2:
+                    return tam, lineas
+                tam -= 0.5
+            tam = tam_max
+            while tam >= tam_min:
+                lineas = _envolver_texto(nombre_completo, name_font, tam, ancho)
+                if len(lineas) <= 3:
+                    return tam, lineas
+                tam -= 0.5
+            lineas = _envolver_texto(nombre_completo, name_font, tam_min, ancho)
+            if len(lineas) > 3:
+                lineas = lineas[:2] + [" ".join(lineas[2:])]
+            if not lineas:
+                lineas = [nombre_completo]
+            if p.stringWidth(lineas[-1], name_font, tam_min) > ancho:
+                ultima = lineas[-1]
+                while ultima and p.stringWidth(
+                    ultima + "...", name_font, tam_min
+                ) > ancho:
+                    ultima = ultima[:-1]
+                lineas[-1] = ultima.rstrip() + "..."
+            return tam_min, lineas
+
+        def _fit_linea(texto, font_name, tam_max, tam_min, ancho):
+            """Encoge una línea hasta `tam_min`; si aún no cabe, la recorta."""
+            tam = tam_max
+            while tam > tam_min and p.stringWidth(texto, font_name, tam) > ancho:
+                tam -= 0.5
+            if p.stringWidth(texto, font_name, tam) <= ancho:
+                return texto, tam
+            recorte = texto
+            while recorte and p.stringWidth(
+                recorte + "...", font_name, tam
+            ) > ancho:
+                recorte = recorte[:-1]
+            return ((recorte.rstrip() + "...") if recorte else ""), tam
+
         for idx, (j, eq_card) in enumerate(card_items):
             pos = idx % (cols * rows)
             if pos == 0:
@@ -2107,28 +2191,9 @@ def reporte_credenciales_pdf(request):
             text_x = x + 86
             avail_w = 110
 
-            # Name (bold, wraps to 2 lines expanding upward, centered)
-            full_name = f"{j.nombre} {j.apellido}"
-            name_size = 11
-            name_lines = []
-            while name_size >= 8:
-                words = full_name.split()
-                lines = []
-                cur = ""
-                for word in words:
-                    cand = (cur + " " + word).strip()
-                    if p.stringWidth(cand, name_font, name_size) <= avail_w:
-                        cur = cand
-                    else:
-                        if cur:
-                            lines.append(cur)
-                        cur = word
-                if cur:
-                    lines.append(cur)
-                if len(lines) <= 2:
-                    name_lines = lines
-                    break
-                name_size -= 1
+            # Name (bold): 1-2 líneas si cabe; hasta 3 si el nombre es largo.
+            full_name = " ".join(f"{j.nombre} {j.apellido}".split())
+            name_size, name_lines = _layout_nombre_credencial(full_name, avail_w)
             name_y = content_y + content_h - 40
             line_h = name_size * 1.15
             name_cx = text_x + avail_w / 2
@@ -2138,16 +2203,30 @@ def reporte_credenciales_pdf(request):
                 outlined_text(name_cx - ln_w / 2, ly, ln, name_font, name_size)
 
             # Category (9pt)
-            outlined_text(text_x, content_y + content_h - 56, f"Categoria: {cat.nombre}", data_font, 9)
+            cat_txt, cat_size = _fit_linea(
+                f"Categoria: {cat.nombre}", data_font, 9, 7, card_w - 92
+            )
+            outlined_text(
+                text_x, content_y + content_h - 56, cat_txt, data_font, cat_size
+            )
 
             # Documento (9pt)
             tipo_label = {"CURP": "CURP", "PAS": "PASAPORTE", "INM": "INM", "OTR": "DOC"}.get(j.tipo_documento, "CURP")
             curp_text = j.curp if j.curp else "S/C"
-            outlined_text(text_x, content_y + content_h - 72, f"{tipo_label}: {curp_text}", data_font, 9)
+            doc_txt, doc_size = _fit_linea(
+                f"{tipo_label}: {curp_text}", data_font, 9, 7, card_w - 92
+            )
+            outlined_text(
+                text_x, content_y + content_h - 72, doc_txt, data_font, doc_size
+            )
 
-            # Team name at bottom-left corner
+            # Team name at bottom-left corner (sin encimarse con el dorsal)
             team_name_x = x + 4
-            outlined_text(team_name_x, y + 9, eq_card.nombre, name_font, 11)
+            team_max_w = card_w - 8 - (42 if mostrar_numero else 0)
+            team_txt, team_size = _fit_linea(
+                eq_card.nombre, name_font, 11, 8, team_max_w
+            )
+            outlined_text(team_name_x, y + 9, team_txt, name_font, team_size)
 
             # Team logo at top-right corner, just below the green bar
             if mostrar_logo:

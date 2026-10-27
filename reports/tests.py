@@ -89,3 +89,95 @@ class CredencialJugadorMultiEquipoTest(TestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r["Content-Type"], "application/pdf")
+
+
+class CredencialNombreLargoTest(TestCase):
+    """Un nombre largo en mayúsculas debe seguir apareciendo en la credencial.
+
+    Antes se reducía la fuente sin límite para que cupiera en dos líneas; un
+    nombre largo en mayúsculas no cabía ni a 8pt, el bucle terminaba sin
+    líneas y la credencial se generaba SIN el nombre del jugador.
+    """
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="Credenciales Largo")
+        self.eq = Equipo.objects.create(
+            nombre="Equipo Credencial Largo", categoria=self.cat, activo=True
+        )
+        rol = Rol.objects.create(
+            nombre="AdminCredLargo", permisos={"credenciales_ver": True}
+        )
+        self.user = User.objects.create_user(
+            username="credlargoadmin", password="x", rol=rol
+        )
+        self.client.force_login(self.user)
+        self.j = Jugador.objects.create(
+            nombre="JONATHAN MICHAEL ANGEL",
+            apellido="RAMIREZ HERNANDEZ",
+            equipo=self.eq, activo=True, posicion="DEL",
+            tipo_documento="CURP", curp="RAHJ890520HGTMRN06",
+            fecha_nacimiento=date(1989, 5, 20), dorsal=9,
+        )
+
+    def _spans(self, contenido):
+        import fitz
+
+        doc = fitz.open(stream=contenido, filetype="pdf")
+        return [
+            span
+            for pagina in doc
+            for bloque in pagina.get_text("dict")["blocks"]
+            for linea in bloque.get("lines", [])
+            for span in linea["spans"]
+        ]
+
+    def test_nombre_largo_en_mayusculas_aparece_completo(self):
+        try:
+            import fitz  # noqa: F401
+        except ImportError:  # pragma: no cover
+            self.skipTest("PyMuPDF (fitz) no está instalado")
+
+        r = self.client.get(
+            reverse("reporte_credenciales_pdf"), {"jugadores": self.j.id}
+        )
+        self.assertEqual(r.status_code, 200)
+        spans = self._spans(r.content)
+        texto = " ".join(span["text"] for span in spans)
+        for palabra in (
+            "JONATHAN", "MICHAEL", "ANGEL", "RAMIREZ", "HERNANDEZ",
+        ):
+            self.assertIn(palabra, texto)
+        nombre_spans = [
+            span
+            for span in spans
+            if any(
+                p in span["text"]
+                for p in ("JONATHAN", "MICHAEL", "ANGEL", "RAMIREZ", "HERNANDEZ")
+            )
+        ]
+        self.assertTrue(nombre_spans)
+        for span in nombre_spans:
+            self.assertGreaterEqual(span["size"], 6.0 - 0.01)
+
+    def test_nombre_extremo_no_queda_vacio(self):
+        try:
+            import fitz  # noqa: F401
+        except ImportError:  # pragma: no cover
+            self.skipTest("PyMuPDF (fitz) no está instalado")
+
+        self.j.nombre = "JONATHAN MICHAEL ANGEL DE JESUS RAMIREZ HERNANDEZ Y SUS"
+        self.j.apellido = "APELLIDOS MUY LARGOS PARA PROBAR EL AJUSTE AUTOMATICO"
+        self.j.save(update_fields=["nombre", "apellido"])
+        r = self.client.get(
+            reverse("reporte_credenciales_pdf"), {"jugadores": self.j.id}
+        )
+        self.assertEqual(r.status_code, 200)
+        spans = self._spans(r.content)
+        texto = " ".join(span["text"] for span in spans)
+        self.assertIn("JONATHAN", texto)
+        nombre_spans = [
+            span for span in spans if "JONATHAN" in span["text"]
+        ]
+        self.assertTrue(nombre_spans)
+        for span in nombre_spans:
+            self.assertGreaterEqual(span["size"], 6.0 - 0.01)
