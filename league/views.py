@@ -3223,13 +3223,19 @@ def tabla_posiciones(request):
     tabla = []
     tablas_por_grupo = []
     por_grupo = 0
+    num_descensos = 0
+    por_grupo_desc = 0
     if temp_id:
         temp = Temporada.objects.get(pk=temp_id)
+        num_descensos = temp.num_descensos or 0
         if temp.tipo_rol == "GRUPOS" and temp.clasificacion_por_grupos:
             tablas_por_grupo = temp.calcular_tablas_por_grupo()
             grupos = temp.grupos_asignados()
             ng = len(grupos)
             por_grupo = max(1, temp.num_clasificados // max(ng, 1)) if ng else 0
+            # Mismo criterio que los clasificados: repartir los descensos
+            # configurados entre los grupos (mínimo 1 por grupo si hay descensos).
+            por_grupo_desc = max(1, num_descensos // ng) if (ng and num_descensos) else 0
         else:
             tabla = temp.calcular_tabla()
 
@@ -3237,6 +3243,8 @@ def tabla_posiciones(request):
         "tabla": tabla,
         "tablas_por_grupo": tablas_por_grupo,
         "por_grupo": por_grupo,
+        "num_descensos": num_descensos,
+        "por_grupo_desc": por_grupo_desc,
         "categorias": categorias,
         "cat_id": int(cat_id) if cat_id else None,
         "temporadas": temporadas,

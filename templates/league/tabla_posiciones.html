@@ -49,9 +49,9 @@
     </tr></thead>
     <tbody>
         {% for t in grupo_tabla %}
-        <tr class="{% if forloop.counter <= por_grupo %}table-success{% endif %}">
+        <tr class="{% if forloop.counter <= por_grupo %}table-success{% elif por_grupo_desc and forloop.revcounter <= por_grupo_desc %}table-danger{% endif %}">
             <td><strong>{{ t.pos }}</strong></td>
-            <td><strong>{% if forloop.counter <= por_grupo %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
+            <td><strong>{% if forloop.counter <= por_grupo %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% elif por_grupo_desc and forloop.revcounter <= por_grupo_desc %}<i class="bi bi-arrow-down-circle-fill text-danger me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
             <td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
             <td>{{ t.gf }}</td><td>{{ t.gc }}</td>
             <td>{% if t.dif > 0 %}+{% endif %}{{ t.dif }}</td>
@@ -74,9 +74,9 @@
     </tr></thead>
     <tbody>
         {% for t in tabla %}
-        <tr class="{% if temporada and forloop.counter <= temporada.num_clasificados %}table-success{% endif %}">
+        <tr class="{% if temporada and forloop.counter <= temporada.num_clasificados %}table-success{% elif num_descensos and forloop.revcounter <= num_descensos %}table-danger{% endif %}">
             <td><strong>{{ t.pos }}</strong></td>
-            <td><strong>{% if temporada and forloop.counter <= temporada.num_clasificados %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
+            <td><strong>{% if temporada and forloop.counter <= temporada.num_clasificados %}<i class="bi bi-check-circle-fill text-success me-1"></i>{% elif num_descensos and forloop.revcounter <= num_descensos %}<i class="bi bi-arrow-down-circle-fill text-danger me-1"></i>{% endif %}{{ t.equipo.nombre }}</strong></td>
             <td>{{ t.pj }}</td><td>{{ t.pg }}</td><td>{{ t.pe }}</td><td>{{ t.pp }}</td>
             <td>{{ t.gf }}</td><td>{{ t.gc }}</td>
             <td>{% if t.dif > 0 %}+{% endif %}{{ t.dif }}</td>
@@ -92,6 +92,17 @@
 <div class="card"><div class="card-body text-center text-muted">No hay partidos finalizados en esta temporada.</div></div>
 {% else %}
 <div class="card"><div class="card-body text-center text-muted">Selecciona una temporada para ver la tabla.</div></div>
+{% endif %}
+
+{% if tabla or tablas_por_grupo %}
+<div class="d-flex flex-wrap gap-3 small text-muted mt-2 px-1">
+    {% if temporada and temporada.num_clasificados %}
+    <span><span class="d-inline-block align-middle me-1" style="width:14px;height:14px;border-radius:3px;background:#d1e7dd;border:1px solid #a3cfbb"></span>Zona de clasificación{% if tablas_por_grupo %} ({{ por_grupo }} por grupo){% else %} ({{ temporada.num_clasificados }}){% endif %}</span>
+    {% endif %}
+    {% if num_descensos %}
+    <span><span class="d-inline-block align-middle me-1" style="width:14px;height:14px;border-radius:3px;background:#f8d7da;border:1px solid #f1aeb5"></span>Zona de descenso{% if tablas_por_grupo %} ({{ por_grupo_desc }} por grupo){% else %} ({{ num_descensos }}){% endif %}</span>
+    {% endif %}
+</div>
 {% endif %}
 
 <!-- Modal Publicar Posiciones en Facebook -->

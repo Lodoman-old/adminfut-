@@ -3334,3 +3334,58 @@ class ReporteSuscriptoresTest(TestCase):
         self.assertIn("Estadisticas", joined)
         self.assertIn("SI", joined)
         self.assertNotIn("?", joined)
+
+
+class TablaPosicionesDescensoTest(TestCase):
+    """La tabla de posiciones marca en verde a los clasificados y en rojo
+    (table-danger) a los equipos de la zona de descenso configurada en la
+    temporada (num_descensos), igual que la zona de clasificación."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(
+            nombre="Posiciones", curp_obligatoria=False
+        )
+        self.temp = Temporada.objects.create(
+            nombre="T Pos", categoria=self.cat, fecha_inicio=date(2026, 1, 1),
+            tipo_rol="TODOS", num_clasificados=2, num_descensos=2,
+        )
+        self.equipos = [
+            Equipo.objects.create(nombre=f"Eq{i}", categoria=self.cat, activo=True)
+            for i in range(6)
+        ]
+
+    def _partido(self, local, visitante, gl, gv):
+        return Partido.objects.create(
+            temporada=self.temp, equipo_local=local, equipo_visitante=visitante,
+            fecha_hora=datetime(2026, 1, 1, 12, 0), estado="FIN",
+            goles_local=gl, goles_visitante=gv,
+        )
+
+    def _todos_en_tabla(self):
+        # Todos los equipos deben aparecer en la tabla (aunque pierdan).
+        self._partido(self.equipos[0], self.equipos[5], 3, 0)
+        self._partido(self.equipos[1], self.equipos[4], 2, 0)
+        self._partido(self.equipos[2], self.equipos[3], 1, 0)
+
+    def test_marca_zona_descenso_en_rojo(self):
+        self._todos_en_tabla()
+        client = Client()
+        r = client.get(f"/tabla-posiciones/?temporada={self.temp.id}")
+        html = r.content.decode("utf-8")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(html.count("table-success"), 2)  # top 2 clasifican
+        self.assertEqual(html.count("table-danger"), 2)   # últimos 2 descienden
+        self.assertIn("Zona de descenso (2)", html)
+        self.assertIn("Zona de clasificación (2)", html)
+
+    def test_sin_descensos_no_marca_rojo(self):
+        self.temp.num_descensos = 0
+        self.temp.save(update_fields=["num_descensos"])
+        self._todos_en_tabla()
+        client = Client()
+        r = client.get(f"/tabla-posiciones/?temporada={self.temp.id}")
+        html = r.content.decode("utf-8")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(html.count("table-success"), 2)
+        self.assertEqual(html.count("table-danger"), 0)
+        self.assertNotIn("Zona de descenso", html)
