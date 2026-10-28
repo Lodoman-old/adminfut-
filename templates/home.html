@@ -498,7 +498,7 @@ body {
         <div class="match-row">
           <div class="match-team-col">
             {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_local.nombre }}</strong>
+            <strong><a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none">{{ p.equipo_local.nombre }}</a></strong>
           </div>
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
@@ -511,7 +511,7 @@ body {
           </div>
           <div class="match-team-col">
             {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_visitante.nombre }}</strong>
+            <strong><a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none">{{ p.equipo_visitante.nombre }}</a></strong>
           </div>
         </div>
         {% endfor %}
@@ -656,7 +656,7 @@ body {
           {% with agregado=p.agregado_info %}
           <div class="match-team-col{% if agregado and agregado.avanza_local == True %} avanzado{% endif %}">
             {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_local.nombre }}</strong>
+            <strong><a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none">{{ p.equipo_local.nombre }}</a></strong>
           </div>
           <div class="match-center-col">
             <div class="match-score" style="font-size:1.5rem">
@@ -676,7 +676,7 @@ body {
           </div>
           <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
             {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong>{{ p.equipo_visitante.nombre }}</strong>
+            <strong><a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none">{{ p.equipo_visitante.nombre }}</a></strong>
           </div>
           {% endwith %}
         </div>
