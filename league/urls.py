@@ -17,6 +17,7 @@ urlpatterns = [
     path("equipos/<int:pk>/editar/", views.EquipoUpdateView.as_view(), name="equipo_update"),
     path("equipos/<int:pk>/eliminar/", views.EquipoDeleteView.as_view(), name="equipo_delete"),
     path("horarios-fijos/", views.horarios_fijos_report, name="horarios_fijos_report"),
+    path("equipo/<int:pk>/", views.equipo_ficha, name="equipo_ficha"),
 
     path("jugadores/", views.JugadorListView.as_view(), name="jugador_list"),
     path("jugadores/nuevo/", views.JugadorCreateView.as_view(), name="jugador_create"),
