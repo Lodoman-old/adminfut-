@@ -6100,11 +6100,6 @@ def equipo_ficha(request, pk):
         except Exception:
             edad_j = None
         curp_j = getattr(j, "curp", "") or ""
-        try:
-            setattr(j, "_edad_ficha", edad_j)
-            setattr(j, "_curp_ficha", curp_j)
-        except Exception:
-            pass
         jugadores_list.append({
             "obj": j,
             "foto_url": url_para_nombre(j.foto.name if j.foto else None),
