@@ -5930,39 +5930,62 @@ def equipo_ficha(request, pk):
     categoria = equipo.categoria
 
     # Temporada activa de esta categoría
-    temp = (
-        Temporada.objects.filter(categoria=categoria, activa=True)
-        .order_by("-fecha_inicio", "-id")
-        .first()
-    )
-    if not temp:
-        temp = (
-            Temporada.objects.filter(categoria=categoria)
-            .order_by("-iniciada", "-fecha_inicio", "-id")
-            .first()
-        )
-    tabla_pos = None
+    temp = None
     pos_equipo = None
     pts_equipo = None
-    if temp:
+    try:
         try:
-            from .models import TablaPosicion
-            tp = TablaPosicion.objects.filter(temporada=temp, equipo=equipo).first()
-            if tp:
-                pos_equipo = getattr(tp, "pos", None) or getattr(tp, "posicion", None)
-                pts_equipo = getattr(tp, "pts", None) or getattr(tp, "puntos", None) or getattr(tp, "puntaje", None)
-            if pos_equipo is None or pts_equipo is None:
-                tabla = TablaPosicion.objects.filter(temporada=temp).select_related('equipo').order_by('pos')
-                for t in tabla:
-                    if t.equipo_id == equipo.id:
-                        if pos_equipo is None:
-                            pos_equipo = getattr(t, "pos", None) or getattr(t, "posicion", None)
-                        if pts_equipo is None:
-                            pts_equipo = getattr(t, "pts", None) or getattr(t, "puntos", None) or getattr(t, "puntaje", None)
-                        break
-                tabla_pos = tabla
+            temp = (
+                Temporada.objects.filter(categoria=categoria, activa=True)
+                .order_by("-fecha_inicio", "-id")
+                .first()
+            )
         except Exception:
-            pass
+            temp = None
+        if not temp:
+            try:
+                temp = (
+                    Temporada.objects.filter(categoria=categoria)
+                    .order_by("-iniciada", "-fecha_inicio", "-id")
+                    .first()
+                )
+            except Exception:
+                temp = None
+        if temp:
+            try:
+                from .models import TablaPosicion
+                try:
+                    tp = TablaPosicion.objects.filter(temporada=temp, equipo=equipo).first()
+                except Exception:
+                    tp = None
+                if tp:
+                    try:
+                        pos_equipo = getattr(tp, "pos", None) or getattr(tp, "posicion", None) or getattr(tp, "puesto", None)
+                        pts_equipo = getattr(tp, "pts", None) or getattr(tp, "puntos", None) or getattr(tp, "puntaje", None) or getattr(tp, "pj_pts", None)
+                    except Exception:
+                        pass
+                if pos_equipo is None or pts_equipo is None:
+                    try:
+                        tabla = TablaPosicion.objects.filter(temporada=temp).order_by("pos", "id")
+                        for t in tabla:
+                            try:
+                                if getattr(t, "equipo_id", None) == equipo.id or getattr(t, "equipo", None) == equipo:
+                                    if pos_equipo is None:
+                                        pos_equipo = getattr(t, "pos", None) or getattr(t, "posicion", None) or getattr(t, "puesto", None)
+                                    if pts_equipo is None:
+                                        pts_equipo = getattr(t, "pts", None) or getattr(t, "puntos", None) or getattr(t, "puntaje", None)
+                                    break
+                            except Exception:
+                                continue
+                    except Exception:
+                        pass
+            except Exception:
+                pos_equipo = None
+                pts_equipo = None
+    except Exception:
+        temp = None
+        pos_equipo = None
+        pts_equipo = None
 
     # Plantilla: jugadores con registro activo en este equipo (principal o secundario)
     jug_ids_reg = JugadorEquipo.objects.filter(equipo=equipo, activo=True).values_list(
