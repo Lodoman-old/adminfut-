@@ -256,11 +256,6 @@
     <div>
       <h1 class="team-hero-title">{{ equipo.nombre }}</h1>
       <p class="team-hero-sub mb-0"><i class="bi bi-tag"></i> {{ categoria.nombre }}{% if temporada %} · {{ temporada.nombre }}{% endif %}</p>
-      {% if pos_equipo or pos_equipo == 0 or posicion or posicion == 0 %}
-      <p class="team-hero-sub mb-0"><i class="bi bi-trophy"></i> Posición {% firstof pos_equipo posicion %}{% if pts_tabla is not None or puntos_tabla is not None %} · {% firstof pts_tabla puntos_tabla %} pts{% endif %}</p>
-      {% elif pts_tabla is not None or puntos_tabla is not None %}
-      <p class="team-hero-sub mb-0"><i class="bi bi-trophy"></i> {% firstof pts_tabla puntos_tabla %} pts</p>
-      {% endif %}
     </div>
     <div class="ms-auto">
       <a href="javascript:history.back()" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i> Regresar</a>
@@ -317,6 +312,22 @@
       <span class="stat-pill-value">{{ pts }}</span>
     </div>
   </div>
+  {% if pos_equipo or pos_equipo == 0 or posicion or posicion == 0 %}
+  <div class="col-6 col-md-2">
+    <div class="stat-pill">
+      <span class="stat-pill-label">POSICIÓN</span>
+      <span class="stat-pill-value">{% firstof pos_equipo posicion %}</span>
+    </div>
+  </div>
+  {% endif %}
+  {% if pts_tabla is not None or puntos_tabla is not None %}
+  <div class="col-6 col-md-2">
+    <div class="stat-pill pts">
+      <span class="stat-pill-label">PTS TABLA</span>
+      <span class="stat-pill-value">{% firstof pts_tabla puntos_tabla %}</span>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <div class="row">
