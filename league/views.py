@@ -5935,6 +5935,21 @@ def equipo_ficha(request, pk):
         .order_by("-iniciada", "-fecha_inicio", "-id")
         .first()
     )
+    tabla_pos = None
+    pos_equipo = None
+    pts_equipo = None
+    if temp:
+        try:
+            from .models import TablaPosicion
+            tabla = TablaPosicion.objects.filter(temporada=temp).select_related('equipo').order_by('pos')
+            for t in tabla:
+                if t.equipo_id == equipo.id:
+                    pos_equipo = t.pos
+                    pts_equipo = t.pts
+                    break
+            tabla_pos = tabla
+        except Exception:
+            pass
 
     # Plantilla: jugadores con registro activo en este equipo (principal o secundario)
     jug_ids_reg = JugadorEquipo.objects.filter(equipo=equipo, activo=True).values_list(
@@ -6048,6 +6063,7 @@ def equipo_ficha(request, pk):
             "obj": j,
             "foto_url": url_para_nombre(j.foto.name if j.foto else None),
             "edad": j.edad(),
+            "curp": getattr(j, "curp", "") or "",
         })
 
     return render(request, "league/equipo_ficha.html", {
@@ -6055,10 +6071,12 @@ def equipo_ficha(request, pk):
         "categoria": categoria,
         "temporada": temp,
         "jugadores": jugadores_list,
-        "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
+             "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
         "ultimos": ultimos,
         "proximos": proximos,
         "goleadores": goles_jug,
         "tarjetas": tarjetas_jug,
+        "pos_equipo": pos_equipo,
+        "pts_tabla": pts_equipo,
     })
 

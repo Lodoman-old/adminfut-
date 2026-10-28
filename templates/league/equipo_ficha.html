@@ -256,6 +256,11 @@
     <div>
       <h1 class="team-hero-title">{{ equipo.nombre }}</h1>
       <p class="team-hero-sub mb-0"><i class="bi bi-tag"></i> {{ categoria.nombre }}{% if temporada %} · {{ temporada.nombre }}{% endif %}</p>
+      {% if pos_equipo %}
+      <p class="team-hero-sub mb-0"><i class="bi bi-trophy"></i> Posición {{ pos_equipo }}{% if pts_tabla is not None %} · {{ pts_tabla }} pts{% endif %}</p>
+      {% elif pts_tabla is not None %}
+      <p class="team-hero-sub mb-0"><i class="bi bi-trophy"></i> {{ pts_tabla }} pts</p>
+      {% endif %}
     </div>
     <div class="ms-auto">
       <a href="javascript:history.back()" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i> Regresar</a>
@@ -337,6 +342,7 @@
               <div class="player-row-sub">
                 {{ j.obj.get_posicion_display }}
                 {% if j.edad %} · {{ j.edad }} años{% endif %}
+                {% if j.curp %} · CURP: {{ j.curp }}{% endif %}
               </div>
             </div>
           </div>
