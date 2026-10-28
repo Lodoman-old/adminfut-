@@ -312,22 +312,18 @@
       <span class="stat-pill-value">{{ pts }}</span>
     </div>
   </div>
-  {% if pos_equipo or pos_equipo == 0 or posicion or posicion == 0 %}
   <div class="col-6 col-md-2">
     <div class="stat-pill">
       <span class="stat-pill-label">POSICIÓN</span>
-      <span class="stat-pill-value">{% firstof pos_equipo posicion %}</span>
+      <span class="stat-pill-value">{% firstof pos_equipo posicion '-' %}</span>
     </div>
   </div>
-  {% endif %}
-  {% if pts_tabla is not None or puntos_tabla is not None %}
   <div class="col-6 col-md-2">
     <div class="stat-pill pts">
       <span class="stat-pill-label">PTS TABLA</span>
-      <span class="stat-pill-value">{% firstof pts_tabla puntos_tabla %}</span>
+      <span class="stat-pill-value">{% firstof pts_tabla puntos_tabla '-' %}</span>
     </div>
   </div>
-  {% endif %}
 </div>
 
 <div class="row">
