@@ -497,8 +497,10 @@ body {
         {% for p in proximos %}
         <div class="match-row">
           <div class="match-team-col">
-            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong><a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none">{{ p.equipo_local.nombre }}</a></strong>
+            <a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none d-block">
+              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+              <strong>{{ p.equipo_local.nombre }}</strong>
+            </a>
           </div>
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
@@ -510,8 +512,10 @@ body {
             <div class="match-info"><i class="bi bi-geo-alt"></i> {{ p.campo.nombre }}</div>
           </div>
           <div class="match-team-col">
-            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
-            <strong><a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none">{{ p.equipo_visitante.nombre }}</a></strong>
+            <a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none d-block">
+              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+              <strong>{{ p.equipo_visitante.nombre }}</strong>
+            </a>
           </div>
         </div>
         {% endfor %}
