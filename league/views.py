@@ -6059,24 +6059,52 @@ def equipo_ficha(request, pk):
     # Foto de jugadores
     jugadores_list = []
     for j in jugadores:
+        try:
+            edad_j = j.edad()
+        except Exception:
+            edad_j = None
+        curp_j = getattr(j, "curp", "") or ""
+        try:
+            setattr(j, "_edad_ficha", edad_j)
+            setattr(j, "_curp_ficha", curp_j)
+        except Exception:
+            pass
         jugadores_list.append({
             "obj": j,
             "foto_url": url_para_nombre(j.foto.name if j.foto else None),
-            "edad": j.edad(),
-            "curp": getattr(j, "curp", "") or "",
+            "edad": edad_j,
+            "curp": curp_j,
         })
+
+    # Intentar buscar posición aunque no esté en la temporada detectada
+    if pos_equipo is None or pts_equipo is None:
+        try:
+            from .models import TablaPosicion
+            tp = (
+                TablaPosicion.objects.filter(equipo=equipo)
+                .select_related("temporada")
+                .order_by("-temporada__id")
+                .first()
+            )
+            if tp:
+                pos_equipo = tp.pos
+                pts_equipo = getattr(tp, "pts", None) or getattr(tp, "puntos", None)
+        except Exception:
+            pass
 
     return render(request, "league/equipo_ficha.html", {
         "equipo": equipo,
         "categoria": categoria,
         "temporada": temp,
         "jugadores": jugadores_list,
-             "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
+        "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
         "ultimos": ultimos,
         "proximos": proximos,
         "goleadores": goles_jug,
         "tarjetas": tarjetas_jug,
         "pos_equipo": pos_equipo,
         "pts_tabla": pts_equipo,
+        "posicion": pos_equipo,
+        "puntos_tabla": pts_equipo,
     })
 

@@ -341,8 +341,8 @@
               <div class="player-row-name">{{ j.obj.nombre }} {{ j.obj.apellido }}</div>
               <div class="player-row-sub">
                 {{ j.obj.get_posicion_display }}
-                {% if j.edad or j.obj.edad %} · {% firstof j.edad j.obj.edad %} años{% endif %}
-                {% if j.curp or j.obj.curp %} · CURP: {% firstof j.curp j.obj.curp %}{% endif %}
+                {% if j.edad or j.obj.edad or j._edad_ficha or j.obj._edad_ficha %} · {% firstof j.edad j.obj.edad j._edad_ficha j.obj._edad_ficha %} años{% endif %}
+                {% if j.curp or j.obj.curp or j._curp_ficha or j.obj._curp_ficha %} · CURP: {% firstof j.curp j.obj.curp j._curp_ficha j.obj._curp_ficha %}{% endif %}
               </div>
             </div>
           </div>
