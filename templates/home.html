@@ -204,7 +204,9 @@ body {
 }
 .match-row:hover { background: rgba(255,255,255,0.12); transform: translateX(4px); }
 .match-team-col { text-align: center; min-width: 0; }
-.match-team-col strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-team-col > a { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: inherit; width: 100%; }
+.match-team-col > a:hover { opacity: 0.9; text-decoration: none; color: inherit; }
+.match-team-col strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .match-center-col { text-align: center; max-width: 160px; word-break: break-word; }
 .match-team-logo { width: 56px; height: 56px; object-fit: contain; }
 .match-team-placeholder {
