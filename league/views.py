@@ -5988,5 +5988,77 @@ def equipo_ficha(request, pk):
 
     # Últimos resultados
     ultimos = []
-   
+    if temp:
+        ultimos = list(
+            partidos.filter(estado="FIN")
+            .order_by("-fecha_hora")[:5]
+        )
+
+    # Próximos
+    proximos = []
+    if temp:
+        proximos = list(
+            partidos.filter(estado__in=("PEND", "PROG"))
+            .order_by("fecha_hora")[:5]
+        )
+
+    # Goles por jugador
+    goles_jug = []
+    if temp:
+        goles_jug = list(
+            Gol.objects.filter(partido__temporada=temp, equipo=equipo)
+            .values("jugador_id", "jugador__nombre", "jugador__apellido", "jugador__foto", "jugador__dorsal")
+            .annotate(total=Count("id"))
+            .order_by("-total", "jugador__apellido", "jugador__nombre")
+        )
+        for g in goles_jug:
+            g["foto_url"] = url_para_nombre(g.get("jugador__foto"))
+
+    # Tarjetas
+    tarjetas_jug = []
+    if temp:
+        amar = (
+            Tarjeta.objects.filter(partido__temporada=temp, equipo=equipo, tipo="AMARILLA")
+            .values("jugador_id", "jugador__nombre", "jugador__apellido", "jugador__foto", "jugador__dorsal")
+            .annotate(total=Count("id"))
+        )
+        rojas = (
+            Tarjeta.objects.filter(partido__temporada=temp, equipo=equipo, tipo="ROJA")
+            .values("jugador_id", "jugador__nombre", "jugador__apellido", "jugador__foto", "jugador__dorsal")
+            .annotate(total=Count("id"))
+        )
+        acc_t = {}
+        for t in amar:
+            key = t["jugador_id"]
+            acc_t[key] = dict(t, amarillas=t["total"], rojas=0)
+            acc_t[key]["foto_url"] = url_para_nombre(t.get("jugador__foto"))
+        for t in rojas:
+            key = t["jugador_id"]
+            if key in acc_t:
+                acc_t[key]["rojas"] = t["total"]
+            else:
+                acc_t[key] = dict(t, amarillas=0, rojas=t["total"])
+                acc_t[key]["foto_url"] = url_para_nombre(t.get("jugador__foto"))
+        tarjetas_jug = sorted(acc_t.values(), key=lambda x: (-(x["amarillas"] + x["rojas"]), x["jugador__apellido"] or ""))
+
+    # Foto de jugadores
+    jugadores_list = []
+    for j in jugadores:
+        jugadores_list.append({
+            "obj": j,
+            "foto_url": url_para_nombre(j.foto.name if j.foto else None),
+            "edad": j.edad(),
+        })
+
+    return render(request, "league/equipo_ficha.html", {
+        "equipo": equipo,
+        "categoria": categoria,
+        "temporada": temp,
+        "jugadores": jugadores_list,
+        "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
+        "ultimos": ultimos,
+        "proximos": proximos,
+        "goleadores": goles_jug,
+        "tarjetas": tarjetas_jug,
+    })
 
