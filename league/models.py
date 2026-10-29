@@ -2522,7 +2522,7 @@ class ConfiguracionLiga(models.Model):
         ('gemini', 'Google Gemini'),
         ('ollama', 'Ollama'),
     ], default='groq', verbose_name="Proveedor de visión")
-    cedula_vision_modelo = models.CharField(max_length=150, default='qwen/qwen2.5-vl-32b-instruct', verbose_name="Modelo de visión")
+    cedula_vision_modelo = models.CharField(max_length=150, default='qwen/qwen2.5-vl-72b-instruct', verbose_name="Modelo de visión")
     cedula_vision_api_key = models.CharField(max_length=255, blank=True, default="", verbose_name="API Key")
     cedula_vision_endpoint = models.CharField(max_length=255, blank=True, default="", verbose_name="Endpoint personalizado")
     cedula_vision_prompt = models.TextField(blank=True, default="", verbose_name="Prompt para escaneo de cédula")

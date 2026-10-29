@@ -83,7 +83,7 @@ def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_
     cfg = ConfiguracionLiga.obtener()
     prov = (proveedor or cfg.cedula_vision_proveedor or 'groq').lower()
     api_key = (cfg.cedula_vision_api_key or '').strip() or getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY')
-    modelo = (cfg.cedula_vision_modelo or 'qwen/qwen2.5-vl-32b-instruct').strip()
+    modelo = (cfg.cedula_vision_modelo or 'qwen/qwen2.5-vl-72b-instruct').strip()
     endpoint = (cfg.cedula_vision_endpoint or '').strip()
     prompt_tpl = (cfg.cedula_vision_prompt or '').strip() or None
 
@@ -96,7 +96,7 @@ def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_
             url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
             payload = {
-                "model": modelo or "qwen/qwen2.5-vl-32b-instruct",
+                "model": modelo or "qwen/qwen2.5-vl-72b-instruct",
                 "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
                 "temperature": 0.1,
                 "max_tokens": 2048,
@@ -127,7 +127,7 @@ def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_
             url = endpoint or "https://openrouter.ai/api/v1/chat/completions"
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": getattr(settings, 'SITE_URL', ''), "X-Title": "AdminFut"}
             payload = {
-                "model": modelo or "qwen/qwen2.5-vl-32b-instruct",
+                "model": modelo or "qwen/qwen2.5-vl-72b-instruct",
                 "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
                 "temperature": 0.1,
                 "max_tokens": 2048,
