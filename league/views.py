@@ -3537,6 +3537,46 @@ def cedula_arbitral(request, partido_id):
     })
 
 
+@login_required
+def cedula_escanear(request, partido_id):
+    from django.http import JsonResponse
+    from .models import Jugador, JugadorEquipo
+    from django.db.models import Q
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    partido = get_object_or_404(Partido, pk=partido_id)
+
+    imagen = request.FILES.get("imagen") or request.FILES.get("foto") or request.FILES.get("file")
+    if not imagen:
+        return JsonResponse({"error": "No se recibió imagen"}, status=400)
+
+    # Mismas listas que usa cedula_arbitral
+    local_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_local, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_local = list(Jugador.objects.filter(
+        Q(pk__in=local_jugador_ids) | Q(equipo=partido.equipo_local), activo=True
+    ).select_related("equipo").distinct())
+    jugadores_local.sort(key=lambda x: ((x.nombre or "").upper(), (x.apellido or "").upper()))
+
+    visit_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_visitante, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_visit = list(Jugador.objects.filter(
+        Q(pk__in=visit_jugador_ids) | Q(equipo=partido.equipo_visitante), activo=True
+    ).select_related("equipo").distinct())
+    jugadores_visit.sort(key=lambda x: ((x.nombre or "").upper(), (x.apellido or "").upper()))
+
+    try:
+        from .cedula_scan import escanear_cedula_con_vision
+        resultado = escanear_cedula_con_vision(imagen, partido, jugadores_local, jugadores_visit)
+        return JsonResponse(resultado, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 def tabla_tarjetas(request):
     cat_id = request.GET.get("categoria")
     temp_id = request.GET.get("temporada")

@@ -3,7 +3,10 @@
 {% block content %}
 <h3 class="d-flex justify-content-between align-items-center flex-wrap gap-2">
     <span><i class="bi bi-clipboard-data"></i> Cédula Arbitral</span>
-    <span class="d-flex gap-2">
+    <span class="d-flex gap-2 flex-wrap">
+        {% if not es_invitado %}
+        <button type="button" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#escanearCedulaModal"><i class="bi bi-camera"></i> Subir foto de cédula</button>
+        {% endif %}
         <button type="button" class="btn btn-warning btn-sm text-dark fw-bold" onclick="confirmarGuardar()"><i class="bi bi-save"></i> Guardar</button>
         <a href="{% url 'reporte_cedula_arbitral_pdf' partido.id %}?v={% now 'U' %}" class="btn btn-primary btn-sm" target="_blank"><i class="bi bi-filetype-pdf"></i> PDF</a>
         <a href="{% url 'partido_list' %}" class="btn btn-secondary btn-sm">Volver</a>
@@ -362,5 +365,110 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.querySelectorAll('table tbody tr').forEach(setupRow);
 });
+
+// Escanear cédula con foto
+document.getElementById('cedulaFotoInput').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+        const img = document.getElementById('cedulaPreview');
+        img.src = ev.target.result;
+        document.getElementById('cedulaPreviewWrap').style.display = 'block';
+    }
+    reader.readAsDataURL(file);
+    document.getElementById('cedulaScanMsg').classList.add('d-none');
+    document.getElementById('cedulaScanResumen').classList.add('d-none');
+});
+
+function analizarCedula(){
+    const input = document.getElementById('cedulaFotoInput');
+    const file = input.files[0];
+    if(!file){
+        alert('Selecciona una foto de la cédula');
+        return;
+    }
+    const btn = document.getElementById('btnAnalizarCedula');
+    const msg = document.getElementById('cedulaScanMsg');
+    const res = document.getElementById('cedulaScanResumen');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analizando...';
+    msg.classList.add('d-none');
+    res.classList.add('d-none');
+    
+    const formData = new FormData();
+    formData.append('imagen', file);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch("{% url 'cedula_escanear' partido.id %}", {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Analizar';
+        if(data.error){
+            msg.textContent = data.error;
+            msg.classList.remove('d-none');
+            return;
+        }
+        let prellenados = 0;
+        function aplicar(lista, esLocal){
+            if(!Array.isArray(lista)) return;
+            lista.forEach(item => {
+                if(!item.jugador_id) return;
+                if(item.confianza && item.confianza < 0.7) return;
+                const jid = item.jugador_id;
+                // Marcar participación
+                if(item.participacion === 'titular'){
+                    const t = document.querySelector('input[name="participacion_' + jid + '"][value="titular"]');
+                    const c = document.querySelector('input[name="participacion_' + jid + '"][value="cambio"]');
+                    if(t && !t.disabled){ t.checked = true; if(c) c.checked = false; t.dispatchEvent(new Event('change')); }
+                }else if(item.participacion === 'cambio'){
+                    const t = document.querySelector('input[name="participacion_' + jid + '"][value="titular"]');
+                    const c = document.querySelector('input[name="participacion_' + jid + '"][value="cambio"]');
+                    if(c && !c.disabled){ c.checked = true; if(t) t.checked = false; c.dispatchEvent(new Event('change')); }
+                }
+                // Goles
+                if(typeof item.goles !== 'undefined' && item.goles !== null){
+                    const gol = document.querySelector('input[name="gol_' + jid + '"]');
+                    if(gol && !gol.disabled){
+                        gol.value = parseInt(item.goles) || 0;
+                    }
+                }
+                // Amarillas/Rojas
+                if(item.amarillas >= 2){
+                    const a1 = document.querySelector('input[name="tarjeta_' + jid + '_AMARILLA"][value="AMARILLA"]:not([name*="_AMARILLA_"])');
+                    const a2 = document.querySelector('input[name="tarjeta_' + jid + '_AMARILLA_2"]');
+                    if(a1 && !a1.disabled){ a1.checked = true; a1.dispatchEvent(new Event('change')); }
+                    if(a2 && !a2.disabled){ a2.checked = true; a2.dispatchEvent(new Event('change')); }
+                }else{
+                    if(item.amarillas >= 1){
+                        const a1 = document.querySelector('input[name="tarjeta_' + jid + '_AMARILLA"][value="AMARILLA"]:not([name*="_AMARILLA_"])');
+                        if(a1 && !a1.disabled){ a1.checked = true; a1.dispatchEvent(new Event('change')); }
+                    }
+                    if(item.rojas >= 1){
+                        const r = document.querySelector('input[name="tarjeta_' + jid + '_ROJA"]');
+                        if(r && !r.disabled && r.style.pointerEvents !== 'none'){ r.checked = true; r.dispatchEvent(new Event('change')); }
+                    }
+                }
+                prellenados++;
+            });
+        }
+        aplicar(data.local, true);
+        aplicar(data.visitante, false);
+        res.textContent = 'Se prellenaron ' + prellenados + ' jugador(es). Revisa los datos antes de guardar.';
+        res.classList.remove('d-none');
+        msg.textContent = 'Análisis completado. Revisa y corrige lo necesario.';
+        msg.classList.remove('d-none');
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Analizar';
+        msg.textContent = 'Error: ' + err;
+        msg.classList.remove('d-none');
+    });
+}
 </script>
 {% endblock %}

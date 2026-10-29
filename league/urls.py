@@ -79,6 +79,7 @@ urlpatterns = [
     path("api/equipos-categoria/", views.api_equipos_categoria, name="api_equipos_categoria"),
 
     path("cedula-arbitral/<int:partido_id>/", views.cedula_arbitral, name="cedula_arbitral"),
+    path("cedula-arbitral/<int:partido_id>/escanear/", views.cedula_escanear, name="cedula_escanear"),
 
     path("configuracion/", views.configuracion_liga, name="configuracion_liga"),
     path("configuracion/generar-vapid/", views.generar_vapid_keys, name="generar_vapid_keys"),
