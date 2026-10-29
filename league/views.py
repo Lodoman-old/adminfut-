@@ -1388,19 +1388,35 @@ from django import forms as djforms
 class ConfiguracionLigaForm(djforms.ModelForm):
     class Meta:
         model = ConfiguracionLiga
-        fields = ['nombre_liga', 'logo', 'direccion', 'telefonos', 'correo_electronico', 'redes_sociales',
-                  'foto_portada', 'mostrar_portada', 'texto_bienvenida', 'mostrar_bienvenida',
-                  'mostrar_equipos_destacados', 'rotacion_banners_segundos', 'mostrar_quiniela', 'ips_excluidas',
-                  'sitio_modo', 'mostrar_publicidad',
-                  'cedula_vision_habilitado', 'cedula_vision_proveedor', 'cedula_vision_modelo',
-                  'cedula_vision_api_key', 'cedula_vision_endpoint', 'cedula_vision_prompt']
+        fields = [
+            'nombre_liga', 'segunda_linea', 'logo', 'direccion', 'telefonos', 'correo_electronico',
+            'redes_sociales', 'email_provider', 'email_smtp_host', 'email_smtp_port', 'email_smtp_user',
+            'email_smtp_password', 'email_use_tls', 'email_from', 'email_sendgrid_host', 'email_sendgrid_port',
+            'email_sendgrid_user', 'email_sendgrid_password', 'email_sendgrid_use_tls', 'enviar_solo_jornada_actual',
+            'ticket_ancho_mm', 'ticket_encabezado', 'ticket_pie', 'facebook_page_id', 'facebook_access_token',
+            'reglamento', 'database_url', 'cloudinary_cloud_name', 'cloudinary_api_key', 'cloudinary_api_secret',
+            'firebase_service_account_json', 'webpush_vapid_private_key', 'webpush_vapid_public_key',
+            'rotacion_banners_segundos', 'mostrar_quiniela', 'ips_excluidas', 'sitio_modo', 'mostrar_publicidad',
+            'cedula_vision_habilitado', 'cedula_vision_proveedor', 'cedula_vision_modelo',
+            'cedula_vision_api_key', 'cedula_vision_endpoint', 'cedula_vision_prompt',
+        ]
         widgets = {
             'redes_sociales': djforms.Textarea(attrs={'rows': 3}),
-            'texto_bienvenida': djforms.Textarea(attrs={'rows': 4}),
+            'ticket_encabezado': djforms.Textarea(attrs={'rows': 3}),
+            'ticket_pie': djforms.Textarea(attrs={'rows': 2}),
             'ips_excluidas': djforms.Textarea(attrs={'rows': 4}),
+            'firebase_service_account_json': djforms.Textarea(attrs={'rows': 6}),
+            'webpush_vapid_private_key': djforms.PasswordInput(render_value=True),
+            'webpush_vapid_public_key': djforms.TextInput(attrs={'readonly': True}),
             'cedula_vision_api_key': djforms.PasswordInput(render_value=True),
             'cedula_vision_prompt': djforms.Textarea(attrs={'rows': 14}),
+            'database_url': djforms.PasswordInput(render_value=True),
+            'cloudinary_api_secret': djforms.PasswordInput(render_value=True),
+            'facebook_access_token': djforms.PasswordInput(render_value=True),
+            'email_smtp_password': djforms.PasswordInput(render_value=True),
+            'email_sendgrid_password': djforms.PasswordInput(render_value=True),
         }
+
 
 
 class ConfiguracionLigaFormOld(djforms.ModelForm):
