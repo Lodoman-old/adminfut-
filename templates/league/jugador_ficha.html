@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ jugador.nombre }} {{ jugador.apellido }} - Ficha de Jugador{% endblock %}
+{% block extra_head %}
+<style>
+  body { background: linear-gradient(135deg, #1a3a15 0%, #2d6b2e 30%, #4a8c4a 60%, #2d6b2e 100%); min-height: 100vh; }
+  .navbar.bg-dark { background: linear-gradient(90deg, #1a3a15 0%, #2d6b2e 100%) !important; border-bottom: 3px solid #ffd700; }
+  .card { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,215,0,0.2); background: rgba(255,255,255,0.97); }
+  .card-header { border-radius: 12px 12px 0 0 !important; font-weight: bold; }
+  .card-header.bg-success { background: linear-gradient(135deg, #2d6b2e, #4a8c4a) !important; }
+  .card-header.bg-primary { background: linear-gradient(135deg, #1a5276, #2e86c1) !important; }
+  .card-header.bg-warning { background: linear-gradient(135deg, #b7950b, #ffd700) !important; }
+  .card-header.bg-danger  { background: linear-gradient(135deg, #922b21, #e74c3c) !important; }
+  .card-header.bg-info   { background: linear-gradient(135deg, #1a5276, #3498db) !important; }
+  .card-header.bg-dark   { background: linear-gradient(135deg, #111, #333) !important; }
+  .player-hero { background: linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.12)), radial-gradient(circle at top, rgba(255,215,0,0.12), transparent 60%); border-radius: 16px; padding: 1.6rem; margin-bottom: 1.2rem; border: 2px solid rgba(255,215,0,0.35); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+  .player-hero-inner { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .player-hero-avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255,215,0,0.6); box-shadow: 0 4px 12px rgba(0,0,0,0.45); background: #f1f3f5; }
+  .player-hero-avatar-placeholder { width: 90px; height: 90px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #4a8c4a, #2d6b2e); color: #ffd700; border: 3px solid rgba(255,215,0,0.6); font-size: 2.4rem; }
+  .player-hero-title { font-size: clamp(1.4rem, 4vw, 2.2rem); font-weight: 700; margin: 0; }
+  .player-hero-sub { color: rgba(255,255,255,0.75); margin: 0; }
+  .list-row { display: flex; align-items: center; justify-content: space-between; padding: .5rem .7rem; border-radius: 10px; border: 1px solid rgba(0,0,0,0.05); background: #fff; margin-bottom: .5rem; }
+  .list-row-left { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+  .list-row-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: contain; background: #f8f9fa; border: 1px solid rgba(0,0,0,0.05); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="player-hero">
+  <div class="player-hero-inner">
+    {% if jugador.foto %}
+      <img src="{{ jugador.foto.url }}" alt="{{ jugador.nombre }} {{ jugador.apellido }}" class="player-hero-avatar">
+    {% else %}
+      <div class="player-hero-avatar-placeholder">
+        <i class="bi bi-person-fill"></i>
+      </div>
+    {% endif %}
+    <div>
+      <h1 class="player-hero-title">{{ jugador.nombre }} {{ jugador.apellido }}</h1>
+      <p class="player-hero-sub mb-0">
+        <i class="bi bi-tag"></i> {{ jugador.get_posicion_display }}{% if jugador.dorsal %} · #{{ jugador.dorsal }}{% endif %}
+      </p>
+      <p class="player-hero-sub mb-0">
+        {% if jugador.fecha_nacimiento %}<i class="bi bi-calendar-heart"></i> {{ jugador.fecha_nacimiento }}{% if jugador.edad %} ({{ jugador.edad }} años){% endif %}{% endif %}
+        {% if jugador.curp %} · CURP: {{ jugador.curp }}{% endif %}
+      </p>
+    </div>
+    <div class="ms-auto">
+      <a href="javascript:history.back()" class="btn btn-light btn-sm"><i class="bi bi-arrow-left"></i> Regresar</a>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6 mb-3">
+    <div class="card h-100">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-shield-check"></i> Equipos actuales
+      </div>
+      <div class="card-body">
+        {% if equipos_actuales %}
+          {% for item in equipos_actuales %}
+          <div class="list-row">
+            <div class="list-row-left">
+              {% if item.equipo.logo %}
+                <img src="{{ item.equipo.logo.url }}" alt="" class="list-row-logo">
+              {% else %}
+                <div class="list-row-logo d-flex align-items-center justify-content-center"><i class="bi bi-shield"></i></div>
+              {% endif %}
+              <div>
+                <div class="fw-semibold"><a href="{% url 'equipo_ficha' item.equipo.id %}" class="text-decoration-none text-dark">{{ item.equipo.nombre }}</a></div>
+                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta: {{ item.fecha_alta }}{% endif %}{% if item.es_principal %} · Principal{% endif %}</div>
+              </div>
+            </div>
+            <span class="badge bg-success">ACTIVO</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center mb-0">Sin equipos activos registrados.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-3">
+    <div class="card h-100">
+      <div class="card-header bg-secondary text-white">
+        <i class="bi bi-clock-history"></i> Equipos anteriores
+      </div>
+      <div class="card-body">
+        {% if equipos_anteriores %}
+          {% for item in equipos_anteriores %}
+          <div class="list-row">
+            <div class="list-row-left">
+              {% if item.equipo.logo %}
+                <img src="{{ item.equipo.logo.url }}" alt="" class="list-row-logo">
+              {% else %}
+                <div class="list-row-logo d-flex align-items-center justify-content-center"><i class="bi bi-shield"></i></div>
+              {% endif %}
+              <div>
+                <div class="fw-semibold"><a href="{% url 'equipo_ficha' item.equipo.id %}" class="text-decoration-none text-dark">{{ item.equipo.nombre }}</a></div>
+                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta: {{ item.fecha_alta }}{% endif %}</div>
+              </div>
+            </div>
+            <span class="badge bg-secondary">HISTORIAL</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center mb-0">Sin historial de equipos.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6 mb-3">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-trophy"></i> Goles
+      </div>
+      <div class="card-body">
+        {% if goles %}
+          {% for g in goles %}
+          <div class="list-row">
+            <div class="list-row-left">
+              <div>
+                <div class="fw-semibold">{% if g.equipo %}{{ g.equipo.nombre }}{% endif %}</div>
+                <div class="text-muted small">{% if g.partido.temporada %}{{ g.partido.temporada.nombre }}{% endif %}{% if g.partido.jornada %} · Jornada {{ g.partido.jornada.numero }}{% endif %}{% if g.partido.fecha_hora %} · {{ g.partido.fecha_hora|date:"d/m/Y" }}{% endif %}</div>
+              </div>
+            </div>
+            <span class="badge bg-warning text-dark">GOL</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center mb-0">Sin goles registrados.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-3">
+    <div class="card h-100">
+      <div class="card-header bg-warning">
+        <i class="bi bi-exclamation-triangle"></i> Tarjetas
+      </div>
+      <div class="card-body">
+        {% if tarjetas %}
+          {% for t in tarjetas %}
+          <div class="list-row">
+            <div class="list-row-left">
+              <div>
+                <div class="fw-semibold">{% if t.equipo %}{{ t.equipo.nombre }}{% endif %}</div>
+                <div class="text-muted small">{% if t.partido.temporada %}{{ t.partido.temporada.nombre }}{% endif %}{% if t.partido.jornada %} · Jornada {{ t.partido.jornada.numero }}{% endif %}{% if t.partido.fecha_hora %} · {{ t.partido.fecha_hora|date:"d/m/Y" }}{% endif %}{% if t.suspension_jornadas %} · Suspensión {{ t.suspension_jornadas }} j{% endif %}</div>
+              </div>
+            </div>
+            {% if t.tipo == 'ROJA' %}<span class="badge bg-danger">ROJA</span>{% else %}<span class="badge bg-warning text-dark">AMARILLA</span>{% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center mb-0">Sin tarjetas registradas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-info text-white">
+    <i class="bi bi-bar-chart"></i> Estadísticas por equipo / temporada
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Equipo</th>
+            <th>Temporada</th>
+            <th class="text-center">Goles</th>
+            <th class="text-center">Amarillas</th>
+            <th class="text-center">Rojas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if estadisticas %}
+            {% for e in estadisticas %}
+            <tr>
+              <td>{{ e.equipo }}</td>
+              <td>{{ e.temporada }}</td>
+              <td class="text-center">{{ e.goles }}</td>
+              <td class="text-center">{{ e.amarillas }}</td>
+              <td class="text-center">{{ e.rojas }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="5" class="text-muted text-center">Sin estadísticas.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-dark text-white">
+    <i class="bi bi-list-check"></i> Partidos jugados
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha</th>
+            <th>Partido</th>
+            <th>Equipo</th>
+            <th>Temporada</th>
+            <th>Jornada</th>
+            <th class="text-center">Titular</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if partidos_jugados %}
+            {% for p in partidos_jugados %}
+            <tr>
+              <td>{{ p.partido.fecha_hora|date:"d/m/Y H:i" }}</td>
+              <td>{{ p.partido.equipo_local }} vs {{ p.partido.equipo_visitante }}</td>
+              <td>{{ p.equipo.nombre }}</td>
+              <td>{{ p.partido.temporada.nombre }}</td>
+              <td>{% if p.partido.jornada %}{{ p.partido.jornada.numero }}{% endif %}</td>
+              <td class="text-center">{% if p.titular %}Sí{% else %}No{% endif %}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" class="text-muted text-center">Sin registros de participación.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

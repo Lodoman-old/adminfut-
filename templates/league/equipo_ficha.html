@@ -315,7 +315,7 @@
   <div class="col-6 col-md-2">
     <div class="stat-pill">
       <span class="stat-pill-label">POSICIÓN</span>
-      <span class="stat-pill-value">{% firstof pos_equipo posicion '-' %}</span>
+      <span class="stat-pill-value">{% firstof pos_equipo posicion pos pts_tabla puntos_tabla '-' %}</span>
     </div>
   </div>
 </div>
@@ -330,6 +330,7 @@
         {% if jugadores %}
           {% for j in jugadores %}
           <div class="player-row">
+            <a href="{% url 'jugador_ficha' j.obj.id %}">
             {% if j.foto_url %}
               <img src="{{ j.foto_url }}" alt="{{ j.obj.nombre }} {{ j.obj.apellido }}" class="player-row-avatar">
             {% else %}
@@ -337,9 +338,10 @@
                 <i class="bi bi-person-fill"></i>
               </div>
             {% endif %}
+            </a>
             <div class="player-row-dorsal">{% if j.obj.dorsal %}{{ j.obj.dorsal }}{% else %}-{% endif %}</div>
             <div class="player-row-meta">
-              <div class="player-row-name">{{ j.obj.nombre }} {{ j.obj.apellido }}</div>
+              <div class="player-row-name"><a href="{% url 'jugador_ficha' j.obj.id %}" class="text-decoration-none text-dark">{{ j.obj.nombre }} {{ j.obj.apellido }}</a></div>
               <div class="player-row-sub">
                 {{ j.obj.get_posicion_display }}
                 {% if j.edad or j.obj.edad %} · {% firstof j.edad j.obj.edad %} años{% endif %}

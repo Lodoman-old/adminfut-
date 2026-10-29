@@ -6141,3 +6141,90 @@ def equipo_ficha(request, pk):
         "puntos_tabla": pts_equipo,
     })
 
+
+
+
+def jugador_ficha(request, pk):
+    """Ficha pública de jugador: datos, historial de equipos, goles, tarjetas."""
+    from django.db.models import Count, Q
+    from .models import Jugador, JugadorEquipo, Gol, Tarjeta, Partido, Temporada, Equipo
+
+    jugador = get_object_or_404(Jugador, pk=pk)
+
+    # Historial de equipos
+    registros = JugadorEquipo.objects.filter(jugador=jugador).select_related('equipo', 'equipo__categoria').order_by('-fecha_alta', '-id')
+
+    equipos_actuales = []
+    equipos_anteriores = []
+    for reg in registros:
+        item = {
+            'equipo': reg.equipo,
+            'categoria': getattr(reg.equipo, 'categoria', None),
+            'fecha_alta': reg.fecha_alta,
+            'activo': reg.activo,
+            'es_principal': reg.es_principal,
+        }
+        if reg.activo:
+            equipos_actuales.append(item)
+        else:
+            equipos_anteriores.append(item)
+
+    # Si no hay registros pero tiene equipo principal
+    if not registros and jugador.equipo_id:
+        try:
+            eq = jugador.equipo
+            equipos_actuales.append({
+                'equipo': eq,
+                'categoria': getattr(eq, 'categoria', None),
+                'fecha_alta': getattr(jugador, 'fecha_alta_equipo', None) or getattr(jugador, 'fecha_registro', None),
+                'activo': True,
+                'es_principal': True,
+            })
+        except Exception:
+            pass
+
+    # Goles
+    goles_qs = Gol.objects.filter(jugador=jugador).select_related('partido', 'partido__temporada', 'partido__jornada', 'equipo').order_by('-partido__fecha_hora', '-id')
+    goles = list(goles_qs)
+
+    # Tarjetas
+    tarjetas_qs = Tarjeta.objects.filter(jugador=jugador).select_related('partido', 'partido__temporada', 'partido__jornada', 'equipo').order_by('-partido__fecha_hora', '-id')
+    tarjetas = list(tarjetas_qs)
+
+    # Estadísticas por equipo/temporada
+    estadisticas = []
+    try:
+        goles_por_eq_temp = Gol.objects.filter(jugador=jugador).values('equipo_id', 'equipo__nombre', 'partido__temporada_id', 'partido__temporada__nombre').annotate(total=Count('id'))
+        tarjetas_por_eq_temp = Tarjeta.objects.filter(jugador=jugador).values('equipo_id', 'equipo__nombre', 'partido__temporada_id', 'partido__temporada__nombre', 'tipo').annotate(total=Count('id'))
+        acc = {}
+        for g in goles_por_eq_temp:
+            key = (g['equipo_id'], g['partido__temporada_id'])
+            if key not in acc:
+                acc[key] = {'equipo': g['equipo__nombre'], 'temporada': g['partido__temporada__nombre'], 'goles': 0, 'amarillas': 0, 'rojas': 0}
+            acc[key]['goles'] += g['total']
+        for t in tarjetas_por_eq_temp:
+            key = (t['equipo_id'], t['partido__temporada_id'])
+            if key not in acc:
+                acc[key] = {'equipo': t['equipo__nombre'], 'temporada': t['partido__temporada__nombre'], 'goles': 0, 'amarillas': 0, 'rojas': 0}
+            if t['tipo'] == 'AMARILLA':
+                acc[key]['amarillas'] += t['total']
+            elif t['tipo'] == 'ROJA':
+                acc[key]['rojas'] += t['total']
+        estadisticas = list(acc.values())
+    except Exception:
+        pass
+
+    # Partidos jugados
+    from .models import JugadorPartido
+    partidos_jugados = JugadorPartido.objects.filter(jugador=jugador).select_related('partido', 'partido__temporada', 'partido__jornada', 'equipo').order_by('-partido__fecha_hora')
+
+    return render(request, 'league/jugador_ficha.html', {
+        'jugador': jugador,
+        'equipos_actuales': equipos_actuales,
+        'equipos_anteriores': equipos_anteriores,
+        'registros': registros,
+        'goles': goles,
+        'tarjetas': tarjetas,
+        'estadisticas': estadisticas,
+        'partidos_jugados': partidos_jugados,
+    })
