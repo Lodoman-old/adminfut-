@@ -1400,7 +1400,11 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             'ips_excluidas': djforms.Textarea(attrs={'rows': 4}),
             'cedula_vision_api_key': djforms.PasswordInput(render_value=True),
             'cedula_vision_prompt': djforms.Textarea(attrs={'rows': 14}),
-        }rs_segundos = djforms.IntegerField(
+        }
+
+
+class ConfiguracionLigaFormOld(djforms.ModelForm):
+    rotacion_banners_segundos = djforms.IntegerField(
         min_value=5, max_value=3600, initial=30,
         widget=djforms.NumberInput(attrs={"class": "form-control", "min": 5, "max": 3600}),
         help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar. Mínimo 5.",
