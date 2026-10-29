@@ -60,9 +60,11 @@
         {% for j in jugadores %}
         <tr>
             <td style="width:56px">
+                <a href="{% url 'jugador_ficha' j.id %}" class="text-decoration-none">
                 {% if j.foto %}<img src="{{ j.foto.url }}" alt="{{ j.nombre }} {{ j.apellido }}" class="rounded" style="width:46px;height:46px;object-fit:cover">{% else %}<i class="bi bi-person-circle" style="font-size:2.2rem;color:#adb5bd"></i>{% endif %}
+                </a>
             </td>
-            <td><strong>{{ j.nombre }} {{ j.apellido }}</strong></td>
+            <td><strong><a href="{% url 'jugador_ficha' j.id %}" class="text-decoration-none text-dark">{{ j.nombre }} {{ j.apellido }}</a></strong></td>
             <td><code class="small">{{ j.curp|default:"—" }}</code></td>
             <td>{{ j.dorsal|default:"—" }}</td>
             <td>{{ j.get_posicion_display|default:"—" }}</td>
