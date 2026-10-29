@@ -82,7 +82,7 @@
                             {% for j in jugadores_local %}
                             <tr{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
                                 <td>{{ j.dorsal|default:"-" }}</td>
-                                <td class="sticky-col cedula-name">{{ j.apellido|upper }} {{ j.nombre|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
+                                <td class="sticky-col cedula-name">{{ j.nombre|upper }} {{ j.apellido|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
                                 <td class="text-center">
                                     <input class="form-check-input participa-t" type="checkbox" name="participacion_{{ j.id }}" value="titular" {% if j.es_titular == True %}checked{% endif %} {% if j.esta_suspendido or not j.elegible_liguilla %}disabled{% endif %}>
                                 </td>
@@ -160,7 +160,7 @@
                             {% for j in jugadores_visit %}
                             <tr{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
                                 <td>{{ j.dorsal|default:"-" }}</td>
-                                <td class="sticky-col cedula-name">{{ j.apellido|upper }} {{ j.nombre|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
+                                <td class="sticky-col cedula-name">{{ j.nombre|upper }} {{ j.apellido|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
                                 <td class="text-center">
                                     <input class="form-check-input participa-t" type="checkbox" name="participacion_{{ j.id }}" value="titular" {% if j.es_titular == True %}checked{% endif %} {% if j.esta_suspendido or not j.elegible_liguilla %}disabled{% endif %}>
                                 </td>
