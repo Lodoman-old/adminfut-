@@ -3370,6 +3370,7 @@ def cedula_arbitral(request, partido_id):
     jugadores_local = list(Jugador.objects.filter(
         Q(pk__in=local_jugador_ids) | Q(equipo=partido.equipo_local), activo=True
     ).select_related("equipo").distinct())
+    jugadores_local.sort(key=lambda x: ((x.apellido or "").upper(), (x.nombre or "").upper()))
 
     # Jugadores del equipo visitante (principal o secundario)
     visit_jugador_ids = JugadorEquipo.objects.filter(
@@ -3378,6 +3379,7 @@ def cedula_arbitral(request, partido_id):
     jugadores_visit = list(Jugador.objects.filter(
         Q(pk__in=visit_jugador_ids) | Q(equipo=partido.equipo_visitante), activo=True
     ).select_related("equipo").distinct())
+    jugadores_visit.sort(key=lambda x: ((x.apellido or "").upper(), (x.nombre or "").upper()))
     goles = Gol.objects.filter(partido=partido).select_related("jugador", "equipo")
     tarjetas = Tarjeta.objects.filter(partido=partido).select_related("jugador", "equipo")
     arbitros_list = Arbitro.objects.filter(activo=True).order_by("apellido", "nombre")

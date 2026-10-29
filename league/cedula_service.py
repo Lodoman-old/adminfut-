@@ -1,6 +1,6 @@
-from django.db.models import Count
+from django.db.models import Count, Q
 
-from .models import Partido, Jugador, Gol, Tarjeta, JugadorPartido
+from .models import Partido, Jugador, Gol, Tarjeta, JugadorPartido, JugadorEquipo
 
 
 def procesar_cedula(partido, post_data, user):
@@ -32,8 +32,22 @@ def procesar_cedula(partido, post_data, user):
     default_local = post_data.get("defaultLocalCheck") == "on"
     default_visit = post_data.get("defaultVisitCheck") == "on"
 
-    jugadores_local = list(Jugador.objects.filter(equipo=partido.equipo_local, activo=True))
-    jugadores_visit = list(Jugador.objects.filter(equipo=partido.equipo_visitante, activo=True))
+    # Jugadores del equipo local (principal o secundario)
+    local_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_local, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_local = list(Jugador.objects.filter(
+        Q(pk__in=local_jugador_ids) | Q(equipo=partido.equipo_local), activo=True
+    ).select_related("equipo").distinct())
+
+    # Jugadores del equipo visitante (principal o secundario)
+    visit_jugador_ids = JugadorEquipo.objects.filter(
+        equipo=partido.equipo_visitante, activo=True
+    ).values_list("jugador_id", flat=True)
+    jugadores_visit = list(Jugador.objects.filter(
+        Q(pk__in=visit_jugador_ids) | Q(equipo=partido.equipo_visitante), activo=True
+    ).select_related("equipo").distinct())
+
     jugadores_local_ids = {str(j.id) for j in jugadores_local}
     jugadores_visit_ids = {str(j.id) for j in jugadores_visit}
 
