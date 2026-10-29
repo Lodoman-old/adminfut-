@@ -386,6 +386,39 @@
               Admite comodín al final (ej. <code>190.12.34.*</code>). Ideal para excluir tu casa u oficina.
             </div>
           </div>
+          <hr>
+          <h6 class="text-primary"><i class="bi bi-camera"></i> Escaneo de cédula con IA</h6>
+          <div class="form-check form-switch mb-2">
+            {{ form.cedula_vision_habilitado }}
+            <label class="form-check-label" for="{{ form.cedula_vision_habilitado.id_for_label }}">Habilitar escaneo de cédula con IA</label>
+          </div>
+          <div class="row g-2 mb-2" style="max-width: 900px;">
+            <div class="col-md-4">
+              <label class="form-label">Proveedor</label>
+              {{ form.cedula_vision_proveedor }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Modelo</label>
+              {{ form.cedula_vision_modelo }}
+              <div class="form-text">Ej: qwen/qwen2.5-vl-32b-instruct</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Endpoint personalizado</label>
+              {{ form.cedula_vision_endpoint }}
+            </div>
+          </div>
+          <div class="mb-2" style="max-width: 500px;">
+            <label class="form-label">API Key</label>
+            {{ form.cedula_vision_api_key }}
+            <div class="form-text">Pega tu API Key (Groq empieza con gsk_...)</div>
+          </div>
+          <div class="mb-2 d-flex justify-content-between align-items-center" style="max-width: 900px;">
+            <label class="form-label mb-0">Prompt para escaneo</label>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="restaurarPromptCedula()"><i class="bi bi-arrow-counterclockwise"></i> Restaurar por defecto</button>
+          </div>
+          <div class="mb-3" style="max-width: 900px;">
+            {{ form.cedula_vision_prompt }}
+          </div>
         </div>
       </div>
       <div class="text-center mt-3 pt-2 border-top">
@@ -464,6 +497,13 @@ function testDbConnection() {
     })
     .catch(() => { result.innerHTML = '<span class="text-danger">Error de red</span>'; })
     .finally(() => { btn.disabled = false; });
+}
+</script>
+<script>
+function restaurarPromptCedula(){
+    const prompt = `Eres un experto en leer c\u00e9dulas arbitrales manuscritas/impresas de f\u00fatbol.\nTu tarea es extraer \u00daNICAMENTE la informaci\u00f3n de los jugadores que aparecen en la lista que te doy.\n\nINSTRUCCIONES:\n- Solo considera jugadores que est\u00e9n en las listas \"local\" o \"visitante\". NO inventes jugadores.\n- Para cada jugador, identifica: participaci\u00f3n (titular o cambio), goles, amarillas, rojas.\n- En la c\u00e9dula se marca T/C, se escribe un n\u00famero para goles, se marcan cruces/palomas para amarillas/rojas.\n- Si hay 2 amarillas, eso implica roja.\n- Prioriza coincidencia por DORSAL primero, luego por APELLIDO, luego por NOMBRE.\n- Si hay duda o no puedes leerlo con certeza, NO lo marques. Mejor omitir que equivocarte.\n- Solo marca participaci\u00f3n si hay una T o una C clara.\n- Los goles son la CANTIDAD (puede ser 0,1,2,...). Si aparece escrito \"1\" o rayado, cuenta ese n\u00famero.\n- Respeta EXACTAMENTE los jugador_id que te doy.\n\nLISTA DE JUGADORES:\n{contexto_json}\n\nDevuelve \u00daNICAMENTE un JSON v\u00e1lido con este formato exacto:\n{\n  \"local\": [\n    {\"jugador_id\": 123, \"dorsal\": 10, \"participacion\": \"titular|cambio\", \"goles\": 0, \"amarillas\": 1, \"rojas\": 0, \"confianza\": 0.95}\n  ],\n  \"visitante\": [...]\n}\n\nSi un jugador no aparece marcado o no se puede leer con certeza, NO lo incluyas en el array.\nUsa confianza entre 0-1. Solo incluye si confianza >= 0.7.\n`;
+    const ta = document.querySelector('textarea[name="cedula_vision_prompt"]');
+    if(ta){ ta.value = prompt; }
 }
 </script>
 {% endblock %}

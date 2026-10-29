@@ -12,30 +12,8 @@ def _imagen_a_base64(archivo):
     return f"data:{mime};base64,{b64}"
 
 
-def construir_prompt(partido, jugadores_local, jugadores_visit):
-    def listar(jugadores):
-        items = []
-        for j in jugadores:
-            items.append({
-                "jugador_id": j.id,
-                "dorsal": getattr(j, 'dorsal', None),
-                "nombre": (j.nombre or '').upper(),
-                "apellido": (j.apellido or '').upper(),
-                "equipo_id": getattr(j.equipo, 'id', None),
-            })
-        return items
-    
-    ctx = {
-        "partido": {
-            "id": partido.id,
-            "local": partido.equipo_local.nombre,
-            "visitante": partido.equipo_visitante.nombre,
-        },
-        "local": listar(jugadores_local),
-        "visitante": listar(jugadores_visit),
-    }
-    
-    prompt = f"""Eres un experto en leer cédulas arbitrales manuscritas/impresas de fútbol.
+def _prompt_default():
+    return """Eres un experto en leer cédulas arbitrales manuscritas/impresas de fútbol.
 Tu tarea es extraer ÚNICAMENTE la información de los jugadores que aparecen en la lista que te doy.
 
 INSTRUCCIONES:
@@ -50,66 +28,159 @@ INSTRUCCIONES:
 - Respeta EXACTAMENTE los jugador_id que te doy.
 
 LISTA DE JUGADORES:
-{json.dumps(ctx, ensure_ascii=False, indent=2)}
+{contexto_json}
 
 Devuelve ÚNICAMENTE un JSON válido con este formato exacto:
-{{
+{
   "local": [
-    {{"jugador_id": 123, "dorsal": 10, "participacion": "titular|cambio", "goles": 0, "amarillas": 1, "rojas": 0, "confianza": 0.95}}
+    {"jugador_id": 123, "dorsal": 10, "participacion": "titular|cambio", "goles": 0, "amarillas": 1, "rojas": 0, "confianza": 0.95}
   ],
   "visitante": [...]
-}}
+}
 
 Si un jugador no aparece marcado o no se puede leer con certeza, NO lo incluyas en el array.
 Usa confianza entre 0-1. Solo incluye si confianza >= 0.7.
 """
-    return prompt
 
 
-def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_visit, proveedor="groq"):
-    """
-    Escanea la cédula usando un modelo de visión.
-    Por ahora soporta Groq/OpenRouter/Gemini vía configuración en settings.
-    """
+def construir_prompt(partido, jugadores_local, jugadores_visit, prompt_template=None):
+    def listar(jugadores):
+        items = []
+        for j in jugadores:
+            items.append({
+                "jugador_id": j.id,
+                "dorsal": getattr(j, 'dorsal', None),
+                "nombre": (j.nombre or '').upper(),
+                "apellido": (j.apellido or '').upper(),
+                "equipo_id": getattr(j.equipo, 'id', None),
+                "equipo_nombre": getattr(getattr(j, 'equipo', None), 'nombre', None),
+            })
+        return items
+
+    ctx = {
+        "partido": {
+            "id": partido.id,
+            "local": partido.equipo_local.nombre,
+            "visitante": partido.equipo_visitante.nombre,
+        },
+        "local": listar(jugadores_local),
+        "visitante": listar(jugadores_visit),
+    }
+
+    template = prompt_template or _prompt_default()
+    if '{contexto_json}' in template:
+        return template.replace('{contexto_json}', json.dumps(ctx, ensure_ascii=False, indent=2))
+    if '{lista_jugadores}' in template:
+        return template.replace('{lista_jugadores}', json.dumps(ctx, ensure_ascii=False, indent=2))
+    # Si no hay placeholder, añadir al final
+    return template + "\n\nLISTA DE JUGADORES:\n" + json.dumps(ctx, ensure_ascii=False, indent=2)
+
+
+def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_visit, proveedor=None):
     import requests
-    
-    prompt = construir_prompt(partido, jugadores_local, jugadores_visit)
+    from league.models import ConfiguracionLiga
+
+    cfg = ConfiguracionLiga.obtener()
+    prov = (proveedor or cfg.cedula_vision_proveedor or 'groq').lower()
+    api_key = (cfg.cedula_vision_api_key or '').strip() or getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY')
+    modelo = (cfg.cedula_vision_modelo or 'qwen/qwen2.5-vl-32b-instruct').strip()
+    endpoint = (cfg.cedula_vision_endpoint or '').strip()
+    prompt_tpl = (cfg.cedula_vision_prompt or '').strip() or None
+
+    prompt = construir_prompt(partido, jugadores_local, jugadores_visit, prompt_tpl)
     img_b64 = _imagen_a_base64(imagen_file)
-    
-    # Intentar Groq primero
-    api_key = getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY')
-    if proveedor == 'groq' and api_key:
+
+    # Groq
+    if prov == 'groq' and api_key:
         try:
             url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
             payload = {
-                "model": "meta-llama/llama-4-scout-17b-16e-instruct",  # o qwen2.5-vl si disponible
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": img_b64}},
-                        ]
-                    }
-                ],
+                "model": modelo or "qwen/qwen2.5-vl-32b-instruct",
+                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
                 "temperature": 0.1,
-                "max_tokens": 2000,
+                "max_tokens": 2048,
             }
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            resp = requests.post(url, headers=headers, json=payload, timeout=90)
             resp.raise_for_status()
             data = resp.json()
             content = data['choices'][0]['message']['content']
-            # Extraer JSON
             start = content.find('{')
             end = content.rfind('}') + 1
             if start >= 0 and end > start:
-                return json.loads(content[start:end])
+                resultado = json.loads(content[start:end])
+                # Filtrar solo jugadores que existan en las listas
+                valid_local = {j.id for j in jugadores_local}
+                valid_visit = {j.id for j in jugadores_visit}
+                if isinstance(resultado, dict):
+                    if isinstance(resultado.get('local'), list):
+                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
+                    if isinstance(resultado.get('visitante'), list):
+                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
+                return resultado
         except Exception as e:
             return {"error": str(e)}
-    
-    # Fallback genérico
-    return {"error": "No hay proveedor de visión configurado. Configura GROQ_API_KEY en settings/env."}
+
+    # OpenRouter
+    if prov == 'openrouter' and api_key:
+        try:
+            url = endpoint or "https://openrouter.ai/api/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": getattr(settings, 'SITE_URL', ''), "X-Title": "AdminFut"}
+            payload = {
+                "model": modelo or "qwen/qwen2.5-vl-32b-instruct",
+                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
+                "temperature": 0.1,
+                "max_tokens": 2048,
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=90)
+            resp.raise_for_status()
+            data = resp.json()
+            content = data['choices'][0]['message']['content']
+            start = content.find('{')
+            end = content.rfind('}') + 1
+            if start >= 0 and end > start:
+                resultado = json.loads(content[start:end])
+                valid_local = {j.id for j in jugadores_local}
+                valid_visit = {j.id for j in jugadores_visit}
+                if isinstance(resultado, dict):
+                    if isinstance(resultado.get('local'), list):
+                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
+                    if isinstance(resultado.get('visitante'), list):
+                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
+                return resultado
+        except Exception as e:
+            return {"error": str(e)}
+
+    # Ollama
+    if prov == 'ollama':
+        try:
+            url = endpoint or "http://localhost:11434/v1/chat/completions"
+            headers = {"Content-Type": "application/json"}
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            payload = {
+                "model": modelo or "qwen2.5vl:7b",
+                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
+                "temperature": 0.1,
+                "max_tokens": 2048,
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=120)
+            resp.raise_for_status()
+            data = resp.json()
+            content = data['choices'][0]['message']['content']
+            start = content.find('{')
+            end = content.rfind('}') + 1
+            if start >= 0 and end > start:
+                resultado = json.loads(content[start:end])
+                valid_local = {j.id for j in jugadores_local}
+                valid_visit = {j.id for j in jugadores_visit}
+                if isinstance(resultado, dict):
+                    if isinstance(resultado.get('local'), list):
+                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
+                    if isinstance(resultado.get('visitante'), list):
+                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
+                return resultado
+        except Exception as e:
+            return {"error": str(e)}
+
+    return {"error": "Escaneo de cédula con IA no configurado. Ve a Configuración > Publicidad y pega tu API Key / configura el proveedor."}

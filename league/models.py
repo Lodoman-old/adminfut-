@@ -2511,6 +2511,21 @@ class ConfiguracionLiga(models.Model):
         help_text="IPs que NO se cuentan en las métricas del sitio (visitas, impresiones, clics y descargas). "
                   "Una por línea o separadas por coma. Admite comodín al final (ej. 190.12.34.*). "
                   "Útil para excluir tu casa u oficina.")
+    sitio_modo = models.CharField(max_length=10, choices=[('liga', 'Liga'), ('publicidad', 'Solo publicidad')], default='liga', verbose_name="Modo del sitio")
+    mostrar_publicidad = models.BooleanField(default=True, verbose_name="Mostrar publicidad en el sitio")
+
+    # Escaneo de cédula con IA
+    cedula_vision_habilitado = models.BooleanField(default=False, verbose_name="Habilitar escaneo de cédula con IA")
+    cedula_vision_proveedor = models.CharField(max_length=20, choices=[
+        ('groq', 'Groq'),
+        ('openrouter', 'OpenRouter'),
+        ('gemini', 'Google Gemini'),
+        ('ollama', 'Ollama'),
+    ], default='groq', verbose_name="Proveedor de visión")
+    cedula_vision_modelo = models.CharField(max_length=150, default='qwen/qwen2.5-vl-32b-instruct', verbose_name="Modelo de visión")
+    cedula_vision_api_key = models.CharField(max_length=255, blank=True, default="", verbose_name="API Key")
+    cedula_vision_endpoint = models.CharField(max_length=255, blank=True, default="", verbose_name="Endpoint personalizado")
+    cedula_vision_prompt = models.TextField(blank=True, default="", verbose_name="Prompt para escaneo de cédula")
 
     class Meta:
         verbose_name = "Configuración de la Liga"

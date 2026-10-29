@@ -1386,7 +1386,21 @@ from django import forms as djforms
 
 
 class ConfiguracionLigaForm(djforms.ModelForm):
-    rotacion_banners_segundos = djforms.IntegerField(
+    class Meta:
+        model = ConfiguracionLiga
+        fields = ['nombre_liga', 'logo', 'direccion', 'telefonos', 'correo_electronico', 'redes_sociales',
+                  'foto_portada', 'mostrar_portada', 'texto_bienvenida', 'mostrar_bienvenida',
+                  'mostrar_equipos_destacados', 'rotacion_banners_segundos', 'mostrar_quiniela', 'ips_excluidas',
+                  'sitio_modo', 'mostrar_publicidad',
+                  'cedula_vision_habilitado', 'cedula_vision_proveedor', 'cedula_vision_modelo',
+                  'cedula_vision_api_key', 'cedula_vision_endpoint', 'cedula_vision_prompt']
+        widgets = {
+            'redes_sociales': djforms.Textarea(attrs={'rows': 3}),
+            'texto_bienvenida': djforms.Textarea(attrs={'rows': 4}),
+            'ips_excluidas': djforms.Textarea(attrs={'rows': 4}),
+            'cedula_vision_api_key': djforms.PasswordInput(render_value=True),
+            'cedula_vision_prompt': djforms.Textarea(attrs={'rows': 14}),
+        }rs_segundos = djforms.IntegerField(
         min_value=5, max_value=3600, initial=30,
         widget=djforms.NumberInput(attrs={"class": "form-control", "min": 5, "max": 3600}),
         help_text="Cuántos segundos se muestra cada anuncio en el inicio antes de rotar. Mínimo 5.",
@@ -3528,29 +3542,37 @@ def cedula_arbitral(request, partido_id):
         for j in jugadores_local + jugadores_visit:
             j.elegible_liguilla = True
 
+    from .models import ConfiguracionLiga
     return render(request, "league/cedula_arbitral.html" if not es_invitado else "league/cedula_invitado.html", {
         "partido": partido,
         "jugadores_local": jugadores_local,
         "jugadores_visit": jugadores_visit,
         "arbitros": arbitros_list,
         "es_invitado": es_invitado,
+        "config": ConfiguracionLiga.obtener(),
     })
 
 
 @login_required
 def cedula_escanear(request, partido_id):
     from django.http import JsonResponse
-    from .models import Jugador, JugadorEquipo
+    from .models import Jugador, JugadorEquipo, ConfiguracionLiga
     from django.db.models import Q
 
     if request.method != "POST":
         return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    cfg = ConfiguracionLiga.obtener()
+    if not getattr(cfg, 'cedula_vision_habilitado', False):
+        return JsonResponse({"error": "El escaneo de cédula con IA está deshabilitado. Habilítalo en Configuración > Publicidad."}, status=400)
 
     partido = get_object_or_404(Partido, pk=partido_id)
 
     imagen = request.FILES.get("imagen") or request.FILES.get("foto") or request.FILES.get("file")
     if not imagen:
         return JsonResponse({"error": "No se recibió imagen"}, status=400)
+    if imagen.size > 6 * 1024 * 1024:
+        return JsonResponse({"error": "La imagen es muy grande. Máximo 6MB."}, status=400)
 
     # Mismas listas que usa cedula_arbitral
     local_jugador_ids = JugadorEquipo.objects.filter(
