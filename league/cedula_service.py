@@ -145,15 +145,31 @@ def procesar_cedula(partido, post_data, user):
     Gol.objects.filter(partido=partido).delete()
     for key, value in post_data.items():
         if key.startswith("gol_"):
-            partes = key.split("_")
-            jugador_id = int(partes[1])
+            try:
+                partes = key.split("_")
+                jugador_id = int(partes[1])
+            except Exception:
+                continue
             if value and str(value).strip():
-                cantidad = int(value) if str(value).isdigit() else 0
+                try:
+                    cantidad = int(str(value).strip())
+                except Exception:
+                    cantidad = 0
+                if cantidad <= 0:
+                    continue
+                jid_str = str(jugador_id)
+                equipo_gol_id = None
+                if jid_str in jugadores_local_ids:
+                    equipo_gol_id = partido.equipo_local_id
+                elif jid_str in jugadores_visit_ids:
+                    equipo_gol_id = partido.equipo_visitante_id
+                else:
+                    equipo_gol_id = post_data.get(f"equipo_{jugador_id}")
                 for _ in range(cantidad):
                     Gol.objects.create(
                         partido=partido,
                         jugador_id=jugador_id,
-                        equipo_id=post_data.get(f"equipo_{jugador_id}"),
+                        equipo_id=equipo_gol_id,
                         minuto=0,
                     )
 
@@ -163,13 +179,24 @@ def procesar_cedula(partido, post_data, user):
             partes = key.split("_")
             if len(partes) < 3:
                 continue
-            jugador_id = int(partes[1])
+            try:
+                jugador_id = int(partes[1])
+            except Exception:
+                continue
             tipo = partes[2]
             if tipo in ("AMARILLA", "ROJA"):
+                jid_str = str(jugador_id)
+                equipo_tar_id = None
+                if jid_str in jugadores_local_ids:
+                    equipo_tar_id = partido.equipo_local_id
+                elif jid_str in jugadores_visit_ids:
+                    equipo_tar_id = partido.equipo_visitante_id
+                else:
+                    equipo_tar_id = post_data.get(f"equipo_{jugador_id}")
                 Tarjeta.objects.create(
                     partido=partido,
                     jugador_id=jugador_id,
-                    equipo_id=post_data.get(f"equipo_{jugador_id}"),
+                    equipo_id=equipo_tar_id,
                     tipo=tipo,
                     minuto=0,
                 )
@@ -180,8 +207,19 @@ def procesar_cedula(partido, post_data, user):
               .filter(cnt__gte=2))
     for entry in duplas:
         if not Tarjeta.objects.filter(partido=partido, jugador_id=entry["jugador_id"], tipo="ROJA").exists():
-            equipo_id = Jugador.objects.get(id=entry["jugador_id"]).equipo_id
-            Tarjeta.objects.create(partido=partido, jugador_id=entry["jugador_id"], equipo_id=equipo_id, tipo="ROJA", minuto=0)
+            jid = entry["jugador_id"]
+            jid_str = str(jid)
+            equipo_id = None
+            if jid_str in jugadores_local_ids:
+                equipo_id = partido.equipo_local_id
+            elif jid_str in jugadores_visit_ids:
+                equipo_id = partido.equipo_visitante_id
+            else:
+                try:
+                    equipo_id = Jugador.objects.get(id=jid).equipo_id
+                except Exception:
+                    equipo_id = None
+            Tarjeta.objects.create(partido=partido, jugador_id=jid, equipo_id=equipo_id, tipo="ROJA", minuto=0)
 
     for key, value in post_data.items():
         if key.startswith("suspension_") and value and str(value).strip():
@@ -207,6 +245,8 @@ def procesar_cedula(partido, post_data, user):
     goles_local = Gol.objects.filter(partido=partido, equipo=partido.equipo_local).count()
     goles_visit = Gol.objects.filter(partido=partido, equipo=partido.equipo_visitante).count()
     Partido.objects.filter(pk=partido.pk).update(goles_local=goles_local, goles_visitante=goles_visit)
+    partido.goles_local = goles_local
+    partido.goles_visitante = goles_visit
 
     if not default_forzado_local:
         default_local = post_data.get("defaultLocalCheck") == "on"
