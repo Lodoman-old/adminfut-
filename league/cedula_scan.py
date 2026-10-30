@@ -10,7 +10,7 @@ from django.conf import settings
 MODELOS_POR_DEFECTO = {
     'groq': 'meta-llama/llama-4-scout-17b-16e-instruct',
     'openrouter': 'qwen/qwen2.5-vl-72b-instruct',
-    'gemini': 'gemini-2.5-flash',
+    'gemini': 'gemini-3.5-flash',
     'ollama': 'qwen2.5vl:7b',
 }
 
@@ -210,6 +210,9 @@ def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
     if modelo.startswith("gemini-2.5-flash"):
         # Leer una cédula no requiere razonamiento; evita tokens de "thinking".
         gen["thinkingConfig"] = {"thinkingBudget": 0}
+    elif modelo.startswith("gemini-3"):
+        # En Gemini 3 el nivel de razonamiento se controla con thinkingLevel.
+        gen["thinkingConfig"] = {"thinkingLevel": "low"}
     payload = {
         "contents": [{
             "parts": [
