@@ -266,7 +266,11 @@ def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_
         return {"error": f"No se pudo conectar con el proveedor de visión: {e}"}
 
     if salida.get('error'):
-        return {"error": salida['error']}
+        mensaje = salida['error']
+        if prov == 'groq' and '404' in mensaje:
+            mensaje += (" Groq no ofrece modelos de visión en esta cuenta; "
+                        "usa Google Gemini u OpenRouter.")
+        return {"error": mensaje}
 
     try:
         resultado = _extraer_json(salida.get('contenido'))
