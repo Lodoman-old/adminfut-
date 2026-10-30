@@ -43,6 +43,35 @@ class CorsMiddleware:
         return response
 
 
+class BloqueoScrapersMiddleware:
+    """Devuelve 403 a scrapers identificados que cosechan datos del sitio.
+
+    Solo bloquea UAs inequívocos (Node sin navegador y el bot
+    ``public-data-sync``). Se excluyen ``/api/`` y ``/health/`` para no romper
+    integraciones ni el monitoreo. Esto es un paliativo: un scraper puede
+    cambiar el UA, pero frena al bot actual y sus variantes.
+    """
+
+    UA_BLOQUEADOS = re.compile(r'(public-data-sync|data-sync)', re.I)
+    UA_EXACTOS = frozenset({'node', 'node.js', 'undici', 'axios'})
+    RUTAS_EXENTAS = ('/api/', '/health/')
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith(self.RUTAS_EXENTAS):
+            return self.get_response(request)
+        ua = (request.META.get('HTTP_USER_AGENT') or '').strip().lower()
+        if ua in self.UA_EXACTOS or self.UA_BLOQUEADOS.search(ua):
+            return HttpResponse(
+                'Acceso no permitido.',
+                status=403,
+                content_type='text/plain; charset=utf-8',
+            )
+        return self.get_response(request)
+
+
 class AutoNgrokCSRFMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
