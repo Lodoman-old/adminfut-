@@ -1604,18 +1604,27 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
             lineas_nombre = _envolver(nombre_liga, tam_nombre, ancho_nombre)
         # Si el nombre ocupa 2 lineas, bajamos la fila de fecha para no encimarse.
         y2 = y0 - (40 if len(lineas_nombre) >= 2 else 26)
+        logo_dibujado = False
         if logo_src:
             # El logo se ancla por su base sobre la fila de la fecha para que no
             # se empalme con ella (preserveAspectRatio lo dibuja desde abajo).
             try:
                 p.drawImage(logo_src, x0, y2 + 14, width=logo_liga, height=logo_liga,
                             preserveAspectRatio=True, mask='auto')
+                logo_dibujado = True
             except Exception:
                 logo_src = None
 
+        # Nombre de la liga centrado verticalmente con el logo.
+        if logo_dibujado:
+            centro_logo = (y2 + 14) + logo_liga / 2
+            n_lineas = len(lineas_nombre[:2])
+            y_nombre = centro_logo + (n_lineas * (tam_nombre + 1)) / 2 - tam_nombre * 0.9
+        else:
+            y_nombre = y0
         p.setFont("Helvetica-Bold", tam_nombre)
         for i, linea in enumerate(lineas_nombre[:2]):
-            p.drawString(x_text, y0 - i * (tam_nombre + 1), linea)
+            p.drawString(x_text, y_nombre - i * (tam_nombre + 1), linea)
 
         p.setFont("Helvetica-Bold", 12)
         p.drawRightString(w - x0, y0, "CEDULA ARBITRAL")
@@ -1767,14 +1776,14 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     if footer_y < 150:
         footer_y = 150
     p.setFillColor(colors.black)
-    p.setFont("Helvetica", 10)
+    p.setFont("Helvetica", 12)
     gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
     gol_visit = str(partido.goles_visitante) if partido.estado == "FIN" else "___________________"
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
 
     # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
-    p.setFont("Helvetica", 9)
+    p.setFont("Helvetica", 11)
     firma_y = footer_y - 70
     if firma_y < 95:
         firma_y = 95
