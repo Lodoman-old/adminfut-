@@ -248,6 +248,9 @@
                 <div id="cedulaScanResumen" class="alert alert-success mt-3 d-none"></div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary me-auto" onclick="limpiarCedula()">
+                    <i class="bi bi-eraser"></i> Limpiar
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" class="btn btn-info text-white" id="btnAnalizarCedula" onclick="analizarCedula()">
                     <i class="bi bi-search"></i> Analizar
@@ -449,6 +452,25 @@ function redimensionarCedula(file, maxLado, calidad) {
         if(msg) msg.classList.add('d-none');
         if(res) res.classList.add('d-none');
     });
+})();
+
+function limpiarCedula(){
+    cedulaArchivo = null;
+    const input = document.getElementById('cedulaFotoInput');
+    if(input) input.value = '';
+    const img = document.getElementById('cedulaPreview');
+    if(img) img.removeAttribute('src');
+    const wrap = document.getElementById('cedulaPreviewWrap');
+    if(wrap) wrap.style.display = 'none';
+    const msg = document.getElementById('cedulaScanMsg');
+    if(msg){ msg.textContent = ''; msg.classList.add('d-none'); }
+    const res = document.getElementById('cedulaScanResumen');
+    if(res){ res.textContent = ''; res.classList.add('d-none'); }
+}
+
+(function(){
+    const modal = document.getElementById('escanearCedulaModal');
+    if(modal) modal.addEventListener('hidden.bs.modal', limpiarCedula);
 })();
 
 function analizarCedula(){

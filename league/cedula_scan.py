@@ -160,6 +160,12 @@ def _limpiar_resultado(resultado, valid_local, valid_visit):
 
 
 def _error_http(resp):
+    if resp.status_code == 429:
+        return ("Se alcanzó el límite de solicitudes del proveedor (429). "
+                "Espera un momento o revisa el plan de tu cuenta.")
+    if resp.status_code in (500, 502, 503, 504):
+        return ("El modelo de IA está saturado en este momento. "
+                "Intenta de nuevo en unos segundos.")
     try:
         detalle = (resp.text or '')[:300].strip()
     except Exception:
@@ -168,10 +174,24 @@ def _error_http(resp):
     return f"{base} {detalle}".strip()
 
 
-def _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime='image/jpeg', timeout=120, extra_headers=None):
-    """Proveedores compatibles con OpenAI: Groq, OpenRouter y Ollama."""
+def _post_con_reintentos(url, headers, payload, timeout, intentos=3):
+    """POST con reintentos cortos para 429/5xx (saturación temporal)."""
+    import time
+
     import requests
 
+    resp = None
+    for intento in range(intentos):
+        resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code not in (429, 500, 502, 503, 504):
+            return resp
+        if intento < intentos - 1:
+            time.sleep(1.5 * (intento + 1))
+    return resp
+
+
+def _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime='image/jpeg', timeout=120, extra_headers=None):
+    """Proveedores compatibles con OpenAI: Groq, OpenRouter y Ollama."""
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -189,7 +209,7 @@ def _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime='image/jpe
         "temperature": 0.1,
         "max_tokens": 4096,
     }
-    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    resp = _post_con_reintentos(url, headers, payload, timeout)
     if resp.status_code >= 400:
         return {"error": _error_http(resp)}
     data = resp.json()
@@ -203,8 +223,6 @@ def _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime='image/jpe
 
 
 def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
-    import requests
-
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
     gen = {"temperature": 0.1, "maxOutputTokens": 4096}
     if modelo.startswith("gemini-2.5-flash"):
@@ -222,7 +240,7 @@ def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
         }],
         "generationConfig": gen,
     }
-    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    resp = _post_con_reintentos(url, headers, payload, timeout)
     if resp.status_code >= 400:
         return {"error": _error_http(resp)}
     data = resp.json()

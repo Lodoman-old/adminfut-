@@ -3521,6 +3521,20 @@ class CedulaVisionTest(TestCase):
         self.assertIn("404", res["error"])
         self.assertIn("model_not_found", res["error"])
 
+    def test_503_reintenta_y_avisa_saturado(self):
+        from league import cedula_scan
+        resp = self._Resp(status_code=503, text='{"error":{"status":"UNAVAILABLE"}}')
+        with patch("league.models.ConfiguracionLiga.obtener",
+                   return_value=self._cfg(cedula_vision_proveedor="gemini",
+                                          cedula_vision_modelo="gemini-3.5-flash")), \
+                patch("requests.post", return_value=resp) as post, \
+                patch("time.sleep", return_value=None):
+            res = cedula_scan.escanear_cedula_con_vision(
+                self._archivo(), self._partido(), [self._jugador(1)], [self._jugador(2)],
+            )
+        self.assertIn("saturado", res["error"])
+        self.assertEqual(post.call_count, 3)
+
     def test_gemini(self):
         from league import cedula_scan
         texto = '{"local": [], "visitante": [{"jugador_id": 2, "participacion": "cambio", "goles": 0, "amarillas": 0, "rojas": 1, "confianza": 0.8}]}'
