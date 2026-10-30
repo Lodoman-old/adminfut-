@@ -23,6 +23,7 @@ INSTRUCCIONES:
 - Solo considera jugadores que estén en las listas "local" o "visitante". NO inventes jugadores.
 - Para cada jugador, identifica: participación (titular o cambio), goles, amarillas, rojas.
 - En la cédula se marca T/C, se escribe un número para goles, se marcan cruces/palomas para amarillas/rojas.
+- Columnas de la cédula: T = titular, C = cambio, G = goles, A1/A2 = amarillas, R = roja. Una X indica marcado.
 - Si hay 2 amarillas, eso implica roja.
 - Prioriza coincidencia por DORSAL primero, luego por APELLIDO, luego por NOMBRE.
 - Si hay duda o no puedes leerlo con certeza, NO lo marques. Mejor omitir que equivocarte.
