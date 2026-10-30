@@ -225,6 +225,37 @@
         </div>
     </div>
 </div>
+{% if not es_invitado and config.cedula_vision_habilitado %}
+<!-- Escanear cédula con IA -->
+<div class="modal fade" id="escanearCedulaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-camera"></i> Subir foto de la cédula</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">
+                    Toma la foto completa de la cédula, lo más recta y legible posible. La IA solo
+                    <strong>prellena</strong> la información: revisa y corrige antes de guardar.
+                </p>
+                <input type="file" id="cedulaFotoInput" class="form-control" accept="image/*" capture="environment">
+                <div id="cedulaPreviewWrap" class="text-center mt-2" style="display:none">
+                    <img id="cedulaPreview" alt="Vista previa" class="img-fluid rounded border" style="max-height:320px">
+                </div>
+                <div id="cedulaScanMsg" class="alert alert-info mt-3 d-none"></div>
+                <div id="cedulaScanResumen" class="alert alert-success mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-info text-white" id="btnAnalizarCedula" onclick="analizarCedula()">
+                    <i class="bi bi-search"></i> Analizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 {% block extra_js %}
 <script>
@@ -369,19 +400,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Escanear cédula con foto
-document.getElementById('cedulaFotoInput').addEventListener('change', function(e){
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(ev){
-        const img = document.getElementById('cedulaPreview');
-        img.src = ev.target.result;
-        document.getElementById('cedulaPreviewWrap').style.display = 'block';
-    }
-    reader.readAsDataURL(file);
-    document.getElementById('cedulaScanMsg').classList.add('d-none');
-    document.getElementById('cedulaScanResumen').classList.add('d-none');
-});
+(function(){
+    const input = document.getElementById('cedulaFotoInput');
+    if(!input) return;
+    input.addEventListener('change', function(e){
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev){
+            const img = document.getElementById('cedulaPreview');
+            if(img) img.src = ev.target.result;
+            const wrap = document.getElementById('cedulaPreviewWrap');
+            if(wrap) wrap.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        const msg = document.getElementById('cedulaScanMsg');
+        const res = document.getElementById('cedulaScanResumen');
+        if(msg) msg.classList.add('d-none');
+        if(res) res.classList.add('d-none');
+    });
+})();
 
 function analizarCedula(){
     const input = document.getElementById('cedulaFotoInput');
@@ -406,7 +444,11 @@ function analizarCedula(){
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
+    .then(async r => {
+        const txt = await r.text();
+        try { return JSON.parse(txt); }
+        catch(e) { return {error: 'El servidor respondió ' + r.status + ' con un formato inesperado.'}; }
+    })
     .then(data => {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-search"></i> Analizar';

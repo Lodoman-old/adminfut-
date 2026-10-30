@@ -3,6 +3,8 @@ import os
 import re
 from datetime import date, datetime, timedelta, time
 from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import TestCase, Client
 from django.utils import timezone
@@ -3389,3 +3391,134 @@ class TablaPosicionesDescensoTest(TestCase):
         self.assertEqual(html.count("table-success"), 2)
         self.assertEqual(html.count("table-danger"), 0)
         self.assertNotIn("Zona de descenso", html)
+
+
+class CedulaVisionTest(TestCase):
+    """Escaneo de cédula con IA: parseo, filtrado y proveedores."""
+
+    class _Resp:
+        def __init__(self, status_code=200, payload=None, text=""):
+            self.status_code = status_code
+            self._payload = payload or {}
+            self.text = text
+
+        def json(self):
+            return self._payload
+
+    def _cfg(self, **kw):
+        base = dict(
+            cedula_vision_proveedor="groq",
+            cedula_vision_modelo="qwen/qwen2.5-vl-32b-instruct",
+            cedula_vision_api_key="gsk_test",
+            cedula_vision_endpoint="",
+            cedula_vision_prompt="",
+        )
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    def _partido(self):
+        return SimpleNamespace(
+            id=7,
+            equipo_local=SimpleNamespace(nombre="Local"),
+            equipo_visitante=SimpleNamespace(nombre="Visitante"),
+        )
+
+    def _jugador(self, pk, nombre="Juan", apellido="Perez"):
+        return SimpleNamespace(
+            id=pk, dorsal=pk, nombre=nombre, apellido=apellido,
+            equipo=SimpleNamespace(id=1, nombre="Local"),
+        )
+
+    def _archivo(self):
+        return SimpleNamespace(read=lambda: b"img", seek=lambda n: None, content_type="image/jpeg")
+
+    def test_extraer_json_con_cercas_y_texto(self):
+        from league.cedula_scan import _extraer_json
+        texto = 'Claro, aquí está:\n```json\n{"local": [], "visitante": []}\n```\nListo.'
+        self.assertEqual(_extraer_json(texto), {"local": [], "visitante": []})
+        self.assertIsNone(_extraer_json("sin json"))
+        self.assertIsNone(_extraer_json(""))
+
+    def test_limpia_y_filtra_jugadores(self):
+        from league.cedula_scan import _limpiar_resultado
+        crudo = {
+            "local": [
+                {"jugador_id": 1, "participacion": "TITULAR", "goles": "2", "amarillas": 1, "rojas": 0, "confianza": "0.9"},
+                {"jugador_id": 99, "participacion": "cambio"},
+                {"jugador_id": "x"},
+            ],
+            "visitante": "no es lista",
+        }
+        limpio = _limpiar_resultado(crudo, {1}, {2})
+        self.assertEqual(len(limpio["local"]), 1)
+        self.assertEqual(limpio["local"][0]["jugador_id"], 1)
+        self.assertEqual(limpio["local"][0]["participacion"], "titular")
+        self.assertEqual(limpio["local"][0]["goles"], 2)
+        self.assertEqual(limpio["visitante"], [])
+
+    def test_modelo_por_defecto_cuando_no_coincide(self):
+        from league.cedula_scan import _modelo_para, MODELOS_POR_DEFECTO
+        self.assertEqual(
+            _modelo_para("groq", "qwen/qwen2.5-vl-32b-instruct"),
+            MODELOS_POR_DEFECTO["groq"],
+        )
+        self.assertEqual(_modelo_para("gemini", "gpt-4o"), MODELOS_POR_DEFECTO["gemini"])
+        self.assertEqual(_modelo_para("openrouter", "qwen/qwen2.5-vl-72b-instruct"),
+                         "qwen/qwen2.5-vl-72b-instruct")
+
+    def test_groq_prellena_y_descarta_ids_invalidos(self):
+        from league import cedula_scan
+        contenido = (
+            '```json\n{"local": [{"jugador_id": 1, "participacion": "titular", '
+            '"goles": 2, "amarillas": 1, "rojas": 0, "confianza": 0.9}, '
+            '{"jugador_id": 99, "participacion": "cambio"}], "visitante": []}\n```'
+        )
+        resp = self._Resp(payload={"choices": [{"message": {"content": contenido}}]})
+        with patch("league.models.ConfiguracionLiga.obtener", return_value=self._cfg()), \
+                patch("requests.post", return_value=resp) as post:
+            res = cedula_scan.escanear_cedula_con_vision(
+                self._archivo(), self._partido(), [self._jugador(1)], [self._jugador(2)],
+            )
+        self.assertNotIn("error", res)
+        self.assertEqual([x["jugador_id"] for x in res["local"]], [1])
+        self.assertEqual(res["local"][0]["goles"], 2)
+        self.assertEqual(post.call_count, 1)
+        # El modelo incompatible se corrige al de Groq
+        self.assertEqual(post.call_args.kwargs["json"]["model"], "meta-llama/llama-4-scout-17b-16e-instruct")
+
+    def test_error_http_muestra_detalle(self):
+        from league import cedula_scan
+        resp = self._Resp(status_code=404, text='{"error":{"message":"model_not_found"}}')
+        with patch("league.models.ConfiguracionLiga.obtener", return_value=self._cfg()), \
+                patch("requests.post", return_value=resp):
+            res = cedula_scan.escanear_cedula_con_vision(
+                self._archivo(), self._partido(), [self._jugador(1)], [self._jugador(2)],
+            )
+        self.assertIn("error", res)
+        self.assertIn("404", res["error"])
+        self.assertIn("model_not_found", res["error"])
+
+    def test_gemini(self):
+        from league import cedula_scan
+        texto = '{"local": [], "visitante": [{"jugador_id": 2, "participacion": "cambio", "goles": 0, "amarillas": 0, "rojas": 1, "confianza": 0.8}]}'
+        resp = self._Resp(payload={"candidates": [{"content": {"parts": [{"text": texto}]}}]})
+        with patch("league.models.ConfiguracionLiga.obtener",
+                   return_value=self._cfg(cedula_vision_proveedor="gemini", cedula_vision_modelo="gemini-2.5-flash")), \
+                patch("requests.post", return_value=resp) as post:
+            res = cedula_scan.escanear_cedula_con_vision(
+                self._archivo(), self._partido(), [self._jugador(1)], [self._jugador(2)],
+            )
+        self.assertNotIn("error", res)
+        self.assertEqual([x["jugador_id"] for x in res["visitante"]], [2])
+        self.assertEqual(post.call_args.kwargs["json"]["contents"][0]["parts"][1]["inline_data"]["mime_type"], "image/jpeg")
+
+    def test_sin_api_key(self):
+        from league import cedula_scan
+        with patch("league.models.ConfiguracionLiga.obtener",
+                   return_value=self._cfg(cedula_vision_api_key="")):
+            res = cedula_scan.escanear_cedula_con_vision(
+                self._archivo(), self._partido(), [self._jugador(1)], [self._jugador(2)],
+            )
+        self.assertIn("API Key", res["error"])
+
+

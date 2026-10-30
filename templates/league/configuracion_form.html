@@ -400,7 +400,12 @@
             <div class="col-md-4">
               <label class="form-label">Modelo</label>
               {{ form.cedula_vision_modelo }}
-              <div class="form-text">Ej: qwen/qwen2.5-vl-72b-instruct</div>
+              <div class="form-text">
+                Groq: <code>meta-llama/llama-4-scout-17b-16e-instruct</code><br>
+                OpenRouter: <code>qwen/qwen2.5-vl-72b-instruct</code><br>
+                Gemini: <code>gemini-2.5-flash</code><br>
+                Si lo dejas vacío se usa el modelo por defecto del proveedor.
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Endpoint personalizado</label>
@@ -410,7 +415,7 @@
           <div class="mb-2" style="max-width: 500px;">
             <label class="form-label">API Key</label>
             {{ form.cedula_vision_api_key }}
-            <div class="form-text">Pega tu API Key (Groq empieza con gsk_...)</div>
+            <div class="form-text">Groq: <code>gsk_...</code> · OpenRouter: <code>sk-or-...</code> · Gemini: <code>AIza...</code></div>
           </div>
           <div class="mb-2 d-flex justify-content-between align-items-center" style="max-width: 900px;">
             <label class="form-label mb-0">Prompt para escaneo</label>

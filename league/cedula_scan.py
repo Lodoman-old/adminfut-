@@ -1,15 +1,18 @@
-import json
 import base64
+import json
 import os
+import re
+
 from django.conf import settings
 
-
-def _imagen_a_base64(archivo):
-    data = archivo.read()
-    archivo.seek(0)
-    mime = getattr(archivo, 'content_type', None) or 'image/jpeg'
-    b64 = base64.b64encode(data).decode('utf-8')
-    return f"data:{mime};base64,{b64}"
+# Modelo por defecto de cada proveedor. Ojo: los IDs NO son intercambiables
+# (p. ej. qwen2.5-vl existe en OpenRouter pero no en Groq).
+MODELOS_POR_DEFECTO = {
+    'groq': 'meta-llama/llama-4-scout-17b-16e-instruct',
+    'openrouter': 'qwen/qwen2.5-vl-72b-instruct',
+    'gemini': 'gemini-2.5-flash',
+    'ollama': 'qwen2.5vl:7b',
+}
 
 
 def _prompt_default():
@@ -76,111 +79,205 @@ def construir_prompt(partido, jugadores_local, jugadores_visit, prompt_template=
     return template + "\n\nLISTA DE JUGADORES:\n" + json.dumps(ctx, ensure_ascii=False, indent=2)
 
 
-def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_visit, proveedor=None):
+def _imagen_payload(archivo):
+    data = archivo.read()
+    archivo.seek(0)
+    mime = getattr(archivo, 'content_type', None) or 'image/jpeg'
+    b64 = base64.b64encode(data).decode('utf-8')
+    return mime, b64
+
+
+def _modelo_para(prov, modelo):
+    modelo = (modelo or '').strip()
+    default = MODELOS_POR_DEFECTO.get(prov, '')
+    if not modelo:
+        return default
+    # Evita un 404 cuando se arrastra el modelo de otro proveedor.
+    if prov == 'groq' and (modelo.startswith('qwen/') or modelo.startswith('google/')):
+        return default
+    if prov == 'gemini' and not modelo.startswith('gemini'):
+        return default
+    return modelo
+
+
+def _extraer_json(texto):
+    """Saca el primer objeto JSON del texto, aunque venga con ``` o explicaciones."""
+    if not texto:
+        return None
+    limpio = texto.strip()
+    limpio = re.sub(r'^```[a-zA-Z0-9_-]*\s*', '', limpio)
+    limpio = re.sub(r'\s*```$', '', limpio)
+    inicio = limpio.find('{')
+    fin = limpio.rfind('}')
+    if inicio < 0 or fin <= inicio:
+        return None
+    return json.loads(limpio[inicio:fin + 1])
+
+
+def _entero(valor, default=0):
+    try:
+        return max(0, int(valor))
+    except (TypeError, ValueError):
+        return default
+
+
+def _limpiar_resultado(resultado, valid_local, valid_visit):
+    """Normaliza y descarta jugadores que no pertenecen a las listas dadas."""
+    if not isinstance(resultado, dict):
+        return None
+    for clave, validos in (('local', valid_local), ('visitante', valid_visit)):
+        items = resultado.get(clave)
+        if not isinstance(items, list):
+            resultado[clave] = []
+            continue
+        limpios = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                jugador_id = int(item.get('jugador_id'))
+            except (TypeError, ValueError):
+                continue
+            if jugador_id not in validos:
+                continue
+            participacion = (item.get('participacion') or '').strip().lower()
+            if participacion not in ('titular', 'cambio'):
+                participacion = ''
+            try:
+                confianza = float(item.get('confianza') or 0)
+            except (TypeError, ValueError):
+                confianza = 0
+            limpios.append({
+                'jugador_id': jugador_id,
+                'participacion': participacion,
+                'goles': _entero(item.get('goles')),
+                'amarillas': _entero(item.get('amarillas')),
+                'rojas': _entero(item.get('rojas')),
+                'confianza': confianza,
+            })
+        resultado[clave] = limpios
+    return resultado
+
+
+def _error_http(resp):
+    try:
+        detalle = (resp.text or '')[:300].strip()
+    except Exception:
+        detalle = ''
+    base = f"El proveedor respondió {resp.status_code}."
+    return f"{base} {detalle}".strip()
+
+
+def _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime='image/jpeg', timeout=120, extra_headers=None):
+    """Proveedores compatibles con OpenAI: Groq, OpenRouter y Ollama."""
     import requests
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    if extra_headers:
+        headers.update(extra_headers)
+    payload = {
+        "model": modelo,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
+            ],
+        }],
+        "temperature": 0.1,
+        "max_tokens": 4096,
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    if resp.status_code >= 400:
+        return {"error": _error_http(resp)}
+    data = resp.json()
+    choices = data.get('choices') or []
+    contenido = ''
+    if choices:
+        contenido = (choices[0].get('message') or {}).get('content') or ''
+    if not isinstance(contenido, str):
+        contenido = json.dumps(contenido)
+    return {'contenido': contenido}
+
+
+def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
+    import requests
+
+    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": mime, "data": img_b64}},
+            ],
+        }],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096},
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    if resp.status_code >= 400:
+        return {"error": _error_http(resp)}
+    data = resp.json()
+    candidatos = data.get('candidates') or []
+    texto = ''
+    if candidatos:
+        partes = (candidatos[0].get('content') or {}).get('parts') or []
+        texto = ''.join(p.get('text', '') for p in partes if isinstance(p, dict))
+    return {'contenido': texto}
+
+
+def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_visit, proveedor=None):
     from league.models import ConfiguracionLiga
 
     cfg = ConfiguracionLiga.obtener()
     prov = (proveedor or cfg.cedula_vision_proveedor or 'groq').lower()
-    api_key = (cfg.cedula_vision_api_key or '').strip() or getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY')
-    modelo = (cfg.cedula_vision_modelo or 'qwen/qwen2.5-vl-72b-instruct').strip()
+    api_key = (cfg.cedula_vision_api_key or '').strip() or getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY') or ''
+    modelo = _modelo_para(prov, cfg.cedula_vision_modelo)
     endpoint = (cfg.cedula_vision_endpoint or '').strip()
     prompt_tpl = (cfg.cedula_vision_prompt or '').strip() or None
 
     prompt = construir_prompt(partido, jugadores_local, jugadores_visit, prompt_tpl)
-    img_b64 = _imagen_a_base64(imagen_file)
+    mime, img_b64 = _imagen_payload(imagen_file)
 
-    # Groq
-    if prov == 'groq' and api_key:
-        try:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            payload = {
-                "model": modelo or "qwen/qwen2.5-vl-72b-instruct",
-                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
-                "temperature": 0.1,
-                "max_tokens": 2048,
-            }
-            resp = requests.post(url, headers=headers, json=payload, timeout=90)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data['choices'][0]['message']['content']
-            start = content.find('{')
-            end = content.rfind('}') + 1
-            if start >= 0 and end > start:
-                resultado = json.loads(content[start:end])
-                # Filtrar solo jugadores que existan en las listas
-                valid_local = {j.id for j in jugadores_local}
-                valid_visit = {j.id for j in jugadores_visit}
-                if isinstance(resultado, dict):
-                    if isinstance(resultado.get('local'), list):
-                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
-                    if isinstance(resultado.get('visitante'), list):
-                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
-                return resultado
-        except Exception as e:
-            return {"error": str(e)}
+    if prov != 'ollama' and not api_key:
+        return {"error": "Falta la API Key del proveedor de visión. Configúrala en Configuración > Publicidad."}
 
-    # OpenRouter
-    if prov == 'openrouter' and api_key:
-        try:
+    try:
+        if prov == 'gemini':
+            url = endpoint or f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+            salida = _post_gemini(url, api_key, modelo, prompt, mime, img_b64)
+        elif prov == 'groq':
+            url = endpoint or "https://api.groq.com/openai/v1/chat/completions"
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime)
+        elif prov == 'openrouter':
             url = endpoint or "https://openrouter.ai/api/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": getattr(settings, 'SITE_URL', ''), "X-Title": "AdminFut"}
-            payload = {
-                "model": modelo or "qwen/qwen2.5-vl-72b-instruct",
-                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
-                "temperature": 0.1,
-                "max_tokens": 2048,
+            extra = {
+                "HTTP-Referer": getattr(settings, 'SITE_URL', ''),
+                "X-Title": "AdminFut",
             }
-            resp = requests.post(url, headers=headers, json=payload, timeout=90)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data['choices'][0]['message']['content']
-            start = content.find('{')
-            end = content.rfind('}') + 1
-            if start >= 0 and end > start:
-                resultado = json.loads(content[start:end])
-                valid_local = {j.id for j in jugadores_local}
-                valid_visit = {j.id for j in jugadores_visit}
-                if isinstance(resultado, dict):
-                    if isinstance(resultado.get('local'), list):
-                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
-                    if isinstance(resultado.get('visitante'), list):
-                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
-                return resultado
-        except Exception as e:
-            return {"error": str(e)}
-
-    # Ollama
-    if prov == 'ollama':
-        try:
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime, extra_headers=extra)
+        elif prov == 'ollama':
             url = endpoint or "http://localhost:11434/v1/chat/completions"
-            headers = {"Content-Type": "application/json"}
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
-            payload = {
-                "model": modelo or "qwen2.5vl:7b",
-                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": img_b64}}]}],
-                "temperature": 0.1,
-                "max_tokens": 2048,
-            }
-            resp = requests.post(url, headers=headers, json=payload, timeout=120)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data['choices'][0]['message']['content']
-            start = content.find('{')
-            end = content.rfind('}') + 1
-            if start >= 0 and end > start:
-                resultado = json.loads(content[start:end])
-                valid_local = {j.id for j in jugadores_local}
-                valid_visit = {j.id for j in jugadores_visit}
-                if isinstance(resultado, dict):
-                    if isinstance(resultado.get('local'), list):
-                        resultado['local'] = [x for x in resultado['local'] if x.get('jugador_id') in valid_local]
-                    if isinstance(resultado.get('visitante'), list):
-                        resultado['visitante'] = [x for x in resultado['visitante'] if x.get('jugador_id') in valid_visit]
-                return resultado
-        except Exception as e:
-            return {"error": str(e)}
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime)
+        else:
+            return {"error": f"Proveedor de visión no soportado: {prov}"}
+    except Exception as e:
+        return {"error": f"No se pudo conectar con el proveedor de visión: {e}"}
 
-    return {"error": "Escaneo de cédula con IA no configurado. Ve a Configuración > Publicidad y pega tu API Key / configura el proveedor."}
+    if salida.get('error'):
+        return {"error": salida['error']}
+
+    try:
+        resultado = _extraer_json(salida.get('contenido'))
+    except Exception:
+        return {"error": "La IA devolvió un JSON inválido. Intenta con una foto más clara o revisa el prompt."}
+    if resultado is None:
+        return {"error": "La IA no devolvió datos reconocibles. Intenta con una foto más clara y completa de la cédula."}
+
+    valid_local = {j.id for j in jugadores_local}
+    valid_visit = {j.id for j in jugadores_visit}
+    limpio = _limpiar_resultado(resultado, valid_local, valid_visit)
+    if limpio is None:
+        return {"error": "La IA devolvió un formato inesperado. Intenta de nuevo."}
+    return limpio

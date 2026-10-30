@@ -3584,6 +3584,9 @@ def cedula_escanear(request, partido_id):
     if request.method != "POST":
         return JsonResponse({"error": "Método no permitido"}, status=405)
 
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Debes iniciar sesión para usar el escaneo."}, status=403)
+
     cfg = ConfiguracionLiga.obtener()
     if not getattr(cfg, 'cedula_vision_habilitado', False):
         return JsonResponse({"error": "El escaneo de cédula con IA está deshabilitado. Habilítalo en Configuración > Publicidad."}, status=400)
