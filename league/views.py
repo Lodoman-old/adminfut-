@@ -1499,7 +1499,9 @@ def generar_vapid_keys(request):
 _BOTS_DESCARGA = re.compile(
     r'(bot|spider|crawl|slurp|bingpreview|facebookexternalhit|whatsapp|'
     r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
-    r'semrush|google-inspectiontool|pingdom|uptime|monitor)', re.I)
+    r'semrush|google-inspectiontool|pingdom|uptime|monitor|'
+    r'public-data-sync|data-sync|axios|undici|scrapy|okhttp|libwww|'
+    r'\bnode\b)', re.I)
 
 
 def _registrar_descarga(request, tipo):
@@ -5256,6 +5258,24 @@ def descargar_rol_facebook(request):
     return response
 
 
+def _puede_ver_curp(request):
+    """True si el usuario puede ver la CURP completa (staff o gestor de jugadores).
+
+    Las fichas públicas (reporte de registro, jugador, equipo) muestran solo el
+    año de nacimiento; el identificador completo queda para quien lo necesita
+    para validar registros.
+    """
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return False
+    if getattr(user, "is_staff", False):
+        return True
+    try:
+        return user.tiene_permiso("gestion_jugadores")
+    except Exception:
+        return False
+
+
 def reporte_registro(request):
     """Reporte de registro de jugadores de un equipo (Categoría→Temporada→Equipo).
 
@@ -5308,6 +5328,7 @@ def reporte_registro(request):
         "eq_id": eq_id,
         "total_jugadores": jugadores.count() if equipo else 0,
         "max_jugadores": equipo.categoria.max_jugadores if equipo else None,
+        "puede_ver_curp": _puede_ver_curp(request),
     }
     if request.GET.get("imprimir"):
         from django.template.loader import render_to_string
@@ -6189,6 +6210,7 @@ def equipo_ficha(request, pk):
             "foto_url": url_para_nombre(j.foto.name if j.foto else None),
             "edad": edad_j,
             "curp": curp_j,
+            "curp_publica": j.curp_publica,
         })
 
     # Intentar buscar posición aunque no esté en la temporada detectada
@@ -6212,6 +6234,7 @@ def equipo_ficha(request, pk):
         "categoria": categoria,
         "temporada": temp,
         "jugadores": jugadores_list,
+        "puede_ver_curp": _puede_ver_curp(request),
         "pj": pj, "pg": pg, "pe": pe, "pp": pp, "gf": gf, "gc": gc, "dif": dif, "pts": pts,
         "ultimos": ultimos,
         "proximos": proximos,
@@ -6302,6 +6325,7 @@ def jugador_ficha(request, pk):
 
     return render(request, 'league/jugador_ficha.html', {
         'jugador': jugador,
+        'puede_ver_curp': _puede_ver_curp(request),
         'equipos_actuales': equipos_actuales,
         'equipos_anteriores': equipos_anteriores,
         'registros': registros,

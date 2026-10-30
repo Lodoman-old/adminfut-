@@ -226,6 +226,8 @@ PERMISO_POR_URL = {
     'alta_jugadores_heredados': 'gestion_jugadores_heredados',
     'reporte_cedula_arbitral_pdf': 'partido_cedula',
     'reporte_cedula_arbitral_xlsx': 'partido_cedula',
+    # El PDF del reporte de registro incluye la CURP completa: solo gestores.
+    'reporte_registro_pdf': 'gestion_jugadores',
     'horarios_fijos_report': 'reporte_horarios',
     # Configuración
     'configuracion_liga': 'gestion_configuracion',
@@ -261,7 +263,9 @@ class ContadorVisitasMiddleware:
     BOTS = re.compile(
         r'(bot|spider|crawl|slurp|bingpreview|facebookexternalhit|whatsapp|'
         r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
-        r'semrush|google-inspectiontool|pingdom|uptime|monitor)', re.I)
+        r'semrush|google-inspectiontool|pingdom|uptime|monitor|'
+        r'public-data-sync|data-sync|axios|undici|scrapy|okhttp|libwww|'
+        r'\bnode\b)', re.I)
     VENTANA_MINUTOS = 60
 
     def __init__(self, get_response):

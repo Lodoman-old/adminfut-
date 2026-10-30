@@ -345,7 +345,7 @@
               <div class="player-row-sub">
                 {{ j.obj.get_posicion_display }}
                 {% if j.edad or j.obj.edad %} · {% firstof j.edad j.obj.edad %} años{% endif %}
-                {% if j.curp or j.obj.curp %} · CURP: {% firstof j.curp j.obj.curp %}{% endif %}
+                {% if puede_ver_curp %}{% if j.curp or j.obj.curp %} · CURP: {% firstof j.curp j.obj.curp %}{% endif %}{% else %}{% if j.curp_publica or j.obj.curp_publica %} · CURP: {% firstof j.curp_publica j.obj.curp_publica %}{% endif %}{% endif %}
               </div>
             </div>
           </div>

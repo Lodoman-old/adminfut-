@@ -212,6 +212,32 @@ class Jugador(models.Model):
             (hoy.month, hoy.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day)
         )
 
+    @property
+    def anio_nacimiento(self):
+        """Año de nacimiento (desde fecha_nacimiento o de la CURP)."""
+        if self.fecha_nacimiento:
+            return self.fecha_nacimiento.year
+        curp = (self.curp or "").strip().upper()
+        if len(curp) == 18 and curp[4:6].isdigit():
+            # Posición 17: dígito si nació antes de 2000, letra si nació después.
+            siglo = 1900 if curp[16].isdigit() else 2000
+            return siglo + int(curp[4:6])
+        return None
+
+    @property
+    def curp_publica(self):
+        """CURP enmascarada para vistas públicas: solo el año de nacimiento.
+
+        El año es lo que define la categoría de edad (para detectar CURP
+        falsificados), pero se ocultan iniciales, fecha completa, sexo,
+        entidad, consonantes y homoclave para que el identificador no pueda
+        reutilizarse ni reconstruirse desde la ficha pública.
+        """
+        anio = self.anio_nacimiento
+        if not anio or len((self.curp or "").strip()) != 18:
+            return ""
+        return "****" + str(anio) + "**********"
+
     def suspension_que_bloquea(self, categoria):
         """Primera suspensión manual activa que impide jugar/registrarse en
         `categoria`, o None si no hay ninguna."""

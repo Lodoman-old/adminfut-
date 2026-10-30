@@ -7,9 +7,9 @@
         <h4 class="mb-1"><i class="bi bi-people"></i> Reporte de registro</h4>
         <div class="small" style="color:#ffffff">Jugadores del equipo seleccionado (Categoría → Temporada → Equipo)</div>
     </div>
-    <a href="{% url 'reporte_registro_pdf' %}?categoria={{ cat_id }}&temporada={{ temp_id }}&equipo={{ eq_id }}" class="btn btn-success">
+    {% if puede_ver_curp %}<a href="{% url 'reporte_registro_pdf' %}?categoria={{ cat_id }}&temporada={{ temp_id }}&equipo={{ eq_id }}" class="btn btn-success">
     <i class="bi bi-file-earmark-pdf"></i> Exportar a PDF
-</a>
+</a>{% endif %}
 </div>
 
 <form method="get" class="row g-2 mb-3">
@@ -65,7 +65,7 @@
                 </a>
             </td>
             <td><strong><a href="{% url 'jugador_ficha' j.id %}" class="text-decoration-none text-dark">{{ j.nombre }} {{ j.apellido }}</a></strong></td>
-            <td><code class="small">{{ j.curp|default:"—" }}</code></td>
+            <td><code class="small" title="{% if puede_ver_curp %}CURP completa{% else %}Solo se muestra el año de nacimiento; la CURP completa se valida con la liga{% endif %}">{% if puede_ver_curp %}{{ j.curp|default:"—" }}{% else %}{{ j.curp_publica|default:"—" }}{% endif %}</code></td>
             <td>{{ j.dorsal|default:"—" }}</td>
             <td>{{ j.get_posicion_display|default:"—" }}</td>
             <td>{{ j.edad|default:"—" }}{% if j.edad %} años{% endif %}</td>

@@ -40,8 +40,13 @@
         <i class="bi bi-tag"></i> {{ jugador.get_posicion_display }}{% if jugador.dorsal %} · #{{ jugador.dorsal }}{% endif %}
       </p>
       <p class="player-hero-sub mb-0">
+        {% if puede_ver_curp %}
         {% if jugador.fecha_nacimiento %}<i class="bi bi-calendar-heart"></i> {{ jugador.fecha_nacimiento }}{% if jugador.edad %} ({{ jugador.edad }} años){% endif %}{% endif %}
         {% if jugador.curp %} · CURP: {{ jugador.curp }}{% endif %}
+        {% else %}
+        {% if jugador.anio_nacimiento %}<i class="bi bi-calendar-heart"></i> Nacido en {{ jugador.anio_nacimiento }}{% if jugador.edad %} ({{ jugador.edad }} años){% endif %}{% endif %}
+        {% if jugador.curp_publica %} · CURP: {{ jugador.curp_publica }}{% endif %}
+        {% endif %}
       </p>
     </div>
     <div class="ms-auto">
