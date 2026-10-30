@@ -26,6 +26,7 @@ INSTRUCCIONES:
 - Si hay 2 amarillas, eso implica roja.
 - Prioriza coincidencia por DORSAL primero, luego por APELLIDO, luego por NOMBRE.
 - Si hay duda o no puedes leerlo con certeza, NO lo marques. Mejor omitir que equivocarte.
+- Los corchetes vacíos [] y las celdas en blanco NO son marcas; ignóralos.
 - Solo marca participación si hay una T o una C clara.
 - Los goles son la CANTIDAD (puede ser 0,1,2,...). Si aparece escrito "1" o rayado, cuenta ese número.
 - Respeta EXACTAMENTE los jugador_id que te doy.

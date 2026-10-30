@@ -12,7 +12,7 @@
             <span class="badge bg-light text-dark" style="font-size:1.1rem">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
             <strong>{{ partido.equipo_visitante.nombre }}</strong>
         </div>
-        <span class="small">{{ partido.fecha_hora|date:"d/m/Y H:i" }} | {{ partido.campo.nombre }}</span>
+        <span class="small">{{ partido.jornada.nombre|default:"—" }} | {{ partido.fecha_hora|date:"d/m/Y H:i" }} | {{ partido.campo.nombre }}</span>
     </div>
 </div>
 {% if partido.arbitro %}

@@ -1593,6 +1593,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
         p.setFont("Helvetica-Bold", 12)
         p.drawRightString(w - x0, y0, "CEDULA ARBITRAL")
+        if partido.jornada:
+            p.setFont("Helvetica", 9)
+            p.drawRightString(w - x0, y0 - 13, f"Jornada: {partido.jornada.nombre}")
         # El "Equipo A vs Equipo B" central se elimino: los nombres ya van en
         # la franja de cada equipo (LOCAL / VISITANTE) con su logo mas grande.
         p.setFont("Helvetica", 8.5)
@@ -1667,12 +1670,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         datos = [
             str(j.dorsal or "-"),
             f"{j.nombre} {j.apellido}",
-            "[X]" if part and part.titular else "[ ]",
-            "[X]" if part and not part.titular else "[ ]",
+            "X" if part and part.titular else "",
+            "X" if part and not part.titular else "",
             str(g) if g > 0 else "",
-            "[X]" if card["amarillas"] >= 1 else "",
-            "[X]" if card["amarillas"] >= 2 else "",
-            "[X]" if card["roja"] else "",
+            "X" if card["amarillas"] >= 1 else "",
+            "X" if card["amarillas"] >= 2 else "",
+            "X" if card["roja"] else "",
         ]
         if j.id in suspendidos:
             row_color = colors.HexColor("#ffe0e0")
