@@ -1022,6 +1022,26 @@ class CedulaAccesoTest(TestCase):
         client.force_login(user)
         r = client.get(f"/cedula-arbitral/{fin.id}/")
         self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "Vista de solo lectura")
+
+    def test_invitado_logueado_ve_solo_lectura(self):
+        from django.contrib.auth import get_user_model
+        fin = self._partido("FIN")
+        user = get_user_model().objects.create_user(username="invitado1", password="x")
+        client = Client()
+        client.force_login(user)
+        r = client.get(f"/cedula-arbitral/{fin.id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Vista de solo lectura")
+
+    def test_invitado_logueado_no_ve_cedula_sin_finalizar(self):
+        from django.contrib.auth import get_user_model
+        pend = self._partido("PEND")
+        user = get_user_model().objects.create_user(username="invitado2", password="x")
+        client = Client()
+        client.force_login(user)
+        r = client.get(f"/cedula-arbitral/{pend.id}/")
+        self.assertEqual(r.status_code, 404)
 
     def test_home_invitado_usa_categoria_principal_de_cookie(self):
         otra = Categoria.objects.create(nombre="PrincipalCat", es_principal=True)

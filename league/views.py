@@ -3385,7 +3385,12 @@ def tabla_goleo(request):
 
 
 def cedula_arbitral(request, partido_id):
-    es_invitado = not request.user.is_authenticated
+    user = request.user
+    puede_editar = bool(
+        user.is_authenticated
+        and (getattr(user, "is_staff", False) or user.tiene_permiso("partido_cedula"))
+    )
+    es_invitado = not puede_editar
     partido = get_object_or_404(Partido, pk=partido_id)
 
     if es_invitado:

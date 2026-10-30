@@ -212,7 +212,6 @@ PERMISO_POR_URL = {
     'partido_create': 'partido_crear',
     'partido_update': 'partido_editar',
     'partido_delete': 'partido_eliminar',
-    'cedula_arbitral': 'partido_cedula',
     'reagendar_partido': 'partido_reagendar',
     'guardar_observaciones': 'partido_observaciones',
     'gestionar_indisponibilidad': 'partido_indisponibilidad',
