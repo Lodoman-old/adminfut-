@@ -991,7 +991,7 @@ class LimiteCambiosTest(TestCase):
         self.assertEqual(t5.limite_cambios_efectivo(), 5)
 
 
-class CedulaInvitadoTest(TestCase):
+class CedulaAccesoTest(TestCase):
     def setUp(self):
         self.cat = Categoria.objects.create(nombre="CedulaCat")
         self.campo = Campo.objects.create(nombre="Campo 1", activo=True)
@@ -1006,19 +1006,22 @@ class CedulaInvitadoTest(TestCase):
             goles_local=2, goles_visitante=1,
         )
 
-    def test_invitado_ve_solo_cedulas_finalizadas(self):
+    def test_invitado_no_puede_ver_cedulas(self):
         fin = self._partido("FIN")
-        pend = self._partido("PEND")
-        c = Client()
-        r = c.get(f"/cedula-arbitral/{fin.id}/")
+        r = Client().get(f"/cedula-arbitral/{fin.id}/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/accounts/login/", r["Location"])
+
+    def test_usuario_con_permiso_ve_cedula(self):
+        from django.contrib.auth import get_user_model
+        fin = self._partido("FIN")
+        user = get_user_model().objects.create_superuser(
+            username="cedulaadmin", email="admin@example.com", password="x",
+        )
+        client = Client()
+        client.force_login(user)
+        r = client.get(f"/cedula-arbitral/{fin.id}/")
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "Vista de solo lectura")
-        c404 = Client(raise_request_exception=False)
-        r2 = c404.get(f"/cedula-arbitral/{pend.id}/")
-        self.assertEqual(r2.status_code, 404)
-        from django.template.loader import render_to_string
-        html = render_to_string("league/cedula_invitado_no_disponible.html", {"partido": pend})
-        self.assertIn("Cédula no disponible", html)
 
     def test_home_invitado_usa_categoria_principal_de_cookie(self):
         otra = Categoria.objects.create(nombre="PrincipalCat", es_principal=True)
