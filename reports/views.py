@@ -1571,7 +1571,6 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         cfg_liga = ConfiguracionLiga.obtener()
         x0 = left_x
         y0 = h - top_margin - 20
-        y2 = y0 - 26
         logo_src = None
         if cfg_liga.logo:
             local_path = os.path.join(settings.MEDIA_ROOT, cfg_liga.logo.name)
@@ -1579,14 +1578,6 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = local_path
             else:
                 logo_src = _imagen_pdf(cfg_liga.logo)
-        if logo_src:
-            # El logo se ancla por su base sobre la fila de la fecha para que no
-            # se empalme con ella (preserveAspectRatio lo dibuja desde abajo).
-            try:
-                p.drawImage(logo_src, x0, y2 + 14, width=logo_liga, height=logo_liga,
-                            preserveAspectRatio=True, mask='auto')
-            except Exception:
-                logo_src = None
         x_text = x0 + (logo_liga + 8 if logo_src else 0)
         p.setFillColor(colors.black)
 
@@ -1606,11 +1597,22 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
         nombre_liga = (cfg_liga.nombre_liga or "").strip()
         ancho_nombre = max(120, w - x0 - x_text - 130)
-        tam_nombre = 14
+        tam_nombre = 18
         lineas_nombre = _envolver(nombre_liga, tam_nombre, ancho_nombre)
         if len(lineas_nombre) > 2:
-            tam_nombre = 12
+            tam_nombre = 15
             lineas_nombre = _envolver(nombre_liga, tam_nombre, ancho_nombre)
+        # Si el nombre ocupa 2 lineas, bajamos la fila de fecha para no encimarse.
+        y2 = y0 - (40 if len(lineas_nombre) >= 2 else 26)
+        if logo_src:
+            # El logo se ancla por su base sobre la fila de la fecha para que no
+            # se empalme con ella (preserveAspectRatio lo dibuja desde abajo).
+            try:
+                p.drawImage(logo_src, x0, y2 + 14, width=logo_liga, height=logo_liga,
+                            preserveAspectRatio=True, mask='auto')
+            except Exception:
+                logo_src = None
+
         p.setFont("Helvetica-Bold", tam_nombre)
         for i, linea in enumerate(lineas_nombre[:2]):
             p.drawString(x_text, y0 - i * (tam_nombre + 1), linea)
@@ -1773,7 +1775,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 9)
-    firma_y = footer_y - 45
+    firma_y = footer_y - 70
     if firma_y < 95:
         firma_y = 95
     p.drawString(left_x, firma_y, "Firma local: ____________")
