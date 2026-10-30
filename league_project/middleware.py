@@ -52,9 +52,14 @@ class BloqueoScrapersMiddleware:
     cambiar el UA, pero frena al bot actual y sus variantes.
     """
 
-    UA_BLOQUEADOS = re.compile(r'(public-data-sync|data-sync)', re.I)
+    UA_BLOQUEADOS = re.compile(
+        r'(ligajr|public-data-sync|public-cedula-audit|data-sync|'
+        r'wordpress|wp-admin|wp-login|xmlrpc)',
+        re.I,
+    )
     UA_EXACTOS = frozenset({'node', 'node.js', 'undici', 'axios'})
     RUTAS_EXENTAS = ('/api/', '/health/')
+    RUTAS_BLOQUEADAS = ('/wp-admin', '/wp-login', '/wp-content', '/wp-includes', '/xmlrpc.php')
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -62,6 +67,12 @@ class BloqueoScrapersMiddleware:
     def __call__(self, request):
         if request.path.startswith(self.RUTAS_EXENTAS):
             return self.get_response(request)
+        if request.path.startswith(self.RUTAS_BLOQUEADAS):
+            return HttpResponse(
+                'Not found.',
+                status=404,
+                content_type='text/plain; charset=utf-8',
+            )
         ua = (request.META.get('HTTP_USER_AGENT') or '').strip().lower()
         if ua in self.UA_EXACTOS or self.UA_BLOQUEADOS.search(ua):
             return HttpResponse(
@@ -294,6 +305,7 @@ class ContadorVisitasMiddleware:
         r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
         r'semrush|google-inspectiontool|pingdom|uptime|monitor|'
         r'public-data-sync|data-sync|axios|undici|scrapy|okhttp|libwww|'
+        r'ligajr|public-cedula-audit|google-lens|wordpress|wp-admin|xmlrpc|'
         r'\bnode\b)', re.I)
     VENTANA_MINUTOS = 60
 

@@ -1502,6 +1502,7 @@ _BOTS_DESCARGA = re.compile(
     r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'
     r'semrush|google-inspectiontool|pingdom|uptime|monitor|'
     r'public-data-sync|data-sync|axios|undici|scrapy|okhttp|libwww|'
+    r'ligajr|public-cedula-audit|google-lens|wordpress|wp-admin|xmlrpc|'
     r'\bnode\b)', re.I)
 
 

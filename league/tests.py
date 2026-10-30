@@ -3572,4 +3572,39 @@ class ReporteRegistroCurpTest(TestCase):
         self.assertIn("PEGJ110315HGTXXXA1", html)
 
 
+class BloqueoScrapersTest(TestCase):
+    """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""
+
+    def _mw(self):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from league_project.middleware import BloqueoScrapersMiddleware
+        mw = BloqueoScrapersMiddleware(lambda r: HttpResponse("ok"))
+        return mw, RequestFactory()
+
+    def test_bloquea_variantes_ligajr(self):
+        mw, rf = self._mw()
+        agentes = [
+            "Mozilla/5.0 (compatible; LigaJR-FIX28/1.0; public-data-sync)",
+            "Mozilla/5.0 (compatible; LigaJR-FIX35/1.0; public-cedula-audit)",
+            "Mozilla/5.0 (compatible; LigaJR-Snapshot/1.0)",
+            "Mozilla/5.0 LigaJR-seed",
+            "node",
+        ]
+        for ua in agentes:
+            r = rf.get("/reportes/registro/", HTTP_USER_AGENT=ua)
+            self.assertEqual(mw(r).status_code, 403, ua)
+
+    def test_permite_navegador_normal(self):
+        mw, rf = self._mw()
+        r = rf.get("/reportes/registro/", HTTP_USER_AGENT="Mozilla/5.0 Chrome/156")
+        self.assertEqual(mw(r).status_code, 200)
+
+    def test_bloquea_wordpress(self):
+        mw, rf = self._mw()
+        r = rf.get("/wp-admin/install.php?step=1", HTTP_USER_AGENT="Mozilla/5.0")
+        self.assertEqual(mw(r).status_code, 404)
+
+
+
 
