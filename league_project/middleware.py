@@ -101,6 +101,7 @@ RUTAS_PUBLICAS = {
     '/reportes/registro/',  # reporte de registro: visible para cualquiera (logueado o no)
     '/accounts/login/',
     '/accounts/invitado/registro/',
+    '/robots.txt',
     '/quiniela/',  # gate anónimo: descargar app / registrarse (la vista decide)
     '/quiniela/historico/',  # mismo gate anónimo que /quiniela/
     '/reporte-semanal/',

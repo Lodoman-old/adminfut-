@@ -1,12 +1,30 @@
 from django.shortcuts import render
 from django.db.models import Sum, Count
 from django.db import connection
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from league.models import Partido, Gol, Categoria, Temporada, Equipo, Tarjeta, SuspensionJugador, Anuncio
 from league.storage import url_para_nombre
 from django.db.models import Q
 from finance.models import Ingreso
+
+
+def robots_txt(request):
+    """Reglas para rastreadores: deja fuera las zonas privadas y las pesadas."""
+    lineas = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin/",
+        "Disallow: /accounts/",
+        "Disallow: /push-logs/",
+        "Disallow: /api/",
+        "Disallow: /finanzas/",
+        "Disallow: /change-server/",
+        "Disallow: /reportes/registro/pdf/",
+        "Disallow: /*?imprimir=",
+        "",
+    ]
+    return HttpResponse("\n".join(lineas), content_type="text/plain; charset=utf-8")
 
 
 class _EnvelopeManual:
