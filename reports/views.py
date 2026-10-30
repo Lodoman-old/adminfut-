@@ -1555,7 +1555,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     response["Content-Disposition"] = f"attachment; filename=cedula_arbitral_{partido_id}.pdf"
     p = canvas.Canvas(response, pagesize=letter)
     w, h = letter
-    col_widths = [24, 173, 14, 14, 14, 14, 14, 20]
+    col_widths = [16, 187, 14, 14, 14, 14, 14, 14]
     hdr = ["#", "Jugador", "T", "C", "G", "A1", "A2", "R"]
     row_h = 15
     franja_h = 40
