@@ -315,7 +315,7 @@
   <div class="col-6 col-md-2">
     <div class="stat-pill">
       <span class="stat-pill-label">POSICIÓN</span>
-      <span class="stat-pill-value">{% firstof pos_equipo posicion pos pts_tabla puntos_tabla '-' %}</span>
+      <span class="stat-pill-value">{% firstof pos_equipo posicion pos pts_tabla puntos_tabla '-' %}{% if grupo_equipo %} ({{ grupo_equipo }}){% endif %}</span>
     </div>
   </div>
 </div>

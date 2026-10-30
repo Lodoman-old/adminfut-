@@ -1399,6 +1399,7 @@ class ConfiguracionLigaForm(djforms.ModelForm):
             'rotacion_banners_segundos', 'mostrar_quiniela', 'ips_excluidas', 'sitio_modo', 'mostrar_publicidad',
             'cedula_vision_habilitado', 'cedula_vision_proveedor', 'cedula_vision_modelo',
             'cedula_vision_api_key', 'cedula_vision_endpoint', 'cedula_vision_prompt',
+            'cedula_vision_mostrar_boton',
         ]
         widgets = {
             'redes_sociales': djforms.Textarea(attrs={'rows': 3}),
@@ -5262,21 +5263,13 @@ def descargar_rol_facebook(request):
 
 
 def _puede_ver_curp(request):
-    """True si el usuario puede ver la CURP completa (staff o gestor de jugadores).
+    """True si el usuario puede ver la CURP completa.
 
-    Las fichas públicas (reporte de registro, jugador, equipo) muestran solo el
-    año de nacimiento; el identificador completo queda para quien lo necesita
-    para validar registros.
+    Regla: cualquier usuario autenticado ve la CURP completa; los anónimos
+    (reporte público, fichas de jugador/equipo) ven solo el año de nacimiento.
     """
     user = getattr(request, "user", None)
-    if user is None or not user.is_authenticated:
-        return False
-    if getattr(user, "is_staff", False):
-        return True
-    try:
-        return user.tiene_permiso("gestion_jugadores")
-    except Exception:
-        return False
+    return bool(user is not None and user.is_authenticated)
 
 
 def reporte_registro(request):
@@ -6041,6 +6034,15 @@ def equipo_ficha(request, pk):
     temp = None
     pos_equipo = None
     pts_equipo = None
+    grupo_equipo = None
+
+    def _posicion_en_tabla(tabla, equipo):
+        """(posición, puntos) del equipo dentro de una tabla ya ordenada."""
+        for i, fila in enumerate(tabla or [], 1):
+            if getattr(fila.get("equipo"), "id", None) == equipo.id:
+                return i, fila.get("pts")
+        return None, None
+
     try:
         try:
             temp = (
@@ -6059,34 +6061,19 @@ def equipo_ficha(request, pk):
                 )
             except Exception:
                 temp = None
+        # La tabla se calcula al vuelo (no depende de filas guardadas en TablaPosicion).
         if temp:
             try:
-                from .models import TablaPosicion
-                try:
-                    tp = TablaPosicion.objects.filter(temporada=temp, equipo=equipo).first()
-                except Exception:
-                    tp = None
-                if tp:
-                    try:
-                        pos_equipo = getattr(tp, "pos", None) or getattr(tp, "posicion", None) or getattr(tp, "puesto", None)
-                        pts_equipo = getattr(tp, "pts", None) or getattr(tp, "puntos", None) or getattr(tp, "puntaje", None) or getattr(tp, "pj_pts", None)
-                    except Exception:
-                        pass
-                if pos_equipo is None or pts_equipo is None:
-                    try:
-                        tabla = TablaPosicion.objects.filter(temporada=temp).order_by("pos", "id")
-                        for t in tabla:
-                            try:
-                                if getattr(t, "equipo_id", None) == equipo.id or getattr(t, "equipo", None) == equipo:
-                                    if pos_equipo is None:
-                                        pos_equipo = getattr(t, "pos", None) or getattr(t, "posicion", None) or getattr(t, "puesto", None)
-                                    if pts_equipo is None:
-                                        pts_equipo = getattr(t, "pts", None) or getattr(t, "puntos", None) or getattr(t, "puntaje", None)
-                                    break
-                            except Exception:
-                                continue
-                    except Exception:
-                        pass
+                if getattr(temp, "tipo_rol", "") == "GRUPOS" and getattr(temp, "clasificacion_por_grupos", False):
+                    for letra, tabla_grupo in temp.calcular_tablas_por_grupo():
+                        pos, puntos = _posicion_en_tabla(tabla_grupo, equipo)
+                        if pos:
+                            pos_equipo, pts_equipo, grupo_equipo = pos, puntos, letra
+                            break
+                else:
+                    pos, puntos = _posicion_en_tabla(temp.calcular_tabla(), equipo)
+                    if pos:
+                        pos_equipo, pts_equipo = pos, puntos
             except Exception:
                 pos_equipo = None
                 pts_equipo = None
@@ -6246,6 +6233,7 @@ def equipo_ficha(request, pk):
         "pos_equipo": pos_equipo,
         "pts_tabla": pts_equipo,
         "posicion": pos_equipo,
+        "grupo_equipo": grupo_equipo,
         "puntos_tabla": pts_equipo,
     })
 

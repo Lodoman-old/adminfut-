@@ -257,8 +257,6 @@ PERMISO_POR_URL = {
     'reporte_cedula_arbitral_pdf': 'partido_cedula',
     'reporte_cedula_arbitral_xlsx': 'partido_cedula',
     'cedula_escanear': 'partido_cedula',
-    # El PDF del reporte de registro incluye la CURP completa: solo gestores.
-    'reporte_registro_pdf': 'gestion_jugadores',
     'horarios_fijos_report': 'reporte_horarios',
     # Configuración
     'configuracion_liga': 'gestion_configuracion',

@@ -2542,6 +2542,11 @@ class ConfiguracionLiga(models.Model):
 
     # Escaneo de cédula con IA
     cedula_vision_habilitado = models.BooleanField(default=False, verbose_name="Habilitar escaneo de cédula con IA")
+    cedula_vision_mostrar_boton = models.BooleanField(
+        default=True,
+        verbose_name="Mostrar botón de subir foto en la cédula",
+        help_text="Si se desactiva, el escaneo sigue disponible pero no se muestra el botón en la cédula.",
+    )
     cedula_vision_proveedor = models.CharField(max_length=20, choices=[
         ('groq', 'Groq'),
         ('openrouter', 'OpenRouter'),

@@ -3522,3 +3522,54 @@ class CedulaVisionTest(TestCase):
         self.assertIn("API Key", res["error"])
 
 
+class EquipoFichaPosicionTest(TestCase):
+    """La ficha pública debe mostrar la posición calculada de la tabla."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(nombre="FichaPos")
+        self.temp = Temporada.objects.create(
+            nombre="T", categoria=self.cat, fecha_inicio=date(2026, 1, 1), activa=True,
+        )
+        self.a = Equipo.objects.create(nombre="Equipo A", categoria=self.cat)
+        self.b = Equipo.objects.create(nombre="Equipo B", categoria=self.cat)
+        Partido.objects.create(
+            temporada=self.temp, equipo_local=self.a, equipo_visitante=self.b,
+            goles_local=2, goles_visitante=0, estado="FIN", fecha_hora=timezone.now(),
+        )
+
+    def test_posicion_calculada_para_cada_equipo(self):
+        r = Client().get(f"/equipo/{self.a.id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context["pos_equipo"], 1)
+        self.assertEqual(r.context["pts_tabla"], 3)
+        self.assertEqual(Client().get(f"/equipo/{self.b.id}/").context["pos_equipo"], 2)
+
+
+class ReporteRegistroCurpTest(TestCase):
+    """CURP: enmascarada para anónimos, completa para usuarios con sesión."""
+
+    def setUp(self):
+        cat = Categoria.objects.create(nombre="CurpCat")
+        self.eq = Equipo.objects.create(nombre="Equipo CURP", categoria=cat)
+        self.jugador = Jugador.objects.create(
+            equipo=self.eq, nombre="Juan", apellido="Perez",
+            curp="PEGJ110315HGTXXXA1", fecha_nacimiento=date(2011, 3, 15), activo=True,
+        )
+        self.url = f"/reportes/registro/?equipo={self.eq.id}"
+
+    def test_anonimo_ve_curp_enmascarada_y_boton_pdf(self):
+        html = Client().get(self.url).content.decode("utf-8")
+        self.assertIn("****2011**********", html)
+        self.assertNotIn("PEGJ110315HGTXXXA1", html)
+        self.assertIn("Exportar a PDF", html)
+
+    def test_logueado_ve_curp_completa(self):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.create_user(username="vercurp", password="x")
+        client = Client()
+        client.force_login(user)
+        html = client.get(self.url).content.decode("utf-8")
+        self.assertIn("PEGJ110315HGTXXXA1", html)
+
+
+

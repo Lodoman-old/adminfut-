@@ -392,6 +392,10 @@
             {{ form.cedula_vision_habilitado }}
             <label class="form-check-label" for="{{ form.cedula_vision_habilitado.id_for_label }}">Habilitar escaneo de cédula con IA</label>
           </div>
+          <div class="form-check form-switch mb-2">
+            {{ form.cedula_vision_mostrar_boton }}
+            <label class="form-check-label" for="{{ form.cedula_vision_mostrar_boton.id_for_label }}">Mostrar botón "Subir foto de cédula" en la cédula arbitral</label>
+          </div>
           <div class="row g-2 mb-2" style="max-width: 900px;">
             <div class="col-md-4">
               <label class="form-label">Proveedor</label>

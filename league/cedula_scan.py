@@ -206,6 +206,10 @@ def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
     import requests
 
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    gen = {"temperature": 0.1, "maxOutputTokens": 4096}
+    if modelo.startswith("gemini-2.5-flash"):
+        # Leer una cédula no requiere razonamiento; evita tokens de "thinking".
+        gen["thinkingConfig"] = {"thinkingBudget": 0}
     payload = {
         "contents": [{
             "parts": [
@@ -213,7 +217,7 @@ def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
                 {"inline_data": {"mime_type": mime, "data": img_b64}},
             ],
         }],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096},
+        "generationConfig": gen,
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
     if resp.status_code >= 400:

@@ -4,9 +4,9 @@
 <h3 class="d-flex justify-content-between align-items-center flex-wrap gap-2">
     <span><i class="bi bi-clipboard-data"></i> Cédula Arbitral</span>
     <span class="d-flex gap-2 flex-wrap">
-        {% if not es_invitado and config.cedula_vision_habilitado %}
+        {% if not es_invitado and config.cedula_vision_habilitado and config.cedula_vision_mostrar_boton %}
         <button type="button" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#escanearCedulaModal"><i class="bi bi-camera"></i> Subir foto de cédula</button>
-        {% elif not es_invitado %}
+        {% elif not es_invitado and not config.cedula_vision_habilitado %}
         <button type="button" class="btn btn-outline-info btn-sm" disabled title="Habilitar en Configuración > Publicidad"><i class="bi bi-camera"></i> Subir foto de cédula</button>
         {% endif %}
         <button type="button" class="btn btn-warning btn-sm text-dark fw-bold" onclick="confirmarGuardar()"><i class="bi bi-save"></i> Guardar</button>
@@ -225,7 +225,7 @@
         </div>
     </div>
 </div>
-{% if not es_invitado and config.cedula_vision_habilitado %}
+{% if not es_invitado and config.cedula_vision_habilitado and config.cedula_vision_mostrar_boton %}
 <!-- Escanear cédula con IA -->
 <div class="modal fade" id="escanearCedulaModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -238,6 +238,7 @@
                 <p class="text-muted small mb-2">
                     Toma la foto completa de la cédula, lo más recta y legible posible. La IA solo
                     <strong>prellena</strong> la información: revisa y corrige antes de guardar.
+                    La foto se reduce automáticamente antes de enviarse.
                 </p>
                 <input type="file" id="cedulaFotoInput" class="form-control" accept="image/*" capture="environment">
                 <div id="cedulaPreviewWrap" class="text-center mt-2" style="display:none">
@@ -400,12 +401,41 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Escanear cédula con foto
+let cedulaArchivo = null;
+
+function redimensionarCedula(file, maxLado, calidad) {
+    return new Promise(function(resolve){
+        try {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = function(){
+                try {
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    const w = Math.round(img.width * escala);
+                    const h = Math.round(img.height * escala);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function(blob){
+                        URL.revokeObjectURL(url);
+                        resolve(blob || file);
+                    }, 'image/jpeg', calidad);
+                } catch(e) { URL.revokeObjectURL(url); resolve(file); }
+            };
+            img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+            img.src = url;
+        } catch(e) { resolve(file); }
+    });
+}
+
 (function(){
     const input = document.getElementById('cedulaFotoInput');
     if(!input) return;
-    input.addEventListener('change', function(e){
+    input.addEventListener('change', async function(e){
         const file = e.target.files[0];
         if(!file) return;
+        // Reduce la foto a 1280 px y JPEG 82%: menos tokens, subida más rápida.
+        cedulaArchivo = await redimensionarCedula(file, 1280, 0.82);
         const reader = new FileReader();
         reader.onload = function(ev){
             const img = document.getElementById('cedulaPreview');
@@ -413,7 +443,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const wrap = document.getElementById('cedulaPreviewWrap');
             if(wrap) wrap.style.display = 'block';
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(cedulaArchivo);
         const msg = document.getElementById('cedulaScanMsg');
         const res = document.getElementById('cedulaScanResumen');
         if(msg) msg.classList.add('d-none');
@@ -423,7 +453,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function analizarCedula(){
     const input = document.getElementById('cedulaFotoInput');
-    const file = input.files[0];
+    const original = (input && input.files) ? input.files[0] : null;
+    const file = cedulaArchivo || original;
     if(!file){
         alert('Selecciona una foto de la cédula');
         return;
@@ -437,7 +468,7 @@ function analizarCedula(){
     res.classList.add('d-none');
     
     const formData = new FormData();
-    formData.append('imagen', file);
+    formData.append('imagen', file, file.name || 'cedula.jpg');
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
     fetch("{% url 'cedula_escanear' partido.id %}", {
