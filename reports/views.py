@@ -1589,8 +1589,32 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
                 logo_src = None
         x_text = x0 + (logo_liga + 8 if logo_src else 0)
         p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(x_text, y0, cfg_liga.nombre_liga[:60])
+
+        def _envolver(texto, tam, ancho):
+            palabras = texto.split()
+            lineas, actual = [], ""
+            for palabra in palabras:
+                prueba = (actual + " " + palabra).strip()
+                if not actual or p.stringWidth(prueba, "Helvetica-Bold", tam) <= ancho:
+                    actual = prueba
+                else:
+                    lineas.append(actual)
+                    actual = palabra
+            if actual:
+                lineas.append(actual)
+            return lineas
+
+        nombre_liga = (cfg_liga.nombre_liga or "").strip()
+        ancho_nombre = max(120, w - x0 - x_text - 130)
+        tam_nombre = 14
+        lineas_nombre = _envolver(nombre_liga, tam_nombre, ancho_nombre)
+        if len(lineas_nombre) > 2:
+            tam_nombre = 12
+            lineas_nombre = _envolver(nombre_liga, tam_nombre, ancho_nombre)
+        p.setFont("Helvetica-Bold", tam_nombre)
+        for i, linea in enumerate(lineas_nombre[:2]):
+            p.drawString(x_text, y0 - i * (tam_nombre + 1), linea)
+
         p.setFont("Helvetica-Bold", 12)
         p.drawRightString(w - x0, y0, "CEDULA ARBITRAL")
         if partido.jornada:
@@ -1737,9 +1761,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 42
-    if footer_y < 165:
-        footer_y = 165
+    footer_y = y_final - 90
+    if footer_y < 150:
+        footer_y = 150
     p.setFillColor(colors.black)
     p.setFont("Helvetica", 10)
     gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
@@ -1749,7 +1773,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 9)
-    firma_y = footer_y - 28
+    firma_y = footer_y - 45
+    if firma_y < 95:
+        firma_y = 95
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
