@@ -3652,20 +3652,32 @@ def tabla_tarjetas(request):
     if temp_id:
         jornadas = Jornada.objects.filter(temporada_id=temp_id).order_by("numero")
 
-    # Por defecto se muestra la última jornada capturada (la de la tarjeta más
-    # reciente) para que las rojas de jornadas pasadas no se queden en el top.
+    # Por defecto se muestra la última jornada capturada (la última con partidos
+    # finalizados) para que las rojas de jornadas pasadas no se queden en el top.
     ver_todas_jornadas = (jornada_id == "todas")
     jornada_sel = None
     if temp_id and not jornada_id:
-        ultima_tarjeta = (
-            Tarjeta.objects.filter(partido__temporada_id=temp_id)
-            .select_related("partido__jornada")
-            .order_by("-partido__fecha_hora", "-id")
+        from django.db.models import Max
+        ultima_jornada = (
+            Jornada.objects.filter(temporada_id=temp_id, partido__estado="FIN")
+            .annotate(ultima=Max("partido__fecha_hora"))
+            .order_by("-ultima")
             .first()
         )
-        if ultima_tarjeta and ultima_tarjeta.partido.jornada_id:
-            jornada_id = str(ultima_tarjeta.partido.jornada_id)
-            jornada_sel = ultima_tarjeta.partido.jornada
+        if ultima_jornada:
+            jornada_id = str(ultima_jornada.id)
+            jornada_sel = ultima_jornada
+        else:
+            # Sin partidos finalizados: al menos la jornada de la tarjeta más reciente.
+            ultima_tarjeta = (
+                Tarjeta.objects.filter(partido__temporada_id=temp_id)
+                .select_related("partido__jornada")
+                .order_by("-partido__fecha_hora", "-id")
+                .first()
+            )
+            if ultima_tarjeta and ultima_tarjeta.partido.jornada_id:
+                jornada_id = str(ultima_tarjeta.partido.jornada_id)
+                jornada_sel = ultima_tarjeta.partido.jornada
 
     amarillas = []
     rojas = []
