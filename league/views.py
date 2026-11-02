@@ -3659,8 +3659,8 @@ def tabla_tarjetas(request):
     if temp_id and not jornada_id:
         from django.db.models import Max
         ultima_jornada = (
-            Jornada.objects.filter(temporada_id=temp_id, partido__estado="FIN")
-            .annotate(ultima=Max("partido__fecha_hora"))
+            Jornada.objects.filter(temporada_id=temp_id, partidos__estado="FIN")
+            .annotate(ultima=Max("partidos__fecha_hora"))
             .order_by("-ultima")
             .first()
         )
