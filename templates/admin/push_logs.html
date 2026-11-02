@@ -59,6 +59,9 @@
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="descargas-tab" data-bs-toggle="tab" data-bs-target="#descargas" type="button">Descargas <span class="badge bg-info">{{ descargas_total }}</span></button>
         </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="trafico-tab" data-bs-toggle="tab" data-bs-target="#trafico" type="button">Tráfico {% if nivel_alerta == "alta" %}<span class="badge bg-danger">!</span>{% elif nivel_alerta == "media" %}<span class="badge bg-warning text-dark">!</span>{% endif %}</button>
+        </li>
       </ul>
 
       <div class="tab-content">
@@ -515,6 +518,116 @@
                 {% endfor %}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="trafico">
+          <p class="text-muted">Monitoreo de comportamiento automatizado (bots/scrapers) de las últimas 24 horas, combinando visitas públicas y peticiones bloqueadas por el sistema.</p>
+
+          {% if nivel_alerta == "alta" %}
+          <div class="alert alert-danger"><i class="bi bi-exclamation-octagon"></i> <strong>Alerta alta:</strong> hay señales de tráfico automatizado (muchas IPs con el mismo agente o bloqueos frecuentes). Revisa las tablas de abajo.</div>
+          {% elif nivel_alerta == "media" %}
+          <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> <strong>Alerta media:</strong> hay comportamiento inusual. Revisa los agentes e IPs.</div>
+          {% else %}
+          <div class="alert alert-success"><i class="bi bi-check-circle"></i> Sin señales claras de bots en las últimas 24 h.</div>
+          {% endif %}
+
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ trafico_total_24h }}</h4><small class="text-muted">Visitas 24 h</small></div></div>
+            <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ trafico_ips_24h }}</h4><small class="text-muted">IPs únicas</small></div></div>
+            <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ trafico_ratio }}</h4><small class="text-muted">Visitas por IP</small></div></div>
+            <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ bloqueos_total }}</h4><small class="text-muted">Bloqueos 24 h</small></div></div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-lg-7">
+              <div class="card p-3 mb-3">
+                <h6 class="text-primary"><i class="bi bi-people"></i> Agentes con más IPs distintas</h6>
+                <p class="small text-muted mb-2">Un mismo agente visto desde muchas IPs en 24 h sugiere un pool de proxies (bot). Se marca <span class="badge bg-danger">posible bot</span> desde 10 IPs.</p>
+                <div class="table-responsive">
+                  <table class="table table-sm table-striped" style="font-size:.78rem">
+                    <thead class="table-dark"><tr><th>Agente</th><th>IPs</th><th>Peticiones</th><th>Última</th><th></th></tr></thead>
+                    <tbody>
+                      {% for u in ua_clusters %}
+                      <tr>
+                        <td style="max-width:320px;word-break:break-word" title="{{ u.user_agent }}">{{ u.user_agent|truncatechars:90 }}</td>
+                        <td><strong>{{ u.ips }}</strong></td>
+                        <td>{{ u.reqs }}</td>
+                        <td>{{ u.ultima|date:"d/m H:i" }}</td>
+                        <td>{% if u.sospechoso %}<span class="badge bg-danger">posible bot</span>{% endif %}</td>
+                      </tr>
+                      {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin datos.</td></tr>{% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <small class="text-muted">IPs con 1-2 visitas en 24 h: <strong>{{ ips_pocas_24h }}</strong> (rotación de proxies).</small>
+              </div>
+
+              <div class="card p-3 mb-3">
+                <h6 class="text-primary"><i class="bi bi-box-arrow-in-right"></i> Página de login</h6>
+                <p class="mb-1">Accesos a <code>/accounts/login/</code> en 24 h: <strong>{{ login_24h }}</strong> desde <strong>{{ login_ips_24h }}</strong> IPs.</p>
+                <small class="text-muted">Cuenta solo GET (ver la página). Si aparecen POSTs sospechosos, revisa los logs del servidor.</small>
+              </div>
+            </div>
+
+            <div class="col-lg-5">
+              <div class="card p-3 mb-3">
+                <h6 class="text-danger"><i class="bi bi-shield-x"></i> Bloqueos por agente</h6>
+                <table class="table table-sm" style="font-size:.78rem">
+                  <thead class="table-dark"><tr><th>Agente</th><th>#</th></tr></thead>
+                  <tbody>
+                    {% for b in bloqueos_ua %}
+                    <tr><td title="{{ b.user_agent }}">{{ b.ua_corto|truncatechars:55 }}</td><td>{{ b.n }}</td></tr>
+                    {% empty %}<tr><td colspan="2" class="text-center text-muted">Sin bloqueos.</td></tr>{% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="card p-3 mb-3">
+                <h6 class="text-danger"><i class="bi bi-signpost-split"></i> Rutas bloqueadas</h6>
+                <table class="table table-sm" style="font-size:.78rem">
+                  <thead class="table-dark"><tr><th>Ruta</th><th>#</th></tr></thead>
+                  <tbody>
+                    {% for b in bloqueos_path %}
+                    <tr><td>{{ b.path|truncatechars:45 }}</td><td>{{ b.n }}</td></tr>
+                    {% empty %}<tr><td colspan="2" class="text-center text-muted">Sin bloqueos.</td></tr>{% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="card p-3">
+                <h6 class="text-primary"><i class="bi bi-hdd-network"></i> Top IPs (24 h)</h6>
+                <table class="table table-sm" style="font-size:.78rem">
+                  <thead class="table-dark"><tr><th>IP</th><th>Visitas</th></tr></thead>
+                  <tbody>
+                    {% for ip in top_ips_24h %}
+                    <tr><td>{{ ip.ip|default:"-" }}</td><td>{{ ip.n }}</td></tr>
+                    {% empty %}<tr><td colspan="2" class="text-center text-muted">Sin datos.</td></tr>{% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3 mt-3">
+            <h6 class="text-secondary"><i class="bi bi-clock-history"></i> Últimos bloqueos</h6>
+            <div class="table-responsive" style="max-height:35vh;overflow-y:auto">
+              <table class="table table-sm table-striped" style="font-size:.78rem">
+                <thead class="sticky-top table-dark"><tr><th>Fecha</th><th>Método</th><th>Ruta</th><th>Motivo</th><th>IP</th><th>Agente</th></tr></thead>
+                <tbody>
+                  {% for b in bloqueos_ultimos %}
+                  <tr>
+                    <td>{{ b.fecha|date:"d/m H:i:s" }}</td>
+                    <td>{{ b.metodo }}</td>
+                    <td>{{ b.path|truncatechars:40 }}</td>
+                    <td>{{ b.get_motivo_display }}</td>
+                    <td>{{ b.ip|default:"-" }}</td>
+                    <td title="{{ b.user_agent }}">{{ b.user_agent|truncatechars:40 }}</td>
+                  </tr>
+                  {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin bloqueos registrados.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

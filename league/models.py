@@ -2973,6 +2973,33 @@ class Descarga(models.Model):
         return f"{self.get_tipo_display()} ({self.fecha:%d/%m/%Y %H:%M})"
 
 
+class SolicitudBloqueada(models.Model):
+    """Petición rechazada por el bloqueo de scrapers/rutas (para monitoreo).
+
+    Se registra solo lo que el middleware bloquea (403 por UA o 404 por ruta
+    tipo WordPress), no todo el tráfico. Sirve para ver en /push-logs/ quién
+    está intentando entrar y con qué agente.
+    """
+    MOTIVOS = [
+        ("ua", "Agente bloqueado"),
+        ("ruta", "Ruta bloqueada"),
+    ]
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    user_agent = models.CharField(max_length=300, blank=True, default="", verbose_name="Agente")
+    path = models.CharField(max_length=300, verbose_name="Ruta")
+    metodo = models.CharField(max_length=10, default="GET", verbose_name="Método")
+    motivo = models.CharField(max_length=20, choices=MOTIVOS, default="ua", verbose_name="Motivo")
+
+    class Meta:
+        verbose_name = "Solicitud bloqueada"
+        verbose_name_plural = "Solicitudes bloqueadas"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.metodo} {self.path} ({self.get_motivo_display()})"
+
+
 class PronosticoQuiniela(models.Model):
     """Pronóstico de un usuario para un partido (quiniela por categoría).
 

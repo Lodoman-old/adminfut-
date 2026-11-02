@@ -1051,7 +1051,7 @@ def admin_push_logs(request):
     from .push import get_push_logs
     from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail
     from datetime import timedelta
-    from django.db.models import Count, Case, When, F, Value, CharField
+    from django.db.models import Count, Case, When, F, Value, CharField, Max
     from django.db.models.functions import TruncDate, Cast
     from django.utils import timezone
 
@@ -1228,6 +1228,51 @@ def admin_push_logs(request):
 
     recientes = Visita.objects.select_related("usuario").order_by("-fecha")[:60]
 
+    # --- Monitoreo de tráfico sospechoso / bots (últimas 24 h) ---
+    from .models import SolicitudBloqueada
+
+    desde_trafico = ahora - timedelta(hours=24)
+    visitas_24h = Visita.objects.filter(fecha__gte=desde_trafico)
+    trafico_total_24h = visitas_24h.count()
+    trafico_ips_24h = visitas_24h.values("ip").distinct().count()
+    trafico_ratio = round(trafico_total_24h / trafico_ips_24h, 2) if trafico_ips_24h else 0
+
+    ua_clusters = list(
+        visitas_24h.exclude(user_agent="")
+        .values("user_agent")
+        .annotate(ips=Count("ip", distinct=True), reqs=Count("id"), ultima=Max("fecha"))
+        .order_by("-ips", "-reqs")[:10]
+    )
+    for u in ua_clusters:
+        u["sospechoso"] = u["ips"] >= 10
+    alerta_bots = any(u["sospechoso"] for u in ua_clusters) or (
+        trafico_total_24h >= 30 and trafico_ratio < 1.3
+    )
+    ips_pocas_24h = visitas_24h.values("ip").annotate(n=Count("id")).filter(n__lte=2).count()
+
+    login_24h = visitas_24h.filter(path__startswith="/accounts/login").count()
+    login_ips_24h = visitas_24h.filter(path__startswith="/accounts/login").values("ip").distinct().count()
+
+    bloqueos_24h = SolicitudBloqueada.objects.filter(fecha__gte=desde_trafico)
+    bloqueos_total = bloqueos_24h.count()
+    bloqueos_ua = list(
+        bloqueos_24h.values("user_agent").annotate(n=Count("id")).order_by("-n")[:8]
+    )
+    for b in bloqueos_ua:
+        b["ua_corto"] = (b["user_agent"] or "(vacío)")[:90]
+    bloqueos_path = list(
+        bloqueos_24h.values("path").annotate(n=Count("id")).order_by("-n")[:8]
+    )
+    bloqueos_ultimos = list(bloqueos_24h.order_by("-fecha")[:15])
+    top_ips_24h = list(visitas_24h.values("ip").annotate(n=Count("id")).order_by("-n")[:10])
+
+    if bloqueos_total >= 20 or alerta_bots:
+        nivel_alerta = "alta"
+    elif bloqueos_total > 0 or (trafico_total_24h and trafico_ratio < 2):
+        nivel_alerta = "media"
+    else:
+        nivel_alerta = "baja"
+
     return render(request, "admin/push_logs.html", {
         "logs": logs,
         "tokens": tokens,
@@ -1269,6 +1314,20 @@ def admin_push_logs(request):
         "heat_total": heat_total,
         "mejor_dia": mejor_dia,
         "mejor_hora": mejor_hora,
+        "trafico_total_24h": trafico_total_24h,
+        "trafico_ips_24h": trafico_ips_24h,
+        "trafico_ratio": trafico_ratio,
+        "ua_clusters": ua_clusters,
+        "alerta_bots": alerta_bots,
+        "ips_pocas_24h": ips_pocas_24h,
+        "login_24h": login_24h,
+        "login_ips_24h": login_ips_24h,
+        "bloqueos_total": bloqueos_total,
+        "bloqueos_ua": bloqueos_ua,
+        "bloqueos_path": bloqueos_path,
+        "bloqueos_ultimos": bloqueos_ultimos,
+        "top_ips_24h": top_ips_24h,
+        "nivel_alerta": nivel_alerta,
     })
 
 

@@ -3678,6 +3678,10 @@ class BloqueoScrapersTest(TestCase):
         for ua in agentes:
             r = rf.get("/reportes/registro/", HTTP_USER_AGENT=ua)
             self.assertEqual(mw(r).status_code, 403, ua)
+        from league.models import SolicitudBloqueada
+        self.assertEqual(
+            SolicitudBloqueada.objects.filter(motivo="ua").count(), len(agentes)
+        )
 
     def test_permite_navegador_normal(self):
         mw, rf = self._mw()
@@ -3688,6 +3692,8 @@ class BloqueoScrapersTest(TestCase):
         mw, rf = self._mw()
         r = rf.get("/wp-admin/install.php?step=1", HTTP_USER_AGENT="Mozilla/5.0")
         self.assertEqual(mw(r).status_code, 404)
+        from league.models import SolicitudBloqueada
+        self.assertTrue(SolicitudBloqueada.objects.filter(motivo="ruta").exists())
 
 
 

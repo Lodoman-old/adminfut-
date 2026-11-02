@@ -64,10 +64,27 @@ class BloqueoScrapersMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    @staticmethod
+    def _registrar(request, motivo):
+        """Guarda el bloqueo para poder monitorearlo en /push-logs/."""
+        try:
+            from league.models import SolicitudBloqueada
+            ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
+            SolicitudBloqueada.objects.create(
+                ip=ip or None,
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:300],
+                path=request.path[:300],
+                metodo=request.method,
+                motivo=motivo,
+            )
+        except Exception:
+            pass
+
     def __call__(self, request):
         if request.path.startswith(self.RUTAS_EXENTAS):
             return self.get_response(request)
         if request.path.startswith(self.RUTAS_BLOQUEADAS):
+            self._registrar(request, 'ruta')
             return HttpResponse(
                 'Not found.',
                 status=404,
@@ -75,6 +92,7 @@ class BloqueoScrapersMiddleware:
             )
         ua = (request.META.get('HTTP_USER_AGENT') or '').strip().lower()
         if ua in self.UA_EXACTOS or self.UA_BLOQUEADOS.search(ua):
+            self._registrar(request, 'ua')
             return HttpResponse(
                 'Acceso no permitido.',
                 status=403,
