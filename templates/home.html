@@ -698,6 +698,7 @@ body {
     <div class="card mt-3">
       <div class="card-header bg-warning">
         <i class="bi bi-exclamation-triangle"></i> Tarjetas Amarillas
+        {% if ultima_jornada %}<small class="ms-2 fw-normal">{{ ultima_jornada.nombre }}</small>{% endif %}
         <a href="{% url 'tabla_tarjetas' %}?categoria={{ categoria_sel.id }}" class="btn btn-sm btn-light float-end">Ver todos</a>
       </div>
       <div class="card-body">
@@ -733,6 +734,7 @@ body {
     <div class="card mt-3">
       <div class="card-header bg-danger text-white">
         <i class="bi bi-x-circle"></i> Tarjetas Rojas
+        {% if ultima_jornada %}<small class="ms-2 fw-normal">{{ ultima_jornada.nombre }}</small>{% endif %}
       </div>
       <div class="card-body">
         {% if top_rojas %}

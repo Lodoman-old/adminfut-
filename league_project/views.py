@@ -122,6 +122,7 @@ def home(request):
         proximos = list(proximos_amistosos)
 
     # Resultados recientes de la categoría (TODOS los partidos de la última jornada con resultados)
+    ultima_jornada = None
     if categoria_sel and temp_activa:
         ultima_jornada = Jornada.objects.filter(
             temporada=temp_activa,
@@ -235,6 +236,10 @@ def home(request):
     if categoria_sel:
         amar_filter = amar_filter.filter(partido__temporada__categoria=categoria_sel)
         rojas_filter = rojas_filter.filter(partido__temporada__categoria=categoria_sel)
+    # El dashboard muestra la información de la última jornada capturada.
+    if ultima_jornada:
+        amar_filter = amar_filter.filter(partido__jornada=ultima_jornada)
+        rojas_filter = rojas_filter.filter(partido__jornada=ultima_jornada)
 
     top_amarillas = _con_urls(
         amar_filter
@@ -258,16 +263,24 @@ def home(request):
         .order_by("-total")[:5]
     )
 
-    # Castigados — jugadores con roja y suspension_jornadas > 0
-    cast_filter = Tarjeta.objects.filter(tipo="ROJA", suspension_jornadas__gt=0)
-    if categoria_sel:
-        cast_filter = cast_filter.filter(partido__temporada__categoria=categoria_sel)
-    castigados = (
-        cast_filter
-        .select_related("jugador", "equipo", "partido__jornada")
-        .order_by("-partido__fecha_hora")
-    )
-    castigados = list(castigados)
+    # Castigados — solo sanciones con partidos pendientes (se retiran al cumplirse).
+    from league.views import _suspensiones_temporada
+
+    castigados = []
+    temp_castigos = temp_activa
+    if temp_castigos is None and categoria_sel:
+        temp_castigos = (
+            Temporada.objects.filter(categoria=categoria_sel)
+            .order_by("-fecha_inicio", "-id")
+            .first()
+        )
+    if temp_castigos is not None:
+        for _jug_id, info in _suspensiones_temporada(temp_castigos).items():
+            if info.get("es_manual") or info.get("restantes", 0) <= 0:
+                continue
+            tarjeta = info["_tarjeta"]
+            tarjeta.restantes = info["restantes"]
+            castigados.append(tarjeta)
 
     # Suspensiones manuales activas de la categoría
     manual_qs = SuspensionJugador.objects.filter(activo=True).select_related("jugador", "equipo")
@@ -337,6 +350,7 @@ def home(request):
         "top_amarillas": top_amarillas,
         "top_rojas": top_rojas,
         "castigados": castigados,
+        "ultima_jornada": ultima_jornada,
         "categorias": categorias,
         "categoria_sel": categoria_sel,
         "finanzas_visible": finanzas_visible,
