@@ -62,6 +62,10 @@
 </style>
 {% endblock %}
 {% block content %}
+<div class="alert alert-secondary py-2 small mb-3">
+    <i class="bi bi-info-circle"></i> Solo se muestran sanciones con <strong>partidos pendientes por cumplir</strong>.
+    Cuando el jugador cumple su castigo desaparece de esta lista automáticamente.
+</div>
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
     <h3 class="mb-0"><i class="bi bi-lock text-danger"></i> Jugadores Castigados</h3>
     <div class="d-flex gap-1">

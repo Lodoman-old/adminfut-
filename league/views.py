@@ -3652,15 +3652,35 @@ def tabla_tarjetas(request):
     if temp_id:
         jornadas = Jornada.objects.filter(temporada_id=temp_id).order_by("numero")
 
+    # Por defecto se muestra la última jornada capturada (la de la tarjeta más
+    # reciente) para que las rojas de jornadas pasadas no se queden en el top.
+    ver_todas_jornadas = (jornada_id == "todas")
+    jornada_sel = None
+    if temp_id and not jornada_id:
+        ultima_tarjeta = (
+            Tarjeta.objects.filter(partido__temporada_id=temp_id)
+            .select_related("partido__jornada")
+            .order_by("-partido__fecha_hora", "-id")
+            .first()
+        )
+        if ultima_tarjeta and ultima_tarjeta.partido.jornada_id:
+            jornada_id = str(ultima_tarjeta.partido.jornada_id)
+            jornada_sel = ultima_tarjeta.partido.jornada
+
     amarillas = []
     rojas = []
 
     if temp_id:
         qs_amarillas = Tarjeta.objects.filter(partido__temporada_id=temp_id, tipo="AMARILLA")
         qs_rojas = Tarjeta.objects.filter(partido__temporada_id=temp_id, tipo="ROJA")
-        if jornada_id:
-            qs_amarillas = qs_amarillas.filter(partido__jornada_id=jornada_id)
-            qs_rojas = qs_rojas.filter(partido__jornada_id=jornada_id)
+        if jornada_id and not ver_todas_jornadas:
+            try:
+                jornada_filtro = int(jornada_id)
+            except (TypeError, ValueError):
+                jornada_filtro = None
+            if jornada_filtro:
+                qs_amarillas = qs_amarillas.filter(partido__jornada_id=jornada_filtro)
+                qs_rojas = qs_rojas.filter(partido__jornada_id=jornada_filtro)
         amarillas = list(
             qs_amarillas
             .values(
@@ -3693,7 +3713,9 @@ def tabla_tarjetas(request):
         "temporadas": temporadas,
         "temp_id": int(temp_id) if temp_id else None,
         "jornadas": jornadas,
-        "jornada_id": int(jornada_id) if jornada_id else None,
+        "jornada_id": int(jornada_id) if (jornada_id and not ver_todas_jornadas) else None,
+        "ver_todas_jornadas": ver_todas_jornadas,
+        "jornada_sel": jornada_sel,
     })
 
 

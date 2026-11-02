@@ -81,11 +81,18 @@
     </div>
     <div class="col-auto">
         <select name="jornada" class="form-select filter-select" onchange="this.form.submit()">
-            <option value="">Todas las jornadas</option>
+            <option value="todas" {% if ver_todas_jornadas %}selected{% endif %}>Toda la temporada (acumulado)</option>
             {% for j in jornadas %}<option value="{{ j.id }}" {% if jornada_id == j.id %}selected{% endif %}>{{ j.nombre }}</option>{% endfor %}
         </select>
     </div>
 </form>
+
+{% if jornada_sel %}
+<div class="alert alert-info py-2 small mb-3">
+    <i class="bi bi-calendar-check"></i> Mostrando la <strong>última jornada capturada</strong>: {{ jornada_sel.nombre }}.
+    Cambia a <strong>"Toda la temporada"</strong> si quieres ver el acumulado.
+</div>
+{% endif %}
 
 {% if temp_id %}
 <div class="row">

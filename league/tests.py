@@ -3609,6 +3609,53 @@ class ReporteRegistroCurpTest(TestCase):
         self.assertIn("PEGJ110315HGTXXXA1", html)
 
 
+class TarjetasUltimaJornadaTest(TestCase):
+    """La tabla de tarjetas muestra por defecto la última jornada capturada."""
+
+    def setUp(self):
+        from league.models import Tarjeta
+        self.cat = Categoria.objects.create(nombre="TarjetasCat", es_principal=True)
+        self.temp = Temporada.objects.create(
+            nombre="T", categoria=self.cat, fecha_inicio=date(2026, 1, 1),
+        )
+        self.eq = Equipo.objects.create(nombre="Equipo T", categoria=self.cat)
+        self.rival = Equipo.objects.create(nombre="Rival T", categoria=self.cat)
+        self.j1 = Jornada.objects.create(temporada=self.temp, numero=1, nombre="Jornada 1")
+        self.j2 = Jornada.objects.create(temporada=self.temp, numero=2, nombre="Jornada 2")
+        self.jug1 = Jugador.objects.create(equipo=self.eq, nombre="Uno", apellido="A")
+        self.jug2 = Jugador.objects.create(equipo=self.eq, nombre="Dos", apellido="B")
+        p1 = Partido.objects.create(
+            temporada=self.temp, jornada=self.j1, equipo_local=self.eq,
+            equipo_visitante=self.rival, fecha_hora=timezone.now(), estado="FIN",
+            goles_local=1, goles_visitante=0,
+        )
+        p2 = Partido.objects.create(
+            temporada=self.temp, jornada=self.j2, equipo_local=self.eq,
+            equipo_visitante=self.rival, fecha_hora=timezone.now() + timedelta(days=7),
+            estado="FIN", goles_local=2, goles_visitante=0,
+        )
+        Tarjeta.objects.create(partido=p1, jugador=self.jug1, equipo=self.eq, tipo="ROJA", minuto=10)
+        Tarjeta.objects.create(partido=p2, jugador=self.jug2, equipo=self.eq, tipo="ROJA", minuto=20)
+
+    def _client(self):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.create_user(username="tarjetas_u", password="x")
+        cliente = Client()
+        cliente.force_login(user)
+        return cliente
+
+    def test_por_defecto_muestra_ultima_jornada(self):
+        r = self._client().get("/tabla-tarjetas/")
+        self.assertEqual(r.status_code, 200)
+        ids = [x["jugador__id"] for x in r.context["rojas"]]
+        self.assertEqual(ids, [self.jug2.id])
+
+    def test_toda_la_temporada_muestra_todas(self):
+        r = self._client().get("/tabla-tarjetas/?jornada=todas")
+        ids = sorted(x["jugador__id"] for x in r.context["rojas"])
+        self.assertEqual(ids, sorted([self.jug1.id, self.jug2.id]))
+
+
 class BloqueoScrapersTest(TestCase):
     """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""
 
