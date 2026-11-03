@@ -12,6 +12,13 @@ _SEGOE_EMOJI = os.path.join(_FONTS_DIR, "seguiemj.ttf")
 _ARIAL = os.path.join(_FONTS_DIR, "arial.ttf")
 _ARIALB = os.path.join(_FONTS_DIR, "arialbd.ttf")
 
+# Fuentes incluidas en el proyecto (funcionan igual en Windows y en Linux).
+_BUNDLED_FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+_MONT_REGULAR = os.path.join(_BUNDLED_FONTS, "Montserrat-Regular.ttf")
+_MONT_BOLD = os.path.join(_BUNDLED_FONTS, "Montserrat-Bold.ttf")
+_MONT_XBOLD = os.path.join(_BUNDLED_FONTS, "Montserrat-ExtraBold.ttf")
+_NOTO_EMOJI = os.path.join(_BUNDLED_FONTS, "NotoEmoji-Regular.ttf")
+
 COLOR_GREEN = "#2d5a27"
 COLOR_GREEN_LIGHT = "#d4edda"
 COLOR_WHITE = "#ffffff"
@@ -27,20 +34,27 @@ MARGIN = 24
 
 
 def _font(size, bold=False):
-    try:
-        return ImageFont.truetype(_SEGOEB if bold else _SEGOE, size)
-    except (IOError, OSError):
+    rutas = [_MONT_XBOLD, _MONT_BOLD] if bold else [_MONT_REGULAR]
+    rutas += [
+        _SEGOEB if bold else _SEGOE,
+        _ARIALB if bold else _ARIAL,
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for ruta in rutas:
         try:
-            return ImageFont.truetype(_ARIALB if bold else _ARIAL, size)
+            return ImageFont.truetype(ruta, size)
         except (IOError, OSError):
-            return ImageFont.load_default()
+            continue
+    return ImageFont.load_default()
 
 
 def _font_emoji(size):
-    try:
-        return ImageFont.truetype(_SEGOE_EMOJI, size)
-    except (IOError, OSError):
-        return _font(size)
+    for ruta in (_NOTO_EMOJI, _SEGOE_EMOJI):
+        try:
+            return ImageFont.truetype(ruta, size)
+        except (IOError, OSError):
+            continue
+    return _font(size)
 
 
 def _tw(text, font):
@@ -201,27 +215,29 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
     """Tarjeta de resultados de una jornada con los logos de los equipos."""
     W = 1080
     M = 40
-    BG = (13, 31, 16)
-    CARD = (22, 48, 27)
-    GREEN = (63, 163, 77)
-    GOLD = (255, 215, 0)
+    BG = (255, 255, 255)
+    CARD = (245, 247, 245)
+    BORDER = (222, 228, 222)
+    GREEN = (34, 84, 40)
+    GOLD = (212, 175, 55)
+    DARK = (28, 32, 28)
+    GRAY = (110, 118, 110)
     WHITE = (255, 255, 255)
-    GRAY = (184, 196, 184)
 
     n = max(1, len(partidos))
     H = 200 + n * 130 + 70
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
-    f_title = _font(46, bold=True)
+    f_title = _font(52, bold=True)
     f_sub = _font(24)
-    f_team = _font(26, bold=True)
-    f_score = _font(38, bold=True)
+    f_team = _font(28, bold=True)
+    f_score = _font(40, bold=True)
     f_footer = _font(20)
 
-    draw.text((M, 30), "RESULTADOS", font=f_title, fill=GOLD)
-    draw.text((M, 88), f"{jornada_nombre} · {temporada_nombre}", font=f_sub, fill=GRAY)
-    draw.line((M, 135, W - M, 135), fill=GREEN, width=4)
+    draw.text((M, 28), "RESULTADOS", font=f_title, fill=GREEN)
+    draw.text((M, 96), f"{jornada_nombre} · {temporada_nombre}", font=f_sub, fill=GRAY)
+    draw.rectangle((M, 138, W - M, 144), fill=GOLD)
 
     def pegar_logo(equipo, x, y):
         logo_img = _cargar_logo(getattr(equipo, "logo", None))
@@ -233,11 +249,14 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
                 logo_img,
             )
         else:
-            draw.ellipse((x, y, x + 64, y + 64), fill=(42, 74, 48))
+            draw.ellipse((x, y, x + 64, y + 64), fill=(230, 235, 230))
 
     for i, p in enumerate(partidos):
         top = 170 + i * 130
-        draw.rounded_rectangle((M, top, W - M, top + 112), radius=16, fill=CARD)
+        draw.rounded_rectangle(
+            (M, top, W - M, top + 112),
+            radius=16, fill=CARD, outline=BORDER, width=2,
+        )
         pegar_logo(p.equipo_local, M + 20, top + 24)
         pegar_logo(p.equipo_visitante, W - M - 84, top + 24)
 
@@ -260,10 +279,11 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
 
         tw = draw.textlength(local, font=f_team)
         draw.text((cx - 80 - tw, top + 42), local, font=f_team,
-                  fill=WHITE if local_win else GRAY)
+                  fill=DARK if local_win else GRAY)
         draw.text((cx + 80, top + 42), visit, font=f_team,
-                  fill=WHITE if visit_win else GRAY)
+                  fill=DARK if visit_win else GRAY)
 
+    draw.line((M, H - 70, W - M, H - 70), fill=BORDER, width=2)
     draw.text((W // 2, H - 40), "juventinorosasliga.com", font=f_footer,
               fill=GRAY, anchor="mm")
 
