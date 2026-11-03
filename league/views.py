@@ -5500,6 +5500,48 @@ def _secciones_rol():
     return secciones, ahora_str
 
 
+@login_required
+def rol_resumen_ia(request):
+    """Texto de IA para acompañar la imagen del rol de próximos partidos."""
+    if not (request.user.is_staff or request.user.tiene_permiso("jornada_publicar")):
+        return JsonResponse({"ok": False, "error": "Sin permiso para generar el texto."}, status=403)
+
+    secciones, _ = _secciones_rol()
+    if not secciones:
+        return JsonResponse({"ok": False, "error": "No hay próximos partidos para generar el texto."})
+
+    lineas = []
+    for sec in secciones:
+        lineas.append(f"{sec['categoria']} - {sec['temporada']} - {sec['jornada']}")
+        for p in sec["partidos"]:
+            detalle = f"{p['local']} vs {p['visitante']} - {p['fecha']}"
+            if p.get("campo"):
+                detalle += f" - {p['campo']}"
+            if p.get("default_win"):
+                detalle += " (gana por default)"
+            lineas.append("  " + detalle)
+        if sec.get("descansan"):
+            lineas.append("  Descansan: " + ", ".join(sec["descansan"]))
+    datos = "\n".join(lineas)
+
+    prompt = (
+        "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
+        "Redacta un texto para invitar a la afición a los próximos partidos (rol de juegos) "
+        "que se publicará en Facebook y WhatsApp junto con una imagen.\n\n"
+        "Reglas:\n"
+        "- Español de México, tono emocionante y cercano; no inventes datos.\n"
+        "- Menciona las categorías y algunos partidos atractivos.\n"
+        "- Usa 2 o 3 emojis como máximo.\n"
+        "- Termina con 2 o 3 hashtags y el sitio juventinorosasliga.com.\n"
+        "- Longitud: entre 100 y 160 palabras. No repitas la lista completa de partidos.\n\n"
+        f"Datos del rol de la próxima jornada:\n{datos}"
+    )
+    texto, error = _generar_texto_gemini(prompt)
+    if error:
+        return JsonResponse({"ok": False, "error": error})
+    return JsonResponse({"ok": True, "texto": texto})
+
+
 def publicar_rol_facebook(request, temporada_id):
     # No se usa temporada_id: se publican los próximos partidos de todas las categorías.
     from .social_image import generar_imagen_rol_bonita

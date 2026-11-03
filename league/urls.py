@@ -107,6 +107,7 @@ urlpatterns = [
     path("publicar-rol-facebook/<int:temporada_id>/", views.publicar_rol_facebook, name="publicar_rol_facebook"),
     path("publicar-rol-facebook-todas/", views.publicar_rol_facebook_todas, name="publicar_rol_facebook_todas"),
     path("descargar-rol-facebook/", views.descargar_rol_facebook, name="descargar_rol_facebook"),
+    path("rol-todas/resumen-ia/", views.rol_resumen_ia, name="rol_resumen_ia"),
     path("publicar-posiciones-facebook/<int:temporada_id>/", views.publicar_posiciones_facebook, name="publicar_posiciones_facebook"),
     path("api/register-device/", api_views.register_device_token, name="register_device_token"),
     path("api/unregister-device/", api_views.unregister_device_token, name="unregister_device_token"),

@@ -699,7 +699,7 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     for sec in secciones:
         n = len(sec.get("partidos") or [])
         filas = (n + 1) // 2
-        H += 52 + filas * 100
+        H += 78 + filas * 104
         H += 42 if sec.get("descansan") else 14
     H += 80
 
@@ -709,11 +709,20 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     f_title = _font(46, bold=True)
     f_sub = _font(22)
     f_sec = _font(20, bold=True)
-    f_team = _font(18, bold=True)
+    f_team = _font(17, bold=True)
     f_fecha = _font(12, bold=True)
     f_vs = _font(20, bold=True)
     f_campo = _font(11)
     f_footer = _font(20)
+
+    ancho_cab = W - 2 * M - 28
+
+    def _font_ajustada(texto, max_w, size=20, minimo=13):
+        f = _font(size, bold=True)
+        while size > minimo and _tw(texto, f) > max_w:
+            size -= 1
+            f = _font(size, bold=True)
+        return f
 
     sec0 = secciones[0] if secciones else {}
     logo_liga = sec0.get("logo_liga")
@@ -736,67 +745,111 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         else:
             draw.ellipse((x, y, x + lado, y + lado), fill=(230, 235, 230))
 
+    max_w_local = COL_W // 2 - 56 - 18
+    max_w_visit = COL_W // 2 - 58 - 18
+
+    def _nombre_lineas(nombre, max_w):
+        """Parte un nombre largo en 2 líneas, reduciendo la fuente si hace falta."""
+        nombre = (nombre or "").upper().strip()
+        lineas = [nombre]
+        for size in (17, 16, 15, 14):
+            f = _font(size, bold=True)
+            palabras = nombre.split()
+            lineas, actual = [], ""
+            for palabra in palabras:
+                prueba = (actual + " " + palabra).strip()
+                if not actual or _tw(prueba, f) <= max_w:
+                    actual = prueba
+                else:
+                    lineas.append(actual)
+                    actual = palabra
+            if actual:
+                lineas.append(actual)
+            if len(lineas) <= 2 and all(_tw(l, f) <= max_w for l in lineas):
+                return lineas, f
+        f = _font(14, bold=True)
+        lineas = lineas[:2] or [nombre]
+        ultima = lineas[-1]
+        while ultima and _tw(ultima + "…", f) > max_w:
+            ultima = ultima[:-1]
+        lineas[-1] = (ultima.rstrip() + "…") if ultima else "…"
+        return lineas, f
+
+    def _dibujar_nombre(lineas, f, x, ancho, y, fill, derecha=False):
+        yy = y + 26 if len(lineas) > 1 else y + 38
+        for linea in lineas:
+            tx = x + ancho - _tw(linea, f) if derecha else x
+            draw.text((tx, yy), linea, font=f, fill=fill)
+            yy += 21
+
     def tarjeta(p, x, y):
-        draw.rounded_rectangle((x, y, x + COL_W, y + 94), radius=12,
+        draw.rounded_rectangle((x, y, x + COL_W, y + 98), radius=12,
                                fill=CARD, outline=BORDER, width=2)
         local = (p.get("local") or "").upper()
         visit = (p.get("visitante") or "").upper()
-        if len(local) > 13:
-            local = local[:12] + "…"
-        if len(visit) > 13:
-            visit = visit[:12] + "…"
-        pegar(p.get("logo_local"), x + 10, y + 27)
-        draw.text((x + 56, y + 36), local, font=f_team,
-                  fill=DARK if p.get("local_win") else GRAY)
-        pegar(p.get("logo_visitante"), x + COL_W - 50, y + 27)
-        tw = draw.textlength(visit, font=f_team)
-        draw.text((x + COL_W - 60 - tw, y + 36), visit, font=f_team,
-                  fill=DARK if p.get("vis_win") else GRAY)
 
+        # Fecha arriba, centrada (no quita espacio a los nombres)
         cx = x + COL_W // 2
         fecha = p.get("fecha") or "Pendiente"
         fw = draw.textlength(fecha, font=f_fecha)
-        draw.rounded_rectangle((cx - fw / 2 - 8, y + 8, cx + fw / 2 + 8, y + 26),
+        draw.rounded_rectangle((cx - fw / 2 - 8, y + 7, cx + fw / 2 + 8, y + 25),
                                radius=8, fill=GREEN_LIGHT)
-        draw.text((cx, y + 17), fecha, font=f_fecha, fill=GREEN, anchor="mm")
-        draw.text((cx, y + 47), "VS", font=f_vs, fill=GREEN, anchor="mm")
+        draw.text((cx, y + 16), fecha, font=f_fecha, fill=GREEN, anchor="mm")
+
+        # Logos y nombres (hasta 2 líneas)
+        pegar(p.get("logo_local"), x + 10, y + 30)
+        pegar(p.get("logo_visitante"), x + COL_W - 50, y + 30)
+
+        lineas_local, f_local = _nombre_lineas(local, max_w_local)
+        _dibujar_nombre(lineas_local, f_local, x + 56, max_w_local, y,
+                        DARK if p.get("local_win") else GRAY)
+        lineas_visit, f_visit = _nombre_lineas(visit, max_w_visit)
+        _dibujar_nombre(lineas_visit, f_visit, x + COL_W - 58 - max_w_visit,
+                        max_w_visit, y, DARK if p.get("vis_win") else GRAY,
+                        derecha=True)
+
+        draw.text((cx, y + 56), "VS", font=f_vs, fill=GREEN, anchor="mm")
+
         campo = p.get("campo") or ""
-        if campo:
-            if len(campo) > 16:
-                campo = campo[:15] + "…"
-            draw.text((cx, y + 70), campo, font=f_campo, fill=GRAY, anchor="mm")
+        if len(campo) > 26:
+            campo = campo[:25] + "…"
         if p.get("default_win"):
-            draw.text((cx, y + 84), "DFT", font=f_campo, fill=(194, 65, 12), anchor="mm")
+            campo = (campo + " · Gana por default").strip(" ·")
+        if campo:
+            draw.text((cx, y + 84), campo, font=f_campo, fill=GRAY, anchor="mm")
 
     y = 158
     for sec in secciones:
-        cab = f"{sec['categoria'].upper()}   ·   {sec['temporada'].upper()}   ·   {sec['jornada']}"
-        if len(cab) > 58:
-            cab = cab[:57] + "…"
-        draw.rounded_rectangle((M, y, W - M, y + 40), radius=10, fill=GREEN)
-        draw.text((M + 14, y + 8), cab, font=f_sec, fill=WHITE)
-        y += 50
+        cab1 = f"{sec['categoria'].upper()}  ·  {sec['temporada'].upper()}"
+        cab2 = (sec.get("jornada") or "").strip()
+        f_c1 = _font_ajustada(cab1, ancho_cab, 20)
+        f_c2 = _font_ajustada(cab2, ancho_cab, 18) if cab2 else None
+        draw.rounded_rectangle((M, y, W - M, y + 64), radius=10, fill=GREEN)
+        draw.text((M + 14, y + 9), cab1, font=f_c1, fill=WHITE)
+        if cab2:
+            draw.text((M + 14, y + 35), cab2, font=f_c2, fill=GREEN_LIGHT)
+        y += 74
 
         partidos = sec.get("partidos") or []
         for i in range(0, len(partidos), 2):
             tarjeta(partidos[i], M, y)
             if i + 1 < len(partidos):
                 tarjeta(partidos[i + 1], M + COL_W + GAP, y)
-            y += 100
+            y += 104
 
         descansan = sec.get("descansan") or []
         if descansan:
             draw.text((M, y + 4), "Descansan:", font=f_campo, fill=GRAY)
             xs = M + _tw("Descansan:", f_campo) + 10
             for eq in descansan:
-                nombre = eq[:18]
+                nombre = eq if len(eq) <= 18 else eq[:17] + "…"
                 tw = _tw(nombre, f_campo) + 16
                 if xs + tw > W - M:
                     break
                 draw.rounded_rectangle((xs, y, xs + tw, y + 22), radius=11, fill=(108, 117, 125))
                 draw.text((xs + 8, y + 4), nombre, font=f_campo, fill=WHITE)
                 xs += tw + 6
-            y += 40
+            y += 44
         else:
             y += 12
 
