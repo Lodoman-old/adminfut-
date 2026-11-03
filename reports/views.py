@@ -1773,7 +1773,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 90
+    footer_y = y_final - 30
     if footer_y < 150:
         footer_y = 150
     p.setFillColor(colors.black)
@@ -1785,9 +1785,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
     p.setFont("Helvetica", 11)
-    firma_y = footer_y - 70
-    if firma_y < 95:
-        firma_y = 95
+    firma_y = footer_y - 25
+    if firma_y < 130:
+        firma_y = 130
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
@@ -1811,14 +1811,16 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         d = Drawing(lado, lado, transform=[lado / ancho_qr, 0, 0, lado / alto_qr, 0, 0])
         d.add(qr)
         x_qr = w - left_x - lado
-        y_qr = footer_y - 4
+        y_qr = firma_y - 90
+        if y_qr < 40:
+            y_qr = 40
         # Zona blanca de silencio alrededor del QR (mejor lectura al imprimir).
         p.setFillColor(colors.white)
         p.rect(x_qr - 6, y_qr - 6, lado + 12, lado + 12, fill=1, stroke=0)
         renderPDF.draw(d, p, x_qr, y_qr)
         p.setFillColor(colors.black)
         p.setFont("Helvetica", 6.5)
-        p.drawCentredString(x_qr + lado / 2, y_qr - 12, "Cédula digital")
+        p.drawCentredString(x_qr + lado / 2, y_qr + lado + 4, "Cédula digital")
     except Exception:
         pass
 
