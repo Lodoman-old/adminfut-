@@ -1607,8 +1607,8 @@ def compartir_jornada(request, jornada_id):
         texto = f"Resultados de {jornada.nombre}" + (f" - {temporada}" if temporada else "")
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = _url_absoluta(request, reverse("compartir_jornada_miniatura", args=[jornada_id]))
-    imagen_grande = _url_absoluta(request, reverse("compartir_jornada_imagen", args=[jornada_id]))
+    imagen_url = _url_absoluta(request, reverse("s_jornada_miniatura", args=[jornada_id]))
+    imagen_grande = _url_absoluta(request, reverse("s_jornada_imagen", args=[jornada_id]))
     url_publica = _url_absoluta(request, request.get_full_path())
     return render(request, "league/compartir.html", {
         "titulo": f"{jornada.nombre} · {nombre_liga}",
@@ -1646,9 +1646,10 @@ def compartir_jornada_imagen(request, jornada_id):
 def compartir_jornada_miniatura(request, jornada_id):
     """Miniatura JPEG 1200x630 para WhatsApp/Facebook (menos de 300 KB)."""
     from django.core.cache import cache
-    from .social_image import generar_miniatura_og
+    from .models import ConfiguracionLiga
+    from .social_image import _cargar_logo, generar_miniatura_og
 
-    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    jornada = get_object_or_404(Jornada.objects.select_related("temporada"), pk=jornada_id)
     key_img = f"share_img_jornada_{jornada_id}"
     key_thumb = f"share_thumb_jornada_{jornada_id}"
     data = cache.get(key_thumb)
@@ -1659,7 +1660,12 @@ def compartir_jornada_miniatura(request, jornada_id):
             if not png:
                 raise Http404()
             cache.set(key_img, png, 600)
-        data = generar_miniatura_og(png)
+        cfg = ConfiguracionLiga.obtener()
+        logo = _cargar_logo(cfg.logo) if cfg else None
+        subtitulo = jornada.nombre
+        if jornada.temporada_id and jornada.temporada.nombre:
+            subtitulo += f" · {jornada.temporada.nombre}"
+        data = generar_miniatura_og(png, "RESULTADOS", subtitulo, logo)
         cache.set(key_thumb, data, 600)
     response = HttpResponse(data, content_type="image/jpeg")
     response["Cache-Control"] = "public, max-age=600"
@@ -5734,8 +5740,8 @@ def compartir_rol(request):
     texto = cache.get("share_texto_rol") or TEXTO_ROL_DEFAULT
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = _url_absoluta(request, reverse("compartir_rol_miniatura"))
-    imagen_grande = _url_absoluta(request, reverse("compartir_rol_imagen"))
+    imagen_url = _url_absoluta(request, reverse("s_rol_miniatura"))
+    imagen_grande = _url_absoluta(request, reverse("s_rol_imagen"))
     url_publica = _url_absoluta(request, request.get_full_path())
     return render(request, "league/compartir.html", {
         "titulo": f"Próximos partidos · {nombre_liga}",
@@ -5774,7 +5780,8 @@ def compartir_rol_imagen(request):
 def compartir_rol_miniatura(request):
     """Miniatura JPEG 1200x630 del rol para WhatsApp/Facebook."""
     from django.core.cache import cache
-    from .social_image import generar_imagen_rol_bonita, generar_miniatura_og
+    from .models import ConfiguracionLiga
+    from .social_image import _cargar_logo, generar_imagen_rol_bonita, generar_miniatura_og
 
     key_img = "share_img_rol"
     key_thumb = "share_thumb_rol"
@@ -5787,7 +5794,9 @@ def compartir_rol_miniatura(request):
                 raise Http404()
             png = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
             cache.set(key_img, png, 600)
-        data = generar_miniatura_og(png)
+        cfg = ConfiguracionLiga.obtener()
+        logo = _cargar_logo(cfg.logo) if cfg else None
+        data = generar_miniatura_og(png, "PRÓXIMOS PARTIDOS", "Todas las categorías", logo)
         cache.set(key_thumb, data, 600)
     response = HttpResponse(data, content_type="image/jpeg")
     response["Cache-Control"] = "public, max-age=600"

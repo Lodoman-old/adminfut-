@@ -323,7 +323,7 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
     });
 
     document.getElementById('resumenIaCopiar').addEventListener('click', function(){
-        window.adminfutCopiar(txt.value + '\n\n' + window.location.origin + '/compartir/jornada/' + jornadaId + '/');
+        window.adminfutCopiar(txt.value + '\n\n' + window.location.origin + '/s/jornada/' + jornadaId + '/');
         mostrarOk('Texto y enlace copiados.');
     });
 
@@ -335,7 +335,7 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
                 mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
                 return;
             }
-            var urlCompartir = window.location.origin + '/compartir/jornada/' + jornadaId + '/?v=' + Date.now();
+            var urlCompartir = window.location.origin + '/s/jornada/' + jornadaId + '/?v=' + Date.now();
             window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
             window.adminfutCompartirEnlace(urlCompartir, texto, function(){
                 window.adminfutCopiar(texto + '\n\n' + urlCompartir);
@@ -352,7 +352,7 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
     var textoDefault = '📋 Próximos partidos · Todas las categorías\n#FutbolLiga · juventinorosasliga.com';
     var urlIa = "{% url 'rol_resumen_ia' %}";
     var urlGuardar = "{% url 'guardar_texto_rol' %}";
-    var urlCompartir = window.location.origin + "{% url 'compartir_rol' %}";
+    var urlCompartir = window.location.origin + "{% url 's_rol' %}";
     var modalRol = document.getElementById('rolTodasModal');
     var txtRol = document.getElementById('rolIaTexto');
     var spinner = document.getElementById('rolIaSpinner');

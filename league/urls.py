@@ -62,6 +62,14 @@ urlpatterns = [
     path("compartir/rol/", views.compartir_rol, name="compartir_rol"),
     path("compartir/rol/imagen.png", views.compartir_rol_imagen, name="compartir_rol_imagen"),
     path("compartir/rol/miniatura.jpg", views.compartir_rol_miniatura, name="compartir_rol_miniatura"),
+
+    # Enlaces cortos para compartir (URL nueva para evitar cachés viejas)
+    path("s/jornada/<int:jornada_id>/", views.compartir_jornada, name="s_jornada"),
+    path("s/jornada/<int:jornada_id>/imagen.png", views.compartir_jornada_imagen, name="s_jornada_imagen"),
+    path("s/jornada/<int:jornada_id>/miniatura.jpg", views.compartir_jornada_miniatura, name="s_jornada_miniatura"),
+    path("s/rol/", views.compartir_rol, name="s_rol"),
+    path("s/rol/imagen.png", views.compartir_rol_imagen, name="s_rol_imagen"),
+    path("s/rol/miniatura.jpg", views.compartir_rol_miniatura, name="s_rol_miniatura"),
     path("rol-todas/guardar-texto/", views.guardar_texto_rol, name="guardar_texto_rol"),
 
     path("periodo-altas/", views.PeriodoAltasListView.as_view(), name="periodoaltas_list"),

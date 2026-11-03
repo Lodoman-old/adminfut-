@@ -1031,27 +1031,67 @@ def _render_and_save(ops, height, bg_color):
     return buf
 
 
-def generar_miniatura_og(png_bytes, ancho=1200, alto=630, max_bytes=290_000):
-    """Miniatura apaisada (JPEG) para la vista previa de WhatsApp/Facebook.
+def generar_miniatura_og(png_bytes, titulo="PRÓXIMOS PARTIDOS", subtitulo="", logo=None, max_bytes=290_000):
+    """Miniatura apaisada (JPEG 1200x630) para la vista previa de WhatsApp/Facebook.
 
-    Toma la parte superior de la imagen (título + primeros partidos) y la
-    recorta a 1200x630, bajando la calidad hasta quedar por debajo del
-    límite de ~300 KB que exige WhatsApp para mostrar la miniatura.
+    Lleva una franja verde con el título grande (legible en tamaño pequeño)
+    y debajo la parte de la imagen con los primeros partidos.
     """
+    W, H = 1200, 630
+    BANDA = 170
+    VERDE = (34, 84, 40)
+    VERDE_CLARO = (200, 222, 200)
+    BLANCO = (255, 255, 255)
+    ORO = (212, 175, 55)
+
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
-    w, h = img.size
-    if not w or not h:
+    if not img.width or not img.height:
         raise ValueError("Imagen vacía")
-    escala = max(ancho / w, alto / h)
-    nueva = img.resize((max(1, int(w * escala + 0.5)), max(1, int(h * escala + 0.5))), Image.LANCZOS)
-    izq = max(0, (nueva.width - ancho) // 2)
-    arriba = 0 if nueva.height > alto * 2 else max(0, (nueva.height - alto) // 2)
-    recorte = nueva.crop((izq, arriba, izq + ancho, arriba + alto))
+
+    canvas = Image.new("RGB", (W, H), BLANCO)
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, 0, W, BANDA), fill=VERDE)
+    draw.rectangle((0, BANDA, W, BANDA + 6), fill=ORO)
+
+    x_texto = 40
+    if logo:
+        try:
+            lg = logo.copy().convert("RGBA")
+            lg.thumbnail((96, 96), Image.LANCZOS)
+            canvas.paste(lg, (40 + (96 - lg.width) // 2, 34 + (96 - lg.height) // 2), lg)
+            x_texto = 156
+        except Exception:
+            logo = None
+
+    f_titulo = _font(54, bold=True)
+    while _tw(titulo, f_titulo) > W - x_texto - 40 and f_titulo.size > 30:
+        f_titulo = _font(f_titulo.size - 2, bold=True)
+    draw.text((x_texto, 34), titulo.upper(), font=f_titulo, fill=BLANCO)
+
+    if subtitulo:
+        f_sub = _font(25, bold=True)
+        while _tw(subtitulo, f_sub) > W - x_texto - 40 and f_sub.size > 14:
+            f_sub = _font(f_sub.size - 1, bold=True)
+        draw.text((x_texto, 108), subtitulo, font=f_sub, fill=VERDE_CLARO)
+
+    # Parte de la imagen con los primeros partidos (debajo del encabezado propio)
+    escala = W / img.width
+    grande = img.resize((W, max(1, int(img.height * escala))), Image.LANCZOS)
+    top = min(int(150 * escala), max(0, grande.height - (H - BANDA)))
+    recorte = grande.crop((0, top, W, top + (H - BANDA)))
+    canvas.paste(recorte, (0, BANDA))
+
+    # Pie con el dominio
+    f_pie = _font(20, bold=True)
+    texto_pie = "juventinorosasliga.com"
+    ancho_pie = _tw(texto_pie, f_pie) + 28
+    draw.rectangle((W - ancho_pie - 20, H - 44, W - 20, H - 10), fill=BLANCO)
+    draw.text((W - ancho_pie - 6, H - 38), texto_pie, font=f_pie, fill=VERDE)
 
     calidad = 82
     while True:
         buf = io.BytesIO()
-        recorte.save(buf, format="JPEG", quality=calidad, optimize=True, progressive=False)
+        canvas.save(buf, format="JPEG", quality=calidad, optimize=True, progressive=False)
         if buf.tell() <= max_bytes or calidad <= 50:
             break
         calidad -= 8
