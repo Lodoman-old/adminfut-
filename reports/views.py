@@ -1773,9 +1773,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 25
-    if footer_y < 150:
-        footer_y = 150
+    footer_y = y_final - 45
+    if footer_y < 120:
+        footer_y = 120
     p.setFillColor(colors.black)
     p.setFont("Helvetica", 12)
     gol_local = str(partido.goles_local) if partido.estado == "FIN" else "___________________"
@@ -1786,9 +1786,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     # QR entre los goles y las firmas (sin encimarse con la tabla).
     lado = 72
     x_qr = w - left_x - lado
-    y_qr = footer_y - (lado + 10)
-    if y_qr < 60:
-        y_qr = 60
+    y_qr = y_final - 82
+    if y_qr < 75:
+        y_qr = 75
     try:
         from reportlab.graphics import renderPDF
         from reportlab.graphics.barcode.qr import QrCodeWidget
@@ -1816,9 +1816,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     # Firmas debajo del QR.
     p.setFillColor(colors.black)
     p.setFont("Helvetica", 11)
-    firma_y = y_qr - 22
-    if firma_y < 40:
-        firma_y = 40
+    firma_y = y_qr - 20
+    if firma_y < 60:
+        firma_y = 60
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
