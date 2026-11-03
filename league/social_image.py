@@ -680,9 +680,11 @@ def generar_imagen_rol_dashboard(secciones, ahora_str):
 
 
 def generar_imagen_rol_bonita(secciones, ahora_str):
-    """Rol de próximos partidos con el mismo estilo de la tarjeta de resultados."""
+    """Rol de próximos partidos (2 columnas) con logos, estilo de resultados."""
     W = 1080
     M = 40
+    GAP = 18
+    COL_W = (W - 2 * M - GAP) // 2
     BG = (255, 255, 255)
     CARD = (245, 247, 245)
     BORDER = (222, 228, 222)
@@ -693,10 +695,12 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     GRAY = (110, 118, 110)
     WHITE = (255, 255, 255)
 
-    H = 200
+    H = 190
     for sec in secciones:
-        H += 56 + len(sec.get("partidos") or []) * 106
-        H += 44 if sec.get("descansan") else 14
+        n = len(sec.get("partidos") or [])
+        filas = (n + 1) // 2
+        H += 52 + filas * 100
+        H += 42 if sec.get("descansan") else 14
     H += 80
 
     img = Image.new("RGB", (W, H), BG)
@@ -704,11 +708,11 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
 
     f_title = _font(46, bold=True)
     f_sub = _font(22)
-    f_sec = _font(22, bold=True)
-    f_team = _font(24, bold=True)
-    f_fecha = _font(15, bold=True)
-    f_vs = _font(26, bold=True)
-    f_campo = _font(14)
+    f_sec = _font(20, bold=True)
+    f_team = _font(18, bold=True)
+    f_fecha = _font(12, bold=True)
+    f_vs = _font(20, bold=True)
+    f_campo = _font(11)
     f_footer = _font(20)
 
     sec0 = secciones[0] if secciones else {}
@@ -717,75 +721,80 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     if logo_liga:
         ll = logo_liga.copy()
         ll.thumbnail((64, 64), Image.LANCZOS)
-        img.paste(ll, (M, 28), ll)
+        img.paste(ll, (M, 26), ll)
         tx = M + 80
-    draw.text((tx, 28), "PRÓXIMOS PARTIDOS", font=f_title, fill=GREEN)
+    draw.text((tx, 26), "PRÓXIMOS PARTIDOS", font=f_title, fill=GREEN)
     nombre_liga = (sec0.get("nombre_liga") or "").upper() or "MI LIGA"
-    draw.text((tx, 86), f"{nombre_liga} · Todas las categorías", font=f_sub, fill=GRAY)
-    draw.rectangle((M, 132, W - M, 138), fill=GOLD)
+    draw.text((tx, 84), f"{nombre_liga} · Todas las categorías", font=f_sub, fill=GRAY)
+    draw.rectangle((M, 130, W - M, 136), fill=GOLD)
 
-    def pegar(logo, x, y):
+    def pegar(logo, x, y, lado=40):
         if logo:
             l = logo.copy()
-            l.thumbnail((52, 52), Image.LANCZOS)
-            img.paste(l, (x + (52 - l.width) // 2, y + (52 - l.height) // 2), l)
+            l.thumbnail((lado, lado), Image.LANCZOS)
+            img.paste(l, (x + (lado - l.width) // 2, y + (lado - l.height) // 2), l)
         else:
-            draw.ellipse((x, y, x + 52, y + 52), fill=(230, 235, 230))
+            draw.ellipse((x, y, x + lado, y + lado), fill=(230, 235, 230))
 
-    y = 160
+    def tarjeta(p, x, y):
+        draw.rounded_rectangle((x, y, x + COL_W, y + 94), radius=12,
+                               fill=CARD, outline=BORDER, width=2)
+        local = (p.get("local") or "").upper()
+        visit = (p.get("visitante") or "").upper()
+        if len(local) > 13:
+            local = local[:12] + "…"
+        if len(visit) > 13:
+            visit = visit[:12] + "…"
+        pegar(p.get("logo_local"), x + 10, y + 27)
+        draw.text((x + 56, y + 36), local, font=f_team,
+                  fill=DARK if p.get("local_win") else GRAY)
+        pegar(p.get("logo_visitante"), x + COL_W - 50, y + 27)
+        tw = draw.textlength(visit, font=f_team)
+        draw.text((x + COL_W - 60 - tw, y + 36), visit, font=f_team,
+                  fill=DARK if p.get("vis_win") else GRAY)
+
+        cx = x + COL_W // 2
+        fecha = p.get("fecha") or "Pendiente"
+        fw = draw.textlength(fecha, font=f_fecha)
+        draw.rounded_rectangle((cx - fw / 2 - 8, y + 8, cx + fw / 2 + 8, y + 26),
+                               radius=8, fill=GREEN_LIGHT)
+        draw.text((cx, y + 17), fecha, font=f_fecha, fill=GREEN, anchor="mm")
+        draw.text((cx, y + 47), "VS", font=f_vs, fill=GREEN, anchor="mm")
+        campo = p.get("campo") or ""
+        if campo:
+            if len(campo) > 16:
+                campo = campo[:15] + "…"
+            draw.text((cx, y + 70), campo, font=f_campo, fill=GRAY, anchor="mm")
+        if p.get("default_win"):
+            draw.text((cx, y + 84), "DFT", font=f_campo, fill=(194, 65, 12), anchor="mm")
+
+    y = 158
     for sec in secciones:
         cab = f"{sec['categoria'].upper()}   ·   {sec['temporada'].upper()}   ·   {sec['jornada']}"
-        draw.rounded_rectangle((M, y, W - M, y + 42), radius=10, fill=GREEN)
-        draw.text((M + 16, y + 9), cab, font=f_sec, fill=WHITE)
-        y += 52
+        if len(cab) > 58:
+            cab = cab[:57] + "…"
+        draw.rounded_rectangle((M, y, W - M, y + 40), radius=10, fill=GREEN)
+        draw.text((M + 14, y + 8), cab, font=f_sec, fill=WHITE)
+        y += 50
 
-        for p in sec.get("partidos") or []:
-            draw.rounded_rectangle((M, y, W - M, y + 96), radius=14,
-                                   fill=CARD, outline=BORDER, width=2)
-            local = (p.get("local") or "").upper()
-            visit = (p.get("visitante") or "").upper()
-            if len(local) > 18:
-                local = local[:17] + "…"
-            if len(visit) > 18:
-                visit = visit[:17] + "…"
-
-            pegar(p.get("logo_local"), M + 16, y + 22)
-            draw.text((M + 80, y + 34), local, font=f_team,
-                      fill=DARK if p.get("local_win") else GRAY)
-
-            logo_vis = p.get("logo_visitante")
-            pegar(logo_vis, W - M - 68, y + 22)
-            tw = draw.textlength(visit, font=f_team)
-            draw.text((W - M - 88 - tw, y + 34), visit, font=f_team,
-                      fill=DARK if p.get("vis_win") else GRAY)
-
-            cx = W // 2
-            fecha = p.get("fecha") or "Pendiente"
-            fw = draw.textlength(fecha, font=f_fecha)
-            draw.rounded_rectangle((cx - fw / 2 - 12, y + 10, cx + fw / 2 + 12, y + 32),
-                                   radius=10, fill=GREEN_LIGHT)
-            draw.text((cx, y + 21), fecha, font=f_fecha, fill=GREEN, anchor="mm")
-            draw.text((cx, y + 48), "VS", font=f_vs, fill=GREEN, anchor="mm")
-            campo = p.get("campo") or ""
-            if campo:
-                if len(campo) > 24:
-                    campo = campo[:23] + "…"
-                draw.text((cx, y + 72), campo, font=f_campo, fill=GRAY, anchor="mm")
-            if p.get("default_win"):
-                draw.text((cx, y + 86), "Gana por default", font=f_campo, fill=(194, 65, 12), anchor="mm")
-            y += 102
+        partidos = sec.get("partidos") or []
+        for i in range(0, len(partidos), 2):
+            tarjeta(partidos[i], M, y)
+            if i + 1 < len(partidos):
+                tarjeta(partidos[i + 1], M + COL_W + GAP, y)
+            y += 100
 
         descansan = sec.get("descansan") or []
         if descansan:
             draw.text((M, y + 4), "Descansan:", font=f_campo, fill=GRAY)
-            xs = M + _tw("Descansan:", f_campo) + 12
+            xs = M + _tw("Descansan:", f_campo) + 10
             for eq in descansan:
-                nombre = eq[:20]
-                tw = _tw(nombre, f_campo) + 18
+                nombre = eq[:18]
+                tw = _tw(nombre, f_campo) + 16
                 if xs + tw > W - M:
                     break
-                draw.rounded_rectangle((xs, y, xs + tw, y + 24), radius=12, fill=(108, 117, 125))
-                draw.text((xs + 9, y + 4), nombre, font=f_campo, fill=WHITE)
+                draw.rounded_rectangle((xs, y, xs + tw, y + 22), radius=11, fill=(108, 117, 125))
+                draw.text((xs + 8, y + 4), nombre, font=f_campo, fill=WHITE)
                 xs += tw + 6
             y += 40
         else:
@@ -803,8 +812,6 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     img.save(buf, format="PNG", optimize=True, compress_level=9)
     buf.seek(0)
     return buf
-
-
 def generar_imagen_campeon(temporada_nombre, equipo_nombre, logo_path, ahora_str, categoria_nombre=""):
     """Imagen de celebracion del campeon con escudo y estilo dorado."""
     ops = []
