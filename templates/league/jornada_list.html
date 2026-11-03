@@ -176,14 +176,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div id="rolIaError" class="alert alert-warning small d-none text-start mt-3 mb-0"></div>
                 <textarea id="rolIaTexto" class="form-control d-none mt-3" rows="8" placeholder="Aquí aparecerá el texto para compartir..."></textarea>
-                <small id="rolIaHint" class="text-muted d-none d-block mt-2 text-start">Puedes editar el texto. Al compartir se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
+                <small id="rolIaHint" class="text-muted d-none d-block mt-2 text-start">Puedes editar el texto. Usa <b>WhatsApp</b> o <b>Facebook</b>: se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
             </div>
-            <div class="modal-footer justify-content-center">
+            <div class="modal-footer justify-content-center flex-wrap">
                 <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-outline-success">
                     <i class="bi bi-download"></i> Descargar imagen
                 </a>
                 <button type="button" class="btn btn-outline-dark" id="copiarTextoRol"><i class="bi bi-clipboard"></i> Copiar texto</button>
-                <button type="button" class="btn btn-success" id="compartirRol"><i class="bi bi-share-fill"></i> Compartir</button>
+                <button type="button" class="btn btn-outline-primary" id="compartirRol"><i class="bi bi-share-fill"></i> Compartir…</button>
+                <button type="button" class="btn btn-success" id="compartirRolWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
+                <button type="button" class="btn btn-primary" id="compartirRolFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -206,12 +208,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div id="resumenIaError" class="alert alert-danger small d-none"></div>
                 <img id="resumenIaImagen" class="img-fluid rounded border mb-3 d-none" alt="Resumen de la jornada">
                 <textarea id="resumenIaTexto" class="form-control" rows="9" placeholder="Aquí aparecerá el resumen..."></textarea>
-                <small class="text-muted">Revisa y edita el texto. Al compartir se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
+                <small class="text-muted">Revisa y edita el texto. Usa <b>WhatsApp</b> o <b>Facebook</b> para compartir: se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer flex-wrap">
                 <a class="btn btn-outline-success d-none" id="resumenIaDescargar" download="resumen-jornada.png" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
                 <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
-                <button type="button" class="btn btn-success" id="resumenIaCompartir"><i class="bi bi-share-fill"></i> Compartir</button>
+                <button type="button" class="btn btn-outline-primary" id="resumenIaCompartir"><i class="bi bi-share-fill"></i> Compartir…</button>
+                <button type="button" class="btn btn-success" id="resumenIaWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
+                <button type="button" class="btn btn-primary" id="resumenIaFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -259,6 +263,21 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
         return;
     }
     onFallback();
+};
+
+// Abre WhatsApp con el mensaje ya escrito (funciona también dentro de la APK).
+window.adminfutWhatsApp = function(url, texto){
+    var mensaje = (texto ? texto + '\n\n' : '') + url;
+    var enlace = 'https://wa.me/?text=' + encodeURIComponent(mensaje);
+    var w = window.open(enlace, '_blank');
+    if(!w){ window.location.href = enlace; }
+};
+
+// Abre el diálogo de compartir de Facebook con la vista previa del enlace.
+window.adminfutFacebook = function(url){
+    var enlace = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+    var w = window.open(enlace, '_blank');
+    if(!w){ window.location.href = enlace; }
 };
 
 </script>
@@ -343,6 +362,36 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
             }, function(){
                 mostrarOk('Enlace compartido. WhatsApp y Facebook mostrarán la imagen y el texto.');
             });
+        });
+    }
+
+    // Botones directos: abren WhatsApp/Facebook aunque la app no soporte compartir.
+    var btnWa = document.getElementById('resumenIaWa');
+    var btnFb = document.getElementById('resumenIaFb');
+    if(btnWa){
+        btnWa.addEventListener('click', function(){
+            var texto = txt.value.trim();
+            if(!jornadaId) return;
+            if(!texto){
+                mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
+                return;
+            }
+            var url = window.location.origin + '/s/jornada/' + jornadaId + '/?v=' + Date.now();
+            window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
+            window.adminfutWhatsApp(url, texto);
+        });
+    }
+    if(btnFb){
+        btnFb.addEventListener('click', function(){
+            var texto = txt.value.trim();
+            if(!jornadaId) return;
+            if(!texto){
+                mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
+                return;
+            }
+            var url = window.location.origin + '/s/jornada/' + jornadaId + '/?v=' + Date.now();
+            window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
+            window.adminfutFacebook(url);
         });
     }
 })();
@@ -430,11 +479,27 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
             window.adminfutCompartirEnlace(urlConVersion, textoActual(), function(){
                 window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
                 btnComp.innerHTML = '<i class="bi bi-check2"></i> Texto y enlace copiados';
-                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 3500);
+                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir…'; }, 3500);
             }, function(){
                 btnComp.innerHTML = '<i class="bi bi-check2"></i> Enlace compartido';
-                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 2500);
+                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir…'; }, 2500);
             });
+        });
+    }
+
+    // Botones directos para la APK / WebView (no dependen de navigator.share).
+    var btnWaRol = document.getElementById('compartirRolWa');
+    if(btnWaRol){
+        btnWaRol.addEventListener('click', function(){
+            guardarTexto();
+            window.adminfutWhatsApp(urlCompartir + '?v=' + Date.now(), textoActual());
+        });
+    }
+    var btnFbRol = document.getElementById('compartirRolFb');
+    if(btnFbRol){
+        btnFbRol.addEventListener('click', function(){
+            guardarTexto();
+            window.adminfutFacebook(urlCompartir + '?v=' + Date.now());
         });
     }
 })();
