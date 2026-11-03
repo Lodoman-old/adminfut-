@@ -1579,6 +1579,16 @@ def _cache_texto_jornada(jornada_id):
     return cache.get(f"share_texto_jornada_{jornada_id}")
 
 
+def _url_absoluta(request, ruta):
+    """URL absoluta forzando https en producción (aunque el proxy no envíe el esquema)."""
+    host = request.get_host()
+    proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
+    if proto not in ("http", "https"):
+        local = "localhost" in host or host.startswith("127.0.0.1")
+        proto = "http" if local else "https"
+    return f"{proto}://{host}{ruta}"
+
+
 def compartir_jornada(request, jornada_id):
     """Página pública para compartir resultados: WhatsApp/Facebook muestran
     la imagen y el texto de la jornada en la vista previa del enlace."""
@@ -1597,12 +1607,8 @@ def compartir_jornada(request, jornada_id):
         texto = f"Resultados de {jornada.nombre}" + (f" - {temporada}" if temporada else "")
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = request.build_absolute_uri(
-        reverse("compartir_jornada_imagen", args=[jornada_id])
-    )
-    url_publica = request.build_absolute_uri(
-        reverse("compartir_jornada", args=[jornada_id])
-    )
+    imagen_url = _url_absoluta(request, reverse("compartir_jornada_imagen", args=[jornada_id]))
+    url_publica = _url_absoluta(request, reverse("compartir_jornada", args=[jornada_id]))
     return render(request, "league/compartir.html", {
         "titulo": f"{jornada.nombre} · {nombre_liga}",
         "descripcion": descripcion,
@@ -5699,8 +5705,8 @@ def compartir_rol(request):
     texto = cache.get("share_texto_rol") or TEXTO_ROL_DEFAULT
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = request.build_absolute_uri(reverse("compartir_rol_imagen"))
-    url_publica = request.build_absolute_uri(reverse("compartir_rol"))
+    imagen_url = _url_absoluta(request, reverse("compartir_rol_imagen"))
+    url_publica = _url_absoluta(request, reverse("compartir_rol"))
     return render(request, "league/compartir.html", {
         "titulo": f"Próximos partidos · {nombre_liga}",
         "descripcion": descripcion,
