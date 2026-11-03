@@ -23,7 +23,11 @@
         <span class="float-end">{{ partido.fecha_hora|date:"d/m/Y H:i" }} | {{ partido.campo.nombre }}</span>
     </div>
 </div>
-<form method="post" id="cedulaForm" onsubmit="return false">
+<form method="post" id="cedulaForm" onsubmit="return false"
+      data-min-jugadores="{{ partido.temporada.min_jugadores|default:7 }}"
+      data-goles-local="{{ partido.goles_local|default_if_none:'' }}"
+      data-goles-visitante="{{ partido.goles_visitante|default_if_none:'' }}"
+      data-estado="{{ partido.estado }}">
     {% csrf_token %}
     <div class="alert alert-info py-2"><i class="bi bi-info-circle"></i> Para capturar goles y tarjetas, marca en cada jugador <strong>Titular</strong> o <strong>Cambio</strong>: los campos se habilitan automáticamente. Al terminar activa <strong>Finalizar cédula</strong> y pulsa Guardar.</div>
     <div class="card mb-3">
@@ -45,7 +49,7 @@
         </div>
     </div>
     <div class="row">
-        <div class="col-md-6 mb-4">
+        <div class="col-md-6 mb-4" data-equipo="local">
             <div class="card h-100">
                 <div class="card-header bg-success text-white">
                     <div class="d-flex justify-content-between align-items-center">
@@ -88,7 +92,7 @@
                         </thead>
                         <tbody>
                             {% for j in jugadores_local %}
-                            <tr{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
+                            <tr data-jugador="{{ j.id }}" data-dorsal="{{ j.dorsal|default:'' }}" data-suspendido="{% if j.esta_suspendido %}1{% else %}0{% endif %}" data-elegible="{% if j.elegible_liguilla %}1{% else %}0{% endif %}"{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
                                 <td>{{ j.dorsal|default:"-" }}</td>
                                 <td class="sticky-col cedula-name">{{ j.nombre|upper }} {{ j.apellido|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
                                 <td class="text-center">
@@ -123,7 +127,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-4">
+        <div class="col-md-6 mb-4" data-equipo="visitante">
             <div class="card h-100">
                 <div class="card-header bg-info text-white">
                     <div class="d-flex justify-content-between align-items-center">
@@ -166,7 +170,7 @@
                         </thead>
                         <tbody>
                             {% for j in jugadores_visit %}
-                            <tr{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
+                            <tr data-jugador="{{ j.id }}" data-dorsal="{{ j.dorsal|default:'' }}" data-suspendido="{% if j.esta_suspendido %}1{% else %}0{% endif %}" data-elegible="{% if j.elegible_liguilla %}1{% else %}0{% endif %}"{% if not j.elegible_liguilla %} class="no-elegible" style="opacity:0.5"{% endif %}>
                                 <td>{{ j.dorsal|default:"-" }}</td>
                                 <td class="sticky-col cedula-name">{{ j.nombre|upper }} {{ j.apellido|upper }}{% if j.esta_suspendido %} <span class="badge bg-danger" title="{{ j.jornadas_pendientes }} jornadas pendientes">S</span>{% endif %}{% if not j.elegible_liguilla %} <span class="badge bg-warning text-dark" title="No cumple el % mínimo de juegos para liguilla">NE</span>{% endif %}</td>
                                 <td class="text-center">
@@ -228,6 +232,25 @@
         </div>
     </div>
 </div>
+<!-- Anomalías antes de guardar -->
+<div class="modal fade" id="anomaliasModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Revisa antes de guardar</h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Se detectaron estas anomalías en la cédula:</p>
+                <ul id="anomaliasLista" class="small mb-0"></ul>
+                <p class="text-muted small mt-2 mb-0">Puedes continuar; solo es un aviso.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-pencil"></i> Revisar</button>
+                <button type="button" class="btn btn-warning text-dark" onclick="continuarConGuardado()"><i class="bi bi-check-lg"></i> Continuar de todas formas</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% if not es_invitado and config.cedula_vision_habilitado and config.cedula_vision_mostrar_boton %}
 <!-- Escanear cédula con IA -->
 <div class="modal fade" id="escanearCedulaModal" tabindex="-1">
@@ -266,9 +289,80 @@
 {% endblock %}
 {% block extra_js %}
 <script>
+function anomaliasCedula() {
+    var form = document.getElementById('cedulaForm');
+    var min = parseInt(form.dataset.minJugadores || '7', 10) || 7;
+    var lista = [];
+    var equipos = {local: {tits: 0, dorsales: {}}, visitante: {tits: 0, dorsales: {}}};
+    var sumas = {local: 0, visitante: 0};
+
+    document.querySelectorAll('[data-equipo]').forEach(function(card){
+        var eq = card.dataset.equipo;
+        card.querySelectorAll('tbody tr').forEach(function(tr){
+            var jid = tr.dataset.jugador;
+            if(!jid) return;
+            var t = tr.querySelector('input[name="participacion_' + jid + '"][value="titular"]');
+            var c = tr.querySelector('input[name="participacion_' + jid + '"][value="cambio"]');
+            var marcado = (t && t.checked) || (c && c.checked);
+            var celda = tr.querySelector('.cedula-name');
+            var nombre = (celda ? celda.textContent : ('Jugador ' + jid)).replace(/\s+/g, ' ').trim();
+            if(marcado){
+                if(t && t.checked) equipos[eq].tits++;
+                if(tr.dataset.suspendido === '1') lista.push('Suspendido marcado: ' + nombre);
+                if(tr.dataset.elegible === '0') lista.push('No elegible marcado: ' + nombre);
+                var dorsal = (tr.dataset.dorsal || '').trim();
+                if(dorsal){
+                    if(equipos[eq].dorsales[dorsal]){
+                        lista.push('Dorsal ' + dorsal + ' repetido en ' + eq + ': ' + equipos[eq].dorsales[dorsal] + ' y ' + nombre);
+                    } else {
+                        equipos[eq].dorsales[dorsal] = nombre;
+                    }
+                }
+            }
+        });
+        card.querySelectorAll('input[name^="gol_"]').forEach(function(inp){
+            if(inp.disabled) return;
+            sumas[eq] += parseInt(inp.value || '0', 10) || 0;
+        });
+    });
+
+    if(equipos.local.tits > 0 && equipos.local.tits < min) lista.push('Local tiene ' + equipos.local.tits + ' titulares (mínimo ' + min + ').');
+    if(equipos.visitante.tits > 0 && equipos.visitante.tits < min) lista.push('Visitante tiene ' + equipos.visitante.tits + ' titulares (mínimo ' + min + ').');
+
+    var estado = form.dataset.estado;
+    var pl = form.dataset.golesLocal, pv = form.dataset.golesVisitante;
+    if(estado === 'FIN' && pl !== '' && pv !== ''){
+        var il = parseInt(pl, 10), iv = parseInt(pv, 10);
+        if(il !== sumas.local || iv !== sumas.visitante){
+            lista.push('El marcador guardado era ' + il + '-' + iv + ' y la suma de goles es ' + sumas.local + '-' + sumas.visitante + '.');
+        }
+    }
+    return lista;
+}
+
+function abrirModalFinalizar() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('finalizarModal')).show();
+}
+
 function confirmarGuardar() {
-    var modal = new bootstrap.Modal(document.getElementById('finalizarModal'));
-    modal.show();
+    var anomalias = anomaliasCedula();
+    if(anomalias.length){
+        var ul = document.getElementById('anomaliasLista');
+        ul.innerHTML = '';
+        anomalias.forEach(function(a){
+            var li = document.createElement('li');
+            li.textContent = a;
+            ul.appendChild(li);
+        });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('anomaliasModal')).show();
+        return;
+    }
+    abrirModalFinalizar();
+}
+
+function continuarConGuardado() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('anomaliasModal')).hide();
+    setTimeout(abrirModalFinalizar, 200);
 }
 
 function enviarForm(finalizar) {

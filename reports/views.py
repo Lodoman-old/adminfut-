@@ -1,6 +1,7 @@
 ﻿from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.utils.timezone import localtime
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
@@ -1790,6 +1791,30 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
+
+    # QR hacia la cédula digital (solo lectura para usuarios con sesión)
+    try:
+        from reportlab.graphics import renderPDF
+        from reportlab.graphics.barcode.qr import QrCodeWidget
+        from reportlab.graphics.shapes import Drawing
+
+        url_cedula = request.build_absolute_uri(
+            reverse("cedula_arbitral", args=[partido.id])
+        )
+        qr = QrCodeWidget(url_cedula, barLevel="H")
+        b = qr.getBounds()
+        ancho_qr = b[2] - b[0]
+        alto_qr = b[3] - b[1]
+        lado = 46
+        d = Drawing(lado, lado, transform=[lado / ancho_qr, 0, 0, lado / alto_qr, 0, 0])
+        d.add(qr)
+        x_qr = w - left_x - lado
+        y_qr = footer_y - 4
+        renderPDF.draw(d, p, x_qr, y_qr)
+        p.setFont("Helvetica", 6.5)
+        p.drawCentredString(x_qr + lado / 2, y_qr - 9, "Cédula digital")
+    except Exception:
+        pass
 
     draw_footer(p, w, h, 14)
 

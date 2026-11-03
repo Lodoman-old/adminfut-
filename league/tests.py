@@ -3710,6 +3710,57 @@ class RateLimitTest(TestCase):
             self.assertEqual(mw(r).status_code, 200)
 
 
+class CedulaAvisosTest(TestCase):
+    """Avisos no bloqueantes: dorsales repetidos y cambio de marcador."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.cat = Categoria.objects.create(nombre="AvisosCat")
+        self.temp = Temporada.objects.create(
+            nombre="TAvisos", categoria=self.cat, fecha_inicio=date(2026, 1, 1),
+            min_jugadores=1, max_titulares=11, cambios_permitidos=None,
+        )
+        self.user = get_user_model().objects.create_superuser(
+            username="avisosadmin", password="p",
+        )
+        self.local = Equipo.objects.create(nombre="LocalA", categoria=self.cat)
+        self.visit = Equipo.objects.create(nombre="VisitA", categoria=self.cat)
+        self.partido = Partido.objects.create(
+            temporada=self.temp, equipo_local=self.local, equipo_visitante=self.visit,
+            fecha_hora=timezone.now(), estado="PEND",
+        )
+        self.j1 = Jugador.objects.create(equipo=self.local, nombre="A", apellido="Uno", dorsal=10, activo=True)
+        self.j2 = Jugador.objects.create(equipo=self.local, nombre="B", apellido="Dos", dorsal=10, activo=True)
+        self.j3 = Jugador.objects.create(equipo=self.visit, nombre="C", apellido="Tres", dorsal=9, activo=True)
+
+    def _data(self, gol_local=0, gol_visit=0):
+        return {
+            "arbitro": "", "finalizar": "0",
+            f"participacion_{self.j1.id}": "titular",
+            f"equipo_{self.j1.id}": self.local.id,
+            f"gol_{self.j1.id}": gol_local,
+            f"participacion_{self.j2.id}": "titular",
+            f"equipo_{self.j2.id}": self.local.id,
+            f"participacion_{self.j3.id}": "titular",
+            f"equipo_{self.j3.id}": self.visit.id,
+            f"gol_{self.j3.id}": gol_visit,
+        }
+
+    def test_dorsal_repetido_avisa(self):
+        r = procesar_cedula(self.partido, self._data(), self.user)
+        self.assertTrue(r["ok"], r["errors"])
+        self.assertTrue(any("Dorsal 10 repetido" in w for w in r["warnings"]), r["warnings"])
+
+    def test_marcador_cambiado_avisa(self):
+        Partido.objects.filter(pk=self.partido.pk).update(
+            estado="FIN", goles_local=3, goles_visitante=1,
+        )
+        self.partido.refresh_from_db()
+        r = procesar_cedula(self.partido, self._data(1, 0), self.user)
+        self.assertTrue(r["ok"], r["errors"])
+        self.assertTrue(any("marcador cambió" in w for w in r["warnings"]), r["warnings"])
+
+
 class BloqueoScrapersTest(TestCase):
     """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""
 

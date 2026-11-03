@@ -11,6 +11,9 @@ def procesar_cedula(partido, post_data, user):
     """
     errors = []
     warnings = []
+    prev_goles_local = partido.goles_local
+    prev_goles_visit = partido.goles_visitante
+    prev_fin = partido.estado == "FIN"
 
     if partido.estado == "FIN" and not (user and user.tiene_permiso("partido_aperturar")):
         errors.append("No tienes permiso para modificar un partido finalizado.")
@@ -142,6 +145,38 @@ def procesar_cedula(partido, post_data, user):
         default_forzado_visit = True
         warnings.append(f"{partido.equipo_visitante.nombre} tiene {titulares_visit} titulares (máximo {max_tits}). Alineación indebida. Se marca como Default.")
 
+    # Avisos (no bloquean): titulares insuficientes y dorsales repetidos.
+    if not default_local and 0 < titulares_local < min_jugs:
+        warnings.append(f"{partido.equipo_local.nombre} tiene {titulares_local} titulares (mínimo {min_jugs}).")
+    if not default_visit and 0 < titulares_visit < min_jugs:
+        warnings.append(f"{partido.equipo_visitante.nombre} tiene {titulares_visit} titulares (mínimo {min_jugs}).")
+
+    dorsales = {}
+    for key, value in post_data.items():
+        if not (key.startswith("participacion_") and value):
+            continue
+        try:
+            jid = int(key.split("_")[1])
+        except (ValueError, IndexError):
+            continue
+        jugador = next((x for x in jugadores_local if x.id == jid), None)
+        equipo_nombre = partido.equipo_local.nombre
+        if jugador is None:
+            jugador = next((x for x in jugadores_visit if x.id == jid), None)
+            equipo_nombre = partido.equipo_visitante.nombre
+        if jugador is None:
+            continue
+        dorsal = str(getattr(jugador, "dorsal", "") or "").strip()
+        if dorsal:
+            dorsales.setdefault((equipo_nombre, dorsal), []).append(
+                f"{jugador.nombre} {jugador.apellido}".strip()
+            )
+    for (equipo_nombre, dorsal), nombres in dorsales.items():
+        if len(nombres) > 1:
+            warnings.append(
+                f"Dorsal {dorsal} repetido en {equipo_nombre}: {', '.join(nombres)}."
+            )
+
     Gol.objects.filter(partido=partido).delete()
     for key, value in post_data.items():
         if key.startswith("gol_"):
@@ -244,6 +279,13 @@ def procesar_cedula(partido, post_data, user):
 
     goles_local = Gol.objects.filter(partido=partido, equipo=partido.equipo_local).count()
     goles_visit = Gol.objects.filter(partido=partido, equipo=partido.equipo_visitante).count()
+    if prev_fin and not (default_local or default_visit) and (
+        prev_goles_local != goles_local or prev_goles_visit != goles_visit
+    ):
+        warnings.append(
+            f"El marcador cambió de {prev_goles_local}-{prev_goles_visit} "
+            f"a {goles_local}-{goles_visit}."
+        )
     Partido.objects.filter(pk=partido.pk).update(goles_local=goles_local, goles_visitante=goles_visit)
     partido.goles_local = goles_local
     partido.goles_visitante = goles_visit
