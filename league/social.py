@@ -31,12 +31,17 @@ def _get_page_token(page_id, sys_token, request=None):
     resp = requests.get(url, timeout=15)
     data = resp.json()
     if "error" in data:
+        # Si el token guardado ya es un Page Access Token, Facebook no expone
+        # el campo access_token (error 100). En ese caso se usa tal cual.
+        if data["error"].get("code") == 100:
+            logger.info("Se usará el token configurado directamente (Page Access Token).")
+            return sys_token
         err = data["error"].get("message", str(data))
         logger.error("Error al obtener page token: %s", err)
         if request:
             messages.error(request, f"Error al obtener Page Token: {err}")
         return None
-    return data.get("access_token")
+    return data.get("access_token") or sys_token
 
 
 def publicar_en_facebook(mensaje, request=None):
