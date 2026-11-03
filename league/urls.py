@@ -58,8 +58,10 @@ urlpatterns = [
 
     path("compartir/jornada/<int:jornada_id>/", views.compartir_jornada, name="compartir_jornada"),
     path("compartir/jornada/<int:jornada_id>/imagen.png", views.compartir_jornada_imagen, name="compartir_jornada_imagen"),
+    path("compartir/jornada/<int:jornada_id>/miniatura.jpg", views.compartir_jornada_miniatura, name="compartir_jornada_miniatura"),
     path("compartir/rol/", views.compartir_rol, name="compartir_rol"),
     path("compartir/rol/imagen.png", views.compartir_rol_imagen, name="compartir_rol_imagen"),
+    path("compartir/rol/miniatura.jpg", views.compartir_rol_miniatura, name="compartir_rol_miniatura"),
     path("rol-todas/guardar-texto/", views.guardar_texto_rol, name="guardar_texto_rol"),
 
     path("periodo-altas/", views.PeriodoAltasListView.as_view(), name="periodoaltas_list"),

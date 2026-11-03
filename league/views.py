@@ -1607,13 +1607,17 @@ def compartir_jornada(request, jornada_id):
         texto = f"Resultados de {jornada.nombre}" + (f" - {temporada}" if temporada else "")
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = _url_absoluta(request, reverse("compartir_jornada_imagen", args=[jornada_id]))
+    imagen_url = _url_absoluta(request, reverse("compartir_jornada_miniatura", args=[jornada_id]))
+    imagen_grande = _url_absoluta(request, reverse("compartir_jornada_imagen", args=[jornada_id]))
     url_publica = _url_absoluta(request, reverse("compartir_jornada", args=[jornada_id]))
     return render(request, "league/compartir.html", {
         "titulo": f"{jornada.nombre} · {nombre_liga}",
         "descripcion": descripcion,
         "texto": texto,
         "imagen_url": imagen_url,
+        "imagen_grande_url": imagen_grande,
+        "imagen_ancho": 1200,
+        "imagen_alto": 630,
         "url_publica": url_publica,
         "nombre_liga": nombre_liga,
         "volver_url": "/",
@@ -1634,7 +1638,32 @@ def compartir_jornada_imagen(request, jornada_id):
         if not data:
             raise Http404()
         cache.set(key, data, 600)
-    return HttpResponse(data, content_type="image/png")
+    response = HttpResponse(data, content_type="image/png")
+    response["Cache-Control"] = "public, max-age=600"
+    return response
+
+
+def compartir_jornada_miniatura(request, jornada_id):
+    """Miniatura JPEG 1200x630 para WhatsApp/Facebook (menos de 300 KB)."""
+    from django.core.cache import cache
+    from .social_image import generar_miniatura_og
+
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    key_img = f"share_img_jornada_{jornada_id}"
+    key_thumb = f"share_thumb_jornada_{jornada_id}"
+    data = cache.get(key_thumb)
+    if not data:
+        png = cache.get(key_img)
+        if not png:
+            png = _imagen_resultados_bytes(jornada)
+            if not png:
+                raise Http404()
+            cache.set(key_img, png, 600)
+        data = generar_miniatura_og(png)
+        cache.set(key_thumb, data, 600)
+    response = HttpResponse(data, content_type="image/jpeg")
+    response["Cache-Control"] = "public, max-age=600"
+    return response
 
 
 @login_required
@@ -5705,13 +5734,17 @@ def compartir_rol(request):
     texto = cache.get("share_texto_rol") or TEXTO_ROL_DEFAULT
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = _url_absoluta(request, reverse("compartir_rol_imagen"))
+    imagen_url = _url_absoluta(request, reverse("compartir_rol_miniatura"))
+    imagen_grande = _url_absoluta(request, reverse("compartir_rol_imagen"))
     url_publica = _url_absoluta(request, reverse("compartir_rol"))
     return render(request, "league/compartir.html", {
         "titulo": f"Próximos partidos · {nombre_liga}",
         "descripcion": descripcion,
         "texto": texto,
         "imagen_url": imagen_url,
+        "imagen_grande_url": imagen_grande,
+        "imagen_ancho": 1200,
+        "imagen_alto": 630,
         "url_publica": url_publica,
         "nombre_liga": nombre_liga,
         "volver_url": "/",
@@ -5733,7 +5766,32 @@ def compartir_rol_imagen(request):
             raise Http404()
         data = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
         cache.set(key, data, 600)
-    return HttpResponse(data, content_type="image/png")
+    response = HttpResponse(data, content_type="image/png")
+    response["Cache-Control"] = "public, max-age=600"
+    return response
+
+
+def compartir_rol_miniatura(request):
+    """Miniatura JPEG 1200x630 del rol para WhatsApp/Facebook."""
+    from django.core.cache import cache
+    from .social_image import generar_imagen_rol_bonita, generar_miniatura_og
+
+    key_img = "share_img_rol"
+    key_thumb = "share_thumb_rol"
+    data = cache.get(key_thumb)
+    if not data:
+        png = cache.get(key_img)
+        if not png:
+            secciones, ahora_str = _secciones_rol()
+            if not secciones:
+                raise Http404()
+            png = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
+            cache.set(key_img, png, 600)
+        data = generar_miniatura_og(png)
+        cache.set(key_thumb, data, 600)
+    response = HttpResponse(data, content_type="image/jpeg")
+    response["Cache-Control"] = "public, max-age=600"
+    return response
 
 
 @login_required

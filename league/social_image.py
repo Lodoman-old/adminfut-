@@ -1029,3 +1029,30 @@ def _render_and_save(ops, height, bg_color):
     img.save(buf, format="PNG", optimize=True, compress_level=9)
     buf.seek(0)
     return buf
+
+
+def generar_miniatura_og(png_bytes, ancho=1200, alto=630, max_bytes=290_000):
+    """Miniatura apaisada (JPEG) para la vista previa de WhatsApp/Facebook.
+
+    Toma la parte superior de la imagen (título + primeros partidos) y la
+    recorta a 1200x630, bajando la calidad hasta quedar por debajo del
+    límite de ~300 KB que exige WhatsApp para mostrar la miniatura.
+    """
+    img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+    w, h = img.size
+    if not w or not h:
+        raise ValueError("Imagen vacía")
+    escala = max(ancho / w, alto / h)
+    nueva = img.resize((max(1, int(w * escala + 0.5)), max(1, int(h * escala + 0.5))), Image.LANCZOS)
+    izq = max(0, (nueva.width - ancho) // 2)
+    arriba = 0 if nueva.height > alto * 2 else max(0, (nueva.height - alto) // 2)
+    recorte = nueva.crop((izq, arriba, izq + ancho, arriba + alto))
+
+    calidad = 82
+    while True:
+        buf = io.BytesIO()
+        recorte.save(buf, format="JPEG", quality=calidad, optimize=True, progressive=True)
+        if buf.tell() <= max_bytes or calidad <= 50:
+            break
+        calidad -= 8
+    return buf.getvalue()

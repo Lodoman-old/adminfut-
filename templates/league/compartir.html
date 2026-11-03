@@ -11,6 +11,10 @@
     <meta property="og:title" content="{{ titulo }}">
     <meta property="og:description" content="{{ descripcion }}">
     <meta property="og:image" content="{{ imagen_url }}">
+    <meta property="og:image:secure_url" content="{{ imagen_url }}">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="{{ imagen_ancho }}">
+    <meta property="og:image:height" content="{{ imagen_alto }}">
     <meta property="og:image:alt" content="{{ titulo }}">
     <meta property="og:url" content="{{ url_publica }}">
     <meta name="twitter:card" content="summary_large_image">
@@ -62,7 +66,7 @@
     <div class="brand"><span></span>{{ nombre_liga }}</div>
 
     <div class="card">
-        <img src="{{ imagen_url }}" alt="{{ titulo }}">
+        <img src="{{ imagen_grande_url }}" alt="{{ titulo }}">
         <div class="texto" id="textoCompartir">{{ texto }}</div>
         <div class="acciones">
             <a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>

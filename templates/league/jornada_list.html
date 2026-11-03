@@ -335,7 +335,7 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
                 mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
                 return;
             }
-            var urlCompartir = window.location.origin + '/compartir/jornada/' + jornadaId + '/';
+            var urlCompartir = window.location.origin + '/compartir/jornada/' + jornadaId + '/?v=' + Date.now();
             window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
             window.adminfutCompartirEnlace(urlCompartir, texto, function(){
                 window.adminfutCopiar(texto + '\n\n' + urlCompartir);
@@ -426,7 +426,8 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
     if(btnComp){
         btnComp.addEventListener('click', function(){
             guardarTexto();
-            window.adminfutCompartirEnlace(urlCompartir, textoActual(), function(){
+            var urlConVersion = urlCompartir + '?v=' + Date.now();
+            window.adminfutCompartirEnlace(urlConVersion, textoActual(), function(){
                 window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
                 btnComp.innerHTML = '<i class="bi bi-check2"></i> Texto y enlace copiados';
                 setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 3500);
