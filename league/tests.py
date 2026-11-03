@@ -3761,6 +3761,52 @@ class CedulaAvisosTest(TestCase):
         self.assertTrue(any("marcador cambió" in w for w in r["warnings"]), r["warnings"])
 
 
+class ResumenIaTest(TestCase):
+    """El resumen de jornada usa Gemini (mockeado) y devuelve JSON."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from league.models import Gol
+        self.cat = Categoria.objects.create(nombre="ResumenCat")
+        self.temp = Temporada.objects.create(
+            nombre="TResumen", categoria=self.cat, fecha_inicio=date(2026, 1, 1),
+        )
+        self.jornada = Jornada.objects.create(
+            temporada=self.temp, numero=1, nombre="Jornada 1",
+        )
+        self.local = Equipo.objects.create(nombre="LocalR", categoria=self.cat)
+        self.visit = Equipo.objects.create(nombre="VisitR", categoria=self.cat)
+        partido = Partido.objects.create(
+            temporada=self.temp, jornada=self.jornada,
+            equipo_local=self.local, equipo_visitante=self.visit,
+            fecha_hora=timezone.now(), estado="FIN",
+            goles_local=1, goles_visitante=0,
+        )
+        jugador = Jugador.objects.create(equipo=self.local, nombre="Goleador", apellido="Uno")
+        Gol.objects.create(partido=partido, jugador=jugador, equipo=self.local, minuto=10)
+        self.user = get_user_model().objects.create_superuser(
+            username="resumenadmin", password="p",
+        )
+
+    def test_genera_resumen(self):
+        with patch("league.views._generar_texto_gemini", return_value=("Resumen de prueba", None)):
+            cliente = Client()
+            cliente.force_login(self.user)
+            r = cliente.get(f"/jornadas/{self.jornada.id}/resumen-ia/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["texto"], "Resumen de prueba")
+
+    def test_sin_permiso(self):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.create_user(username="resumen_anon", password="p")
+        cliente = Client()
+        cliente.force_login(user)
+        r = cliente.get(f"/jornadas/{self.jornada.id}/resumen-ia/")
+        self.assertEqual(r.status_code, 403)
+
+
 class BloqueoScrapersTest(TestCase):
     """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""
 

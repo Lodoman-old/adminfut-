@@ -1801,6 +1801,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         url_cedula = request.build_absolute_uri(
             reverse("cedula_arbitral", args=[partido.id])
         )
+        if url_cedula.startswith("http://"):
+            url_cedula = "https://" + url_cedula[len("http://"):]
         qr = QrCodeWidget(url_cedula, barLevel="H")
         b = qr.getBounds()
         ancho_qr = b[2] - b[0]

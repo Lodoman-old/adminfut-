@@ -68,6 +68,11 @@
                         <i class="bi bi-facebook"></i>
                     </button>
                     {% endif %}
+                    {% if user|tiene_permiso:"partido_cedula" and j.temporada.iniciada %}
+                    <button type="button" class="btn btn-sm btn-outline-dark resumen-ia-btn" data-id="{{ j.id }}" title="Generar resumen de la jornada con IA">
+                        <i class="bi bi-stars"></i>
+                    </button>
+                    {% endif %}
                     {% if user|tiene_permiso:"jornada_suspender" and j.temporada.iniciada %}
                         {% if j.estado == "ACTIVA" %}
                         <button data-href="{% url 'suspender_jornada' j.id %}" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#suspenderJornadaModal" title="Suspender jornada">
@@ -270,4 +275,102 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+<!-- Modal Resumen IA -->
+<div class="modal fade" id="resumenIaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-stars"></i> Resumen de la jornada con IA</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resumenIaSpinner" class="text-center py-4">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="text-muted small mb-0 mt-2">Generando resumen con Gemini...</p>
+                </div>
+                <div id="resumenIaError" class="alert alert-danger small d-none"></div>
+                <textarea id="resumenIaTexto" class="form-control" rows="9" placeholder="Aquí aparecerá el resumen..."></textarea>
+                <small class="text-muted">Revisa y edita el texto antes de publicarlo. Se publica en la página de Facebook configurada.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
+                <button type="button" class="btn btn-primary" id="resumenIaPublicar" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Publicar en Facebook</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var modalEl = document.getElementById('resumenIaModal');
+    if(!modalEl) return;
+    var txt = document.getElementById('resumenIaTexto');
+    var spinner = document.getElementById('resumenIaSpinner');
+    var errBox = document.getElementById('resumenIaError');
+    var btnPub = document.getElementById('resumenIaPublicar');
+    var jornadaId = null;
+
+    function mostrarError(msg){
+        errBox.textContent = msg;
+        errBox.className = 'alert alert-danger small';
+    }
+
+    function getCookie(name){
+        var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+
+    document.querySelectorAll('.resumen-ia-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            jornadaId = btn.getAttribute('data-id');
+            txt.value = '';
+            errBox.className = 'alert alert-danger small d-none';
+            spinner.classList.remove('d-none');
+            btnPub.disabled = true;
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            fetch('/jornadas/' + jornadaId + '/resumen-ia/')
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    spinner.classList.add('d-none');
+                    if(!data.ok){ mostrarError(data.error || 'No se pudo generar el resumen.'); return; }
+                    txt.value = data.texto || '';
+                    btnPub.disabled = !txt.value;
+                })
+                .catch(function(){
+                    spinner.classList.add('d-none');
+                    mostrarError('Error de red al generar el resumen.');
+                });
+        });
+    });
+
+    document.getElementById('resumenIaCopiar').addEventListener('click', function(){
+        txt.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        if(navigator.clipboard){ navigator.clipboard.writeText(txt.value).catch(function(){}); }
+    });
+
+    btnPub.addEventListener('click', function(){
+        if(!jornadaId || !txt.value.trim()) return;
+        btnPub.disabled = true;
+        fetch('/jornadas/' + jornadaId + '/resumen-ia/publicar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+            body: JSON.stringify({texto: txt.value})
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            btnPub.disabled = false;
+            if(!data.ok){ mostrarError(data.error || 'No se pudo publicar.'); return; }
+            errBox.textContent = 'Publicado en Facebook.';
+            errBox.className = 'alert alert-success small';
+        })
+        .catch(function(){
+            btnPub.disabled = false;
+            mostrarError('Error de red al publicar.');
+        });
+    });
+})();
+</script>
 {% endblock %}

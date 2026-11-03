@@ -1437,6 +1437,117 @@ def reactivar_jornada(request, jornada_id):
     return redirect("jornada_list")
 
 
+def _generar_texto_gemini(prompt):
+    """Llama a Gemini (texto) con la misma API Key de la configuración de visión."""
+    import requests
+
+    cfg = ConfiguracionLiga.obtener()
+    api_key = (cfg.cedula_vision_api_key or "").strip()
+    if not api_key:
+        return None, "Falta la API Key de Gemini en Configuración → Publicidad."
+    modelo = (cfg.cedula_vision_modelo or "gemini-3.5-flash").strip()
+    if not modelo.startswith("gemini"):
+        modelo = "gemini-3.5-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+    try:
+        resp = requests.post(
+            url,
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+            },
+            timeout=60,
+        )
+        if resp.status_code >= 400:
+            return None, f"Gemini respondió {resp.status_code}. Intenta de nuevo."
+        data = resp.json()
+        candidatos = data.get("candidates") or []
+        partes = (candidatos[0].get("content") or {}).get("parts") or [] if candidatos else []
+        texto = "".join(p.get("text", "") for p in partes if isinstance(p, dict)).strip()
+        if not texto:
+            return None, "Gemini no devolvió texto. Intenta de nuevo."
+        return texto, None
+    except Exception as e:
+        return None, f"No se pudo conectar con Gemini: {e}"
+
+
+@login_required
+def resumen_jornada_ia(request, jornada_id):
+    """Genera un resumen de la jornada para redes sociales con Gemini."""
+    from collections import Counter
+
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
+        return JsonResponse({"ok": False, "error": "Sin permiso para generar el resumen."}, status=403)
+
+    partidos = list(
+        Partido.objects.filter(jornada=jornada, estado="FIN")
+        .select_related("equipo_local", "equipo_visitante")
+        .order_by("fecha_hora")
+    )
+    if not partidos:
+        return JsonResponse({"ok": False, "error": "La jornada todavía no tiene partidos finalizados."})
+
+    lineas = []
+    for p in partidos:
+        goles = Counter(
+            f"{g.jugador.nombre} {g.jugador.apellido}".strip()
+            for g in Gol.objects.filter(partido=p).select_related("jugador")
+        )
+        detalle = ", ".join(
+            f"{nombre} x{n}" if n > 1 else nombre for nombre, n in goles.items()
+        ) or "sin detalle de goleadores"
+        rojas = [
+            f"{t.jugador.nombre} {t.jugador.apellido}".strip()
+            for t in Tarjeta.objects.filter(partido=p, tipo="ROJA").select_related("jugador")
+        ]
+        linea = (
+            f"{p.equipo_local.nombre} {p.goles_local}-{p.goles_visitante} "
+            f"{p.equipo_visitante.nombre}. Goles: {detalle}."
+        )
+        if rojas:
+            linea += " Expulsados: " + ", ".join(rojas) + "."
+        lineas.append(linea)
+
+    prompt = (
+        "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
+        f"Redacta un resumen de {jornada.nombre} para publicar en Facebook y WhatsApp.\n"
+        "Datos reales (NO inventes nada):\n- " + "\n- ".join(lineas) + "\n\n"
+        "Reglas: español de México, tono emocionante pero respetuoso, máximo 900 caracteres, "
+        "usa 2-4 emojis, menciona los resultados y a los goleadores destacados. "
+        "Devuelve solo el texto, sin comillas ni encabezados."
+    )
+    texto, error = _generar_texto_gemini(prompt)
+    if error:
+        return JsonResponse({"ok": False, "error": error})
+    return JsonResponse({"ok": True, "texto": texto, "jornada": jornada.nombre})
+
+
+@login_required
+@require_POST
+def publicar_resumen_jornada(request, jornada_id):
+    """Publica en Facebook el texto del resumen (previo aviso al usuario)."""
+    import json as _json
+
+    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
+        return JsonResponse({"ok": False, "error": "Sin permiso."}, status=403)
+    try:
+        payload = _json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    texto = (payload.get("texto") or "").strip()
+    if not texto:
+        return JsonResponse({"ok": False, "error": "El texto está vacío."})
+    from .social import publicar_en_facebook
+
+    ok = publicar_en_facebook(texto, request)
+    return JsonResponse({
+        "ok": ok,
+        "error": "" if ok else "No se pudo publicar en Facebook. Revisa la configuración de la página.",
+    })
+
+
 def reabrir_temporada(request, pk):
     temporada = get_object_or_404(Temporada, pk=pk)
     if not request.user.is_superuser:
