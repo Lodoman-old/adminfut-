@@ -3568,6 +3568,11 @@ def tabla_goleo(request):
     })
 
 
+def cedula_corta(request, partido_id):
+    """URL corta para el QR de la cédula impresa."""
+    return redirect("cedula_arbitral", partido_id=partido_id)
+
+
 def cedula_arbitral(request, partido_id):
     user = request.user
     puede_editar = bool(

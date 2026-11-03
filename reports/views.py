@@ -1799,22 +1799,26 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         from reportlab.graphics.shapes import Drawing
 
         url_cedula = request.build_absolute_uri(
-            reverse("cedula_arbitral", args=[partido.id])
+            reverse("cedula_corta", args=[partido.id])
         )
         if url_cedula.startswith("http://"):
             url_cedula = "https://" + url_cedula[len("http://"):]
-        qr = QrCodeWidget(url_cedula, barLevel="H")
+        qr = QrCodeWidget(url_cedula, barLevel="M")
         b = qr.getBounds()
         ancho_qr = b[2] - b[0]
         alto_qr = b[3] - b[1]
-        lado = 46
+        lado = 72
         d = Drawing(lado, lado, transform=[lado / ancho_qr, 0, 0, lado / alto_qr, 0, 0])
         d.add(qr)
         x_qr = w - left_x - lado
         y_qr = footer_y - 4
+        # Zona blanca de silencio alrededor del QR (mejor lectura al imprimir).
+        p.setFillColor(colors.white)
+        p.rect(x_qr - 6, y_qr - 6, lado + 12, lado + 12, fill=1, stroke=0)
         renderPDF.draw(d, p, x_qr, y_qr)
+        p.setFillColor(colors.black)
         p.setFont("Helvetica", 6.5)
-        p.drawCentredString(x_qr + lado / 2, y_qr - 9, "Cédula digital")
+        p.drawCentredString(x_qr + lado / 2, y_qr - 12, "Cédula digital")
     except Exception:
         pass
 
