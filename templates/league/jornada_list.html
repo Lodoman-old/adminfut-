@@ -190,32 +190,6 @@
     </div>
 </div>
 
-<!-- Modal Rol todas las categorías -->
-<div class="modal fade" id="rolTodasModal" tabindex="-1" aria-labelledby="rolTodasModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background-color:#1877F2;color:#fff">
-                <h5 class="modal-title" id="rolTodasModalLabel"><i class="bi bi-list-stars"></i> Rol todas las categorías</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center py-4">
-                <i class="bi bi-calendar2-week" style="font-size:3rem;color:#1877F2"></i>
-                <p class="mt-3 mb-1">Rol de la próxima jornada de todas las categorías.</p>
-                <p class="text-muted small mb-0">Descarga la imagen del rol o publícala directamente en Facebook.</p>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-success">
-                    <i class="bi bi-download"></i> Descargar imagen
-                </a>
-                <a href="{% url 'publicar_rol_facebook_todas' %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff">
-                    <i class="bi bi-facebook"></i> Publicar en Facebook
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var envModal = document.getElementById('enviarJornadaModal');
@@ -263,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p class="mt-3 mb-0">Imagen del rol de la próxima jornada de <b>todas las categorías</b>.</p>
                 <p class="text-muted small mb-0">Elige descargarla o publicarla directamente en Facebook.</p>
                 <div class="alert alert-light border small mt-3 mb-0 text-start">
-                    <i class="bi bi-facebook"></i> <strong>Para tu perfil personal:</strong> descarga la imagen, pulsa <strong>Copiar texto</strong> y súbela manualmente desde Facebook (Crear publicación → Foto).
+                    <i class="bi bi-facebook"></i> <strong>Para tu perfil personal:</strong> en el celular pulsa <strong>Compartir</strong> y elige Facebook. En computadora, descarga la imagen, pulsa <strong>Copiar texto</strong> y súbela manualmente (Crear publicación → Foto).
                 </div>
             </div>
             <div class="modal-footer justify-content-center">
@@ -271,6 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi bi-download"></i> Descargar imagen
                 </a>
                 <button type="button" class="btn btn-outline-dark" id="copiarTextoRol"><i class="bi bi-clipboard"></i> Copiar texto</button>
+                <button type="button" class="btn btn-outline-primary d-none" id="compartirRol" style="color:#1877F2;border-color:#1877F2"><i class="bi bi-share-fill"></i> Compartir a mi perfil</button>
                 <a href="{% url 'publicar_rol_facebook_todas' %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff">
                     <i class="bi bi-facebook"></i> Publicar en Facebook
                 </a>
@@ -298,18 +273,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 <textarea id="resumenIaTexto" class="form-control" rows="9" placeholder="Aquí aparecerá el resumen..."></textarea>
                 <small class="text-muted">Revisa y edita el texto antes de publicarlo. Se publica en la página de Facebook configurada.</small>
                 <div class="alert alert-light border small mt-3 mb-0">
-                    <i class="bi bi-facebook"></i> <strong>Para tu perfil personal:</strong> descarga la imagen, pulsa <strong>Copiar</strong> y súbela manualmente desde Facebook (Crear publicación → Foto).
+                    <i class="bi bi-facebook"></i> <strong>Para tu perfil personal:</strong> en el celular pulsa <strong>Compartir a mi perfil</strong> y elige Facebook. En computadora, descarga la imagen, pulsa <strong>Copiar</strong> y súbela manualmente (Crear publicación → Foto).
                 </div>
             </div>
             <div class="modal-footer">
                 <a class="btn btn-outline-success d-none" id="resumenIaDescargar" download="resumen-jornada.png" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
                 <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
+                <button type="button" class="btn btn-outline-primary d-none" id="resumenIaCompartir" style="color:#1877F2;border-color:#1877F2"><i class="bi bi-share-fill"></i> Compartir a mi perfil</button>
                 <button type="button" class="btn btn-primary" id="resumenIaPublicar" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Publicar en Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// ---- Compartir a mi perfil (Web Share API con archivos) ----
+window.adminfutSoportaCompartir = (function(){
+    try{
+        var f = new File([new Blob(['x'], {type:'image/png'})], 'test.png', {type:'image/png'});
+        return !!(navigator.share && navigator.canShare && navigator.canShare({files:[f]}));
+    }catch(e){ return false; }
+})();
+
+window.adminfutCopiar = function(texto){
+    texto = texto || '';
+    if(navigator.clipboard){ navigator.clipboard.writeText(texto).catch(function(){}); return; }
+    var ta = document.createElement('textarea');
+    ta.value = texto;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+};
+
+window.adminfutCompartirImagen = function(url, texto, nombre, onFallback){
+    if(!window.adminfutSoportaCompartir){ onFallback(); return; }
+    fetch(url, {credentials:'same-origin'})
+        .then(function(r){
+            if(!r.ok) throw new Error('HTTP ' + r.status);
+            return r.blob();
+        })
+        .then(function(blob){
+            var file = new File([blob], nombre || 'imagen.png', {type: blob.type || 'image/png'});
+            if(!navigator.canShare({files:[file]})) throw new Error('no-can-share');
+            return navigator.share({
+                files: [file],
+                text: texto || '',
+                title: 'Liga Municipal de Futbol Juventino Rosas'
+            }).catch(function(err){
+                if(err && err.name === 'AbortError') return;
+                throw err;
+            });
+        })
+        .catch(function(){ onFallback(); });
+};
+
+</script>
 
 <script>
 (function(){
@@ -321,11 +341,17 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnPub = document.getElementById('resumenIaPublicar');
     var imgResumen = document.getElementById('resumenIaImagen');
     var dlResumen = document.getElementById('resumenIaDescargar');
+    var btnCompartir = document.getElementById('resumenIaCompartir');
     var jornadaId = null;
 
     function mostrarError(msg){
         errBox.textContent = msg;
         errBox.className = 'alert alert-danger small';
+    }
+
+    function mostrarAviso(msg){
+        errBox.textContent = msg;
+        errBox.className = 'alert alert-warning small';
     }
 
     function getCookie(name){
@@ -342,12 +368,14 @@ document.addEventListener('DOMContentLoaded', function() {
             btnPub.disabled = true;
             if(imgResumen){ imgResumen.classList.add('d-none'); imgResumen.removeAttribute('src'); }
             if(dlResumen){ dlResumen.classList.add('d-none'); dlResumen.href = '#'; }
+            if(btnCompartir){ btnCompartir.classList.add('d-none'); }
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
             if(imgResumen){
                 var urlImg = '/jornadas/' + jornadaId + '/resumen-ia/imagen/?v=' + Date.now();
                 imgResumen.src = urlImg;
                 imgResumen.classList.remove('d-none');
                 if(dlResumen){ dlResumen.href = urlImg; dlResumen.classList.remove('d-none'); }
+                if(btnCompartir && window.adminfutSoportaCompartir){ btnCompartir.classList.remove('d-none'); }
             }
             fetch('/jornadas/' + jornadaId + '/resumen-ia/')
                 .then(function(r){ return r.json(); })
@@ -369,6 +397,18 @@ document.addEventListener('DOMContentLoaded', function() {
         try { document.execCommand('copy'); } catch(e) {}
         if(navigator.clipboard){ navigator.clipboard.writeText(txt.value).catch(function(){}); }
     });
+
+    if(btnCompartir){
+        btnCompartir.addEventListener('click', function(){
+            if(!jornadaId) return;
+            var urlImg = (imgResumen && imgResumen.getAttribute('src')) || ('/jornadas/' + jornadaId + '/resumen-ia/imagen/');
+            window.adminfutCompartirImagen(urlImg, txt.value, 'resumen-jornada.png', function(){
+                if(dlResumen) dlResumen.click();
+                window.adminfutCopiar(txt.value);
+                mostrarAviso('Tu navegador no pudo abrir el menú de compartir. Se descargó la imagen y se copió el texto: publícalos manualmente en tu perfil.');
+            });
+        });
+    }
 
     btnPub.addEventListener('click', function(){
         if(!jornadaId || !txt.value.trim()) return;
@@ -392,16 +432,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 
-// Copiar texto del rol para publicarlo manualmente en el perfil
+// Rol: copiar texto y compartir a mi perfil
 (function(){
-    var btn = document.getElementById('copiarTextoRol');
-    if(!btn) return;
-    btn.addEventListener('click', function(){
-        var texto = '📋 Próximos partidos · Todas las categorías\n#FutbolLiga';
-        if(navigator.clipboard){ navigator.clipboard.writeText(texto).catch(function(){}); }
-        btn.innerHTML = '<i class="bi bi-check2"></i> Copiado';
-        setTimeout(function(){ btn.innerHTML = '<i class="bi bi-clipboard"></i> Copiar texto'; }, 2000);
-    });
+    var texto = '📋 Próximos partidos · Todas las categorías\n#FutbolLiga';
+    var urlRol = "{% url 'descargar_rol_facebook' %}";
+
+    var btnCopiar = document.getElementById('copiarTextoRol');
+    if(btnCopiar){
+        btnCopiar.addEventListener('click', function(){
+            window.adminfutCopiar(texto);
+            btnCopiar.innerHTML = '<i class="bi bi-check2"></i> Copiado';
+            setTimeout(function(){ btnCopiar.innerHTML = '<i class="bi bi-clipboard"></i> Copiar texto'; }, 2000);
+        });
+    }
+
+    var btnComp = document.getElementById('compartirRol');
+    if(btnComp && window.adminfutSoportaCompartir){
+        btnComp.classList.remove('d-none');
+        btnComp.addEventListener('click', function(){
+            window.adminfutCompartirImagen(urlRol, texto, 'rol-todas-categorias.png', function(){
+                window.adminfutCopiar(texto);
+                var a = document.createElement('a');
+                a.href = urlRol;
+                a.download = 'rol-todas-categorias.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                btnComp.innerHTML = '<i class="bi bi-check2"></i> Imagen descargada';
+                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir a mi perfil'; }, 3000);
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}
