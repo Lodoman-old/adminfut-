@@ -3806,6 +3806,15 @@ class ResumenIaTest(TestCase):
         r = cliente.get(f"/jornadas/{self.jornada.id}/resumen-ia/")
         self.assertEqual(r.status_code, 403)
 
+    def test_imagen_resultados(self):
+        from io import BytesIO
+        cliente = Client()
+        cliente.force_login(self.user)
+        with patch("league.social_image.generar_imagen_resultados", return_value=BytesIO(b"fakepng")):
+            r = cliente.get(f"/jornadas/{self.jornada.id}/resumen-ia/imagen/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "image/png")
+
 
 class BloqueoScrapersTest(TestCase):
     """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""

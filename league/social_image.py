@@ -197,6 +197,86 @@ def generar_imagen_resumen(
     return _render_and_save(ops, y, COLOR_BG)
 
 
+def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_str):
+    """Tarjeta de resultados de una jornada con los logos de los equipos."""
+    W = 1080
+    M = 40
+    BG = (13, 31, 16)
+    CARD = (22, 48, 27)
+    GREEN = (63, 163, 77)
+    GOLD = (255, 215, 0)
+    WHITE = (255, 255, 255)
+    GRAY = (184, 196, 184)
+
+    n = max(1, len(partidos))
+    H = 200 + n * 130 + 70
+    img = Image.new("RGB", (W, H), BG)
+    draw = ImageDraw.Draw(img)
+
+    f_title = _font(46, bold=True)
+    f_sub = _font(24)
+    f_team = _font(26, bold=True)
+    f_score = _font(38, bold=True)
+    f_footer = _font(20)
+
+    draw.text((M, 30), "RESULTADOS", font=f_title, fill=GOLD)
+    draw.text((M, 88), f"{jornada_nombre} · {temporada_nombre}", font=f_sub, fill=GRAY)
+    draw.line((M, 135, W - M, 135), fill=GREEN, width=4)
+
+    def pegar_logo(equipo, x, y):
+        logo_img = _cargar_logo(getattr(equipo, "logo", None))
+        if logo_img:
+            logo_img.thumbnail((64, 64), Image.LANCZOS)
+            img.paste(
+                logo_img,
+                (x + (64 - logo_img.width) // 2, y + (64 - logo_img.height) // 2),
+                logo_img,
+            )
+        else:
+            draw.ellipse((x, y, x + 64, y + 64), fill=(42, 74, 48))
+
+    for i, p in enumerate(partidos):
+        top = 170 + i * 130
+        draw.rounded_rectangle((M, top, W - M, top + 112), radius=16, fill=CARD)
+        pegar_logo(p.equipo_local, M + 20, top + 24)
+        pegar_logo(p.equipo_visitante, W - M - 84, top + 24)
+
+        local = (p.equipo_local.nombre or "").upper()
+        visit = (p.equipo_visitante.nombre or "").upper()
+        if len(local) > 18:
+            local = local[:17] + "…"
+        if len(visit) > 18:
+            visit = visit[:17] + "…"
+
+        gl = p.goles_local or 0
+        gv = p.goles_visitante or 0
+        score = f"{gl} - {gv}" if p.estado == "FIN" else "VS"
+        local_win = p.estado == "FIN" and gl > gv
+        visit_win = p.estado == "FIN" and gv > gl
+
+        cx = W // 2
+        draw.rounded_rectangle((cx - 62, top + 26, cx + 62, top + 84), radius=12, fill=GREEN)
+        draw.text((cx, top + 55), score, font=f_score, fill=WHITE, anchor="mm")
+
+        tw = draw.textlength(local, font=f_team)
+        draw.text((cx - 80 - tw, top + 42), local, font=f_team,
+                  fill=WHITE if local_win else GRAY)
+        draw.text((cx + 80, top + 42), visit, font=f_team,
+                  fill=WHITE if visit_win else GRAY)
+
+    draw.text((W // 2, H - 40), "juventinorosasliga.com", font=f_footer,
+              fill=GRAY, anchor="mm")
+
+    if H > 1600:
+        ratio = 1600 / H
+        img = img.resize((int(W * ratio), 1600), Image.LANCZOS)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True, compress_level=9)
+    buf.seek(0)
+    return buf
+
+
 def generar_imagen_posiciones(
     temporada_nombre,
     tabla,

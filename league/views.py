@@ -1455,18 +1455,24 @@ def _generar_texto_gemini(prompt):
             headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 4096,
+                    "thinkingConfig": {"thinkingLevel": "low"},
+                },
             },
-            timeout=60,
+            timeout=90,
         )
         if resp.status_code >= 400:
             return None, f"Gemini respondió {resp.status_code}. Intenta de nuevo."
         data = resp.json()
         candidatos = data.get("candidates") or []
+        if candidatos and candidatos[0].get("finishReason") == "MAX_TOKENS":
+            return None, "El resumen quedó incompleto (límite de tokens). Intenta de nuevo."
         partes = (candidatos[0].get("content") or {}).get("parts") or [] if candidatos else []
         texto = "".join(p.get("text", "") for p in partes if isinstance(p, dict)).strip()
-        if not texto:
-            return None, "Gemini no devolvió texto. Intenta de nuevo."
+        if not texto or len(texto) < 80:
+            return None, "La IA devolvió un resumen incompleto. Intenta de nuevo."
         return texto, None
     except Exception as e:
         return None, f"No se pudo conectar con Gemini: {e}"
@@ -1514,14 +1520,40 @@ def resumen_jornada_ia(request, jornada_id):
         "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
         f"Redacta un resumen de {jornada.nombre} para publicar en Facebook y WhatsApp.\n"
         "Datos reales (NO inventes nada):\n- " + "\n- ".join(lineas) + "\n\n"
-        "Reglas: español de México, tono emocionante pero respetuoso, máximo 900 caracteres, "
-        "usa 2-4 emojis, menciona los resultados y a los goleadores destacados. "
-        "Devuelve solo el texto, sin comillas ni encabezados."
+        "Reglas: español de México, tono emocionante pero respetuoso, máximo 1,200 caracteres. "
+        "Incluye TODOS los partidos de la lista, uno por línea, con el marcador. "
+        "Menciona a los goleadores destacados y usa 2-4 emojis. "
+        "No expliques tu proceso, no verifiques partido por partido ni escribas 'Check'. "
+        "Devuelve únicamente el texto final, sin comillas ni encabezados."
     )
     texto, error = _generar_texto_gemini(prompt)
     if error:
         return JsonResponse({"ok": False, "error": error})
     return JsonResponse({"ok": True, "texto": texto, "jornada": jornada.nombre})
+
+
+@login_required
+def resumen_jornada_imagen(request, jornada_id):
+    """Imagen PNG con los resultados y logos de la jornada."""
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
+        return HttpResponse(status=403)
+    partidos = list(
+        Partido.objects.filter(jornada=jornada, estado="FIN")
+        .select_related("equipo_local", "equipo_visitante")
+        .order_by("fecha_hora")
+    )
+    if not partidos:
+        return HttpResponse(status=404)
+    from .social_image import generar_imagen_resultados
+
+    buf = generar_imagen_resultados(
+        jornada.temporada.nombre if jornada.temporada_id else "",
+        jornada.nombre,
+        partidos,
+        timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+    )
+    return HttpResponse(buf.getvalue(), content_type="image/png")
 
 
 @login_required
@@ -1539,9 +1571,27 @@ def publicar_resumen_jornada(request, jornada_id):
     texto = (payload.get("texto") or "").strip()
     if not texto:
         return JsonResponse({"ok": False, "error": "El texto está vacío."})
-    from .social import publicar_en_facebook
+    from .social import publicar_en_facebook, publicar_imagen_en_facebook
 
-    ok = publicar_en_facebook(texto, request)
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    partidos = list(
+        Partido.objects.filter(jornada=jornada, estado="FIN")
+        .select_related("equipo_local", "equipo_visitante")
+        .order_by("fecha_hora")
+    )
+    ok = False
+    if partidos:
+        from .social_image import generar_imagen_resultados
+
+        buf = generar_imagen_resultados(
+            jornada.temporada.nombre if jornada.temporada_id else "",
+            jornada.nombre,
+            partidos,
+            timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+        )
+        ok = publicar_imagen_en_facebook(buf.getvalue(), texto, request)
+    else:
+        ok = publicar_en_facebook(texto, request)
     return JsonResponse({
         "ok": ok,
         "error": "" if ok else "No se pudo publicar en Facebook. Revisa la configuración de la página.",
