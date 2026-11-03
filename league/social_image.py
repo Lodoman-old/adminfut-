@@ -700,7 +700,7 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         n = len(sec.get("partidos") or [])
         filas = (n + 1) // 2
         H += 78 + filas * 104
-        H += 42 if sec.get("descansan") else 14
+        H += 68 if sec.get("descansan") else 14
     H += 80
 
     img = Image.new("RGB", (W, H), BG)
@@ -841,15 +841,19 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         if descansan:
             draw.text((M, y + 4), "Descansan:", font=f_campo, fill=GRAY)
             xs = M + _tw("Descansan:", f_campo) + 10
+            fila_y = y
             for eq in descansan:
-                nombre = eq if len(eq) <= 18 else eq[:17] + "…"
+                nombre = eq if len(eq) <= 24 else eq[:23] + "…"
                 tw = _tw(nombre, f_campo) + 16
                 if xs + tw > W - M:
-                    break
-                draw.rounded_rectangle((xs, y, xs + tw, y + 22), radius=11, fill=(108, 117, 125))
-                draw.text((xs + 8, y + 4), nombre, font=f_campo, fill=WHITE)
+                    if fila_y > y:
+                        break
+                    fila_y += 26
+                    xs = M
+                draw.rounded_rectangle((xs, fila_y, xs + tw, fila_y + 22), radius=11, fill=(108, 117, 125))
+                draw.text((xs + 8, fila_y + 4), nombre, font=f_campo, fill=WHITE)
                 xs += tw + 6
-            y += 44
+            y = fila_y + 44
         else:
             y += 12
 
