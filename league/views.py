@@ -5502,7 +5502,7 @@ def _secciones_rol():
 
 def publicar_rol_facebook(request, temporada_id):
     # No se usa temporada_id: se publican los próximos partidos de todas las categorías.
-    from .social_image import generar_imagen_rol_dashboard
+    from .social_image import generar_imagen_rol_bonita
     from .social import publicar_imagen_en_facebook
 
     secciones, ahora_str = _secciones_rol()
@@ -5510,7 +5510,7 @@ def publicar_rol_facebook(request, temporada_id):
         messages.error(request, "No hay próximos partidos pendientes por publicar.")
         return redirect(request.META.get("HTTP_REFERER", "home"))
 
-    imagen = generar_imagen_rol_dashboard(secciones, ahora_str)
+    imagen = generar_imagen_rol_bonita(secciones, ahora_str)
     caption = "\U0001f4cb Próximos partidos - Todas las categorías\n#FutbolLiga"
     publicar_imagen_en_facebook(imagen, caption, request)
     return redirect(request.META.get("HTTP_REFERER", "home"))
@@ -5518,7 +5518,7 @@ def publicar_rol_facebook(request, temporada_id):
 
 def publicar_rol_facebook_todas(request):
     """Publica en Facebook el rol de la próxima jornada de todas las categorías (botón único)."""
-    from .social_image import generar_imagen_rol_dashboard
+    from .social_image import generar_imagen_rol_bonita
     from .social import publicar_imagen_en_facebook
 
     secciones, ahora_str = _secciones_rol()
@@ -5526,7 +5526,7 @@ def publicar_rol_facebook_todas(request):
         messages.error(request, "No hay próximos partidos pendientes por publicar.")
         return redirect(request.META.get("HTTP_REFERER", "home"))
 
-    imagen = generar_imagen_rol_dashboard(secciones, ahora_str)
+    imagen = generar_imagen_rol_bonita(secciones, ahora_str)
     caption = "\U0001f4cb Próximos partidos - Todas las categorías\n#FutbolLiga"
     publicar_imagen_en_facebook(imagen, caption, request)
     return redirect(request.META.get("HTTP_REFERER", "home"))
@@ -5535,14 +5535,14 @@ def publicar_rol_facebook_todas(request):
 def descargar_rol_facebook(request):
     """Descarga la imagen del rol de la próxima jornada de todas las categorías (sin publicar)."""
     from django.http import HttpResponse
-    from .social_image import generar_imagen_rol_dashboard
+    from .social_image import generar_imagen_rol_bonita
 
     secciones, ahora_str = _secciones_rol()
     if not secciones:
         messages.error(request, "No hay próximos partidos pendientes por generar.")
         return redirect(request.META.get("HTTP_REFERER", "home"))
 
-    buf = generar_imagen_rol_dashboard(secciones, ahora_str)
+    buf = generar_imagen_rol_bonita(secciones, ahora_str)
     nombre = f"rol_todas_categorias_{ahora_str.replace('/', '-').replace(':', '-').replace(' ', '_')}.png"
     response = HttpResponse(buf.getvalue(), content_type="image/png")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
@@ -5644,12 +5644,12 @@ def enviar_rol_por_correo(request):
         messages.error(request, "No hay próximos partidos pendientes por enviar.")
         return redirect(request.META.get("HTTP_REFERER", "reporte_registro"))
 
-    from .social_image import generar_imagen_rol_dashboard
+    from .social_image import generar_imagen_rol_bonita
     from django.utils.html import escape
     from django.template.loader import render_to_string
     from django.utils.html import strip_tags
 
-    buf = generar_imagen_rol_dashboard(secciones, ahora_str)
+    buf = generar_imagen_rol_bonita(secciones, ahora_str)
     adjunto_rol = {
         "cid": "rol",
         "filename": "rol.png",
