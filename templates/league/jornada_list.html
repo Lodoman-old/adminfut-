@@ -336,6 +336,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if(imgResumen){ imgResumen.classList.add('d-none'); imgResumen.removeAttribute('src'); }
             if(dlResumen){ dlResumen.classList.add('d-none'); dlResumen.href = '#'; }
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            if(imgResumen){
+                var urlImg = '/jornadas/' + jornadaId + '/resumen-ia/imagen/?v=' + Date.now();
+                imgResumen.src = urlImg;
+                imgResumen.classList.remove('d-none');
+                if(dlResumen){ dlResumen.href = urlImg; dlResumen.classList.remove('d-none'); }
+            }
             fetch('/jornadas/' + jornadaId + '/resumen-ia/')
                 .then(function(r){ return r.json(); })
                 .then(function(data){
@@ -343,12 +349,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(!data.ok){ mostrarError(data.error || 'No se pudo generar el resumen.'); return; }
                     txt.value = data.texto || '';
                     btnPub.disabled = !txt.value;
-                    if(imgResumen){
-                        var url = '/jornadas/' + jornadaId + '/resumen-ia/imagen/?v=' + Date.now();
-                        imgResumen.src = url;
-                        imgResumen.classList.remove('d-none');
-                        if(dlResumen){ dlResumen.href = url; dlResumen.classList.remove('d-none'); }
-                    }
                 })
                 .catch(function(){
                     spinner.classList.add('d-none');

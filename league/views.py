@@ -1450,19 +1450,27 @@ def _generar_texto_gemini(prompt):
         modelo = "gemini-3.5-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
     try:
-        resp = requests.post(
-            url,
-            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.7,
-                    "maxOutputTokens": 4096,
-                    "thinkingConfig": {"thinkingLevel": "low"},
+        import time as _time
+
+        resp = None
+        for intento in range(3):
+            resp = requests.post(
+                url,
+                headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "maxOutputTokens": 4096,
+                        "thinkingConfig": {"thinkingLevel": "low"},
+                    },
                 },
-            },
-            timeout=90,
-        )
+                timeout=90,
+            )
+            if resp.status_code not in (429, 500, 502, 503, 504):
+                break
+            if intento < 2:
+                _time.sleep(1.5 * (intento + 1))
         if resp.status_code >= 400:
             return None, f"Gemini respondió {resp.status_code}. Intenta de nuevo."
         data = resp.json()
