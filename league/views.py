@@ -1540,7 +1540,6 @@ def resumen_jornada_ia(request, jornada_id):
     return JsonResponse({"ok": True, "texto": texto, "jornada": jornada.nombre})
 
 
-@login_required
 def _imagen_resultados_bytes(jornada):
     """PNG de resultados de la jornada (o None si no hay partidos finalizados)."""
     partidos = list(
