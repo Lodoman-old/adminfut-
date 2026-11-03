@@ -176,14 +176,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div id="rolIaError" class="alert alert-warning small d-none text-start mt-3 mb-0"></div>
                 <textarea id="rolIaTexto" class="form-control d-none mt-3" rows="8" placeholder="Aquí aparecerá el texto para compartir..."></textarea>
-                <small id="rolIaHint" class="text-muted d-none d-block mt-2 text-start">Puedes editar el texto. Se copia automáticamente al compartir para que lo pegues como descripción.</small>
+                <small id="rolIaHint" class="text-muted d-none d-block mt-2 text-start">Puedes editar el texto. Al compartir se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
             </div>
             <div class="modal-footer justify-content-center">
                 <a href="{% url 'descargar_rol_facebook' %}" class="btn btn-outline-success">
                     <i class="bi bi-download"></i> Descargar imagen
                 </a>
                 <button type="button" class="btn btn-outline-dark" id="copiarTextoRol"><i class="bi bi-clipboard"></i> Copiar texto</button>
-                <button type="button" class="btn btn-success d-none" id="compartirRol"><i class="bi bi-share-fill"></i> Compartir</button>
+                <button type="button" class="btn btn-success" id="compartirRol"><i class="bi bi-share-fill"></i> Compartir</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
@@ -206,12 +206,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div id="resumenIaError" class="alert alert-danger small d-none"></div>
                 <img id="resumenIaImagen" class="img-fluid rounded border mb-3 d-none" alt="Resumen de la jornada">
                 <textarea id="resumenIaTexto" class="form-control" rows="9" placeholder="Aquí aparecerá el resumen..."></textarea>
-                <small class="text-muted">Revisa y edita el texto antes de compartirlo. El texto se copia automáticamente al compartir, para que lo pegues como descripción.</small>
+                <small class="text-muted">Revisa y edita el texto. Al compartir se envía un enlace cuya vista previa muestra la imagen y este texto.</small>
             </div>
             <div class="modal-footer">
                 <a class="btn btn-outline-success d-none" id="resumenIaDescargar" download="resumen-jornada.png" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
                 <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
-                <button type="button" class="btn btn-success d-none" id="resumenIaCompartir"><i class="bi bi-share-fill"></i> Compartir</button>
+                <button type="button" class="btn btn-success" id="resumenIaCompartir"><i class="bi bi-share-fill"></i> Compartir</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -219,14 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-// ---- Compartir a mi perfil (Web Share API con archivos) ----
-window.adminfutSoportaCompartir = (function(){
-    try{
-        var f = new File([new Blob(['x'], {type:'image/png'})], 'test.png', {type:'image/png'});
-        return !!(navigator.share && navigator.canShare && navigator.canShare({files:[f]}));
-    }catch(e){ return false; }
-})();
-
+// ---- Compartir por enlace (vista previa con imagen + texto) ----
 window.adminfutCopiar = function(texto){
     texto = texto || '';
     if(navigator.clipboard){ navigator.clipboard.writeText(texto).catch(function(){}); return; }
@@ -238,32 +231,34 @@ window.adminfutCopiar = function(texto){
     document.body.removeChild(ta);
 };
 
-window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone){
-    texto = texto || '';
-    // Copiar el texto dentro del gesto del usuario: al compartir una imagen,
-    // WhatsApp/Facebook suelen ignorar el texto, así queda listo para pegar.
-    window.adminfutCopiar(texto);
-    if(!window.adminfutSoportaCompartir){ onFallback(); return; }
-    fetch(url, {credentials:'same-origin'})
-        .then(function(r){
-            if(!r.ok) throw new Error('HTTP ' + r.status);
-            return r.blob();
-        })
-        .then(function(blob){
-            var file = new File([blob], nombre || 'imagen.png', {type: blob.type || 'image/png'});
-            if(!navigator.canShare({files:[file]})) throw new Error('no-can-share');
-            return navigator.share({
-                files: [file],
-                text: texto,
-                title: 'Liga Municipal de Futbol Juventino Rosas'
-            }).then(function(){
-                if(onDone) onDone();
-            }).catch(function(err){
-                if(err && err.name === 'AbortError') return;
-                throw err;
-            });
-        })
-        .catch(function(){ onFallback(); });
+window.adminfutGuardarTexto = function(url, texto){
+    try{
+        var m = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+        var token = m ? m.pop() : '';
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
+            credentials: 'same-origin',
+            body: JSON.stringify({texto: texto || ''})
+        }).catch(function(){});
+    }catch(e){}
+};
+
+window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
+    if(navigator.share){
+        navigator.share({
+            title: 'Liga Municipal de Futbol Juventino Rosas',
+            text: texto || '',
+            url: url
+        }).then(function(){
+            if(onDone) onDone();
+        }).catch(function(err){
+            if(err && err.name === 'AbortError') return;
+            onFallback();
+        });
+        return;
+    }
+    onFallback();
 };
 
 </script>
@@ -303,14 +298,12 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
             spinner.classList.remove('d-none');
             if(imgResumen){ imgResumen.classList.add('d-none'); imgResumen.removeAttribute('src'); }
             if(dlResumen){ dlResumen.classList.add('d-none'); dlResumen.href = '#'; }
-            if(btnCompartir){ btnCompartir.classList.add('d-none'); }
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
             if(imgResumen){
                 var urlImg = '/jornadas/' + jornadaId + '/resumen-ia/imagen/?v=' + Date.now();
                 imgResumen.src = urlImg;
                 imgResumen.classList.remove('d-none');
                 if(dlResumen){ dlResumen.href = urlImg; dlResumen.classList.remove('d-none'); }
-                if(btnCompartir && window.adminfutSoportaCompartir){ btnCompartir.classList.remove('d-none'); }
             }
             fetch('/jornadas/' + jornadaId + '/resumen-ia/')
                 .then(function(r){ return r.json(); })
@@ -318,6 +311,9 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
                     spinner.classList.add('d-none');
                     if(!data.ok){ mostrarError(data.error || 'No se pudo generar el resumen.'); return; }
                     txt.value = data.texto || '';
+                    if(txt.value){
+                        window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', txt.value);
+                    }
                 })
                 .catch(function(){
                     spinner.classList.add('d-none');
@@ -327,33 +323,36 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
     });
 
     document.getElementById('resumenIaCopiar').addEventListener('click', function(){
-        window.adminfutCopiar(txt.value);
-        mostrarOk('Texto copiado. Pégalo como descripción en Facebook o WhatsApp.');
+        window.adminfutCopiar(txt.value + '\n\n' + window.location.origin + '/compartir/jornada/' + jornadaId + '/');
+        mostrarOk('Texto y enlace copiados.');
     });
 
     if(btnCompartir){
         btnCompartir.addEventListener('click', function(){
             var texto = txt.value.trim();
+            if(!jornadaId) return;
             if(!texto){
                 mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
                 return;
             }
-            var urlImg = (imgResumen && imgResumen.getAttribute('src')) || ('/jornadas/' + jornadaId + '/resumen-ia/imagen/');
-            window.adminfutCompartirImagen(urlImg, texto, 'resumen-jornada.png', function(){
-                if(dlResumen) dlResumen.click();
-                mostrarAviso('Tu navegador no pudo abrir el menú de compartir. Se descargó la imagen y se copió el texto: publícalos manualmente en tu perfil.');
+            var urlCompartir = window.location.origin + '/compartir/jornada/' + jornadaId + '/';
+            window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
+            window.adminfutCompartirEnlace(urlCompartir, texto, function(){
+                window.adminfutCopiar(texto + '\n\n' + urlCompartir);
+                mostrarAviso('Tu navegador no abrió el menú de compartir. Se copió el texto y el enlace: pégalos en WhatsApp o Facebook.');
             }, function(){
-                mostrarOk('Texto copiado. Si la app no lo agregó, pégalo como descripción.');
+                mostrarOk('Enlace compartido. WhatsApp y Facebook mostrarán la imagen y el texto.');
             });
         });
     }
 })();
 
-// Rol: texto de IA, copiar y compartir
+// Rol: texto de IA, copiar y compartir por enlace
 (function(){
     var textoDefault = '📋 Próximos partidos · Todas las categorías\n#FutbolLiga · juventinorosasliga.com';
-    var urlRol = "{% url 'descargar_rol_facebook' %}";
     var urlIa = "{% url 'rol_resumen_ia' %}";
+    var urlGuardar = "{% url 'guardar_texto_rol' %}";
+    var urlCompartir = window.location.origin + "{% url 'compartir_rol' %}";
     var modalRol = document.getElementById('rolTodasModal');
     var txtRol = document.getElementById('rolIaTexto');
     var spinner = document.getElementById('rolIaSpinner');
@@ -365,6 +364,19 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
     function textoActual(){
         var t = txtRol ? txtRol.value.trim() : '';
         return t || textoDefault;
+    }
+
+    function guardarTexto(){
+        window.adminfutGuardarTexto(urlGuardar, textoActual());
+    }
+
+    // Guarda lo que el usuario edite, poco después de dejar de escribir.
+    if(txtRol){
+        var espera = null;
+        txtRol.addEventListener('input', function(){
+            clearTimeout(espera);
+            espera = setTimeout(guardarTexto, 1200);
+        });
     }
 
     function cargarTextoIa(){
@@ -380,6 +392,7 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
                 txtRol.classList.remove('d-none');
                 hint.classList.remove('d-none');
                 cargado = true;
+                guardarTexto();
             })
             .catch(function(e){
                 if(errBox){
@@ -388,6 +401,7 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
                 }
                 txtRol.classList.remove('d-none');
                 hint.classList.remove('d-none');
+                guardarTexto();
             })
             .then(function(){
                 cargando = false;
@@ -402,29 +416,23 @@ window.adminfutCompartirImagen = function(url, texto, nombre, onFallback, onDone
     var btnCopiar = document.getElementById('copiarTextoRol');
     if(btnCopiar){
         btnCopiar.addEventListener('click', function(){
-            window.adminfutCopiar(textoActual());
+            window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
             btnCopiar.innerHTML = '<i class="bi bi-check2"></i> Copiado';
             setTimeout(function(){ btnCopiar.innerHTML = '<i class="bi bi-clipboard"></i> Copiar texto'; }, 2000);
         });
     }
 
     var btnComp = document.getElementById('compartirRol');
-    if(btnComp && window.adminfutSoportaCompartir){
-        btnComp.classList.remove('d-none');
+    if(btnComp){
         btnComp.addEventListener('click', function(){
-            window.adminfutCompartirImagen(urlRol, textoActual(), 'rol-todas-categorias.png', function(){
-                window.adminfutCopiar(textoActual());
-                var a = document.createElement('a');
-                a.href = urlRol;
-                a.download = 'rol-todas-categorias.png';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                btnComp.innerHTML = '<i class="bi bi-check2"></i> Imagen descargada · texto copiado';
+            guardarTexto();
+            window.adminfutCompartirEnlace(urlCompartir, textoActual(), function(){
+                window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
+                btnComp.innerHTML = '<i class="bi bi-check2"></i> Texto y enlace copiados';
                 setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 3500);
             }, function(){
-                btnComp.innerHTML = '<i class="bi bi-check2"></i> Texto copiado: pégalo como descripción';
-                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 3500);
+                btnComp.innerHTML = '<i class="bi bi-check2"></i> Enlace compartido';
+                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir'; }, 2500);
             });
         });
     }

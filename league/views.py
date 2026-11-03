@@ -1541,18 +1541,15 @@ def resumen_jornada_ia(request, jornada_id):
 
 
 @login_required
-def resumen_jornada_imagen(request, jornada_id):
-    """Imagen PNG con los resultados y logos de la jornada."""
-    jornada = get_object_or_404(Jornada, pk=jornada_id)
-    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
-        return HttpResponse(status=403)
+def _imagen_resultados_bytes(jornada):
+    """PNG de resultados de la jornada (o None si no hay partidos finalizados)."""
     partidos = list(
         Partido.objects.filter(jornada=jornada, estado="FIN")
         .select_related("equipo_local", "equipo_visitante")
         .order_by("fecha_hora")
     )
     if not partidos:
-        return HttpResponse(status=404)
+        return None
     from .social_image import generar_imagen_resultados
 
     buf = generar_imagen_resultados(
@@ -1561,7 +1558,97 @@ def resumen_jornada_imagen(request, jornada_id):
         partidos,
         timezone.localtime().strftime("%d/%m/%Y %H:%M"),
     )
-    return HttpResponse(buf.getvalue(), content_type="image/png")
+    return buf.getvalue()
+
+
+def resumen_jornada_imagen(request, jornada_id):
+    """Imagen PNG con los resultados y logos de la jornada."""
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
+        return HttpResponse(status=403)
+    data = _imagen_resultados_bytes(jornada)
+    if not data:
+        return HttpResponse(status=404)
+    return HttpResponse(data, content_type="image/png")
+
+
+# ---- Compartir por enlace (vista previa con imagen + texto en WhatsApp/Facebook) ----
+
+def _cache_texto_jornada(jornada_id):
+    from django.core.cache import cache
+
+    return cache.get(f"share_texto_jornada_{jornada_id}")
+
+
+def compartir_jornada(request, jornada_id):
+    """Página pública para compartir resultados: WhatsApp/Facebook muestran
+    la imagen y el texto de la jornada en la vista previa del enlace."""
+    from django.core.cache import cache  # noqa: F401
+    from django.urls import reverse
+    from urllib.parse import quote
+
+    jornada = get_object_or_404(Jornada.objects.select_related("temporada"), pk=jornada_id)
+    from .models import ConfiguracionLiga
+
+    cfg = ConfiguracionLiga.obtener()
+    nombre_liga = (cfg.nombre_liga if cfg else "") or "Liga Municipal de Futbol Juventino Rosas"
+    texto = _cache_texto_jornada(jornada_id)
+    if not texto:
+        temporada = jornada.temporada.nombre if jornada.temporada_id else ""
+        texto = f"Resultados de {jornada.nombre}" + (f" - {temporada}" if temporada else "")
+    descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
+    descripcion = re.sub(r"\s+", " ", descripcion).strip()
+    imagen_url = request.build_absolute_uri(
+        reverse("compartir_jornada_imagen", args=[jornada_id])
+    )
+    url_publica = request.build_absolute_uri(
+        reverse("compartir_jornada", args=[jornada_id])
+    )
+    return render(request, "league/compartir.html", {
+        "titulo": f"{jornada.nombre} · {nombre_liga}",
+        "descripcion": descripcion,
+        "texto": texto,
+        "imagen_url": imagen_url,
+        "url_publica": url_publica,
+        "nombre_liga": nombre_liga,
+        "volver_url": "/",
+        "whatsapp_url": "https://wa.me/?text=" + quote(texto + " " + url_publica),
+        "facebook_url": "https://www.facebook.com/sharer/sharer.php?u=" + quote(url_publica),
+    })
+
+
+def compartir_jornada_imagen(request, jornada_id):
+    """Imagen pública de resultados (para la vista previa del enlace)."""
+    from django.core.cache import cache
+
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    key = f"share_img_jornada_{jornada_id}"
+    data = cache.get(key)
+    if not data:
+        data = _imagen_resultados_bytes(jornada)
+        if not data:
+            raise Http404()
+        cache.set(key, data, 600)
+    return HttpResponse(data, content_type="image/png")
+
+
+@login_required
+@require_POST
+def guardar_texto_jornada(request, jornada_id):
+    """Guarda el texto editado para que la página de compartir lo use."""
+    from django.core.cache import cache
+
+    if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
+        return JsonResponse({"ok": False, "error": "Sin permiso."}, status=403)
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    texto = (payload.get("texto") or "").strip()[:4000]
+    if not texto:
+        return JsonResponse({"ok": False, "error": "Texto vacío."})
+    cache.set(f"share_texto_jornada_{jornada_id}", texto, 60 * 60 * 24 * 7)
+    return JsonResponse({"ok": True})
 
 
 @login_required
@@ -5589,6 +5676,78 @@ def descargar_rol_facebook(request):
     response = HttpResponse(buf.getvalue(), content_type="image/png")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
     return response
+
+
+# ---- Compartir el rol por enlace (vista previa con imagen + texto) ----
+
+TEXTO_ROL_DEFAULT = (
+    "\U0001f4cb Próximos partidos · Todas las categorías\n"
+    "#FutbolLiga · juventinorosasliga.com"
+)
+
+
+def compartir_rol(request):
+    """Página pública del rol de próximos partidos para compartir por enlace."""
+    from django.urls import reverse
+    from urllib.parse import quote
+
+    from .models import ConfiguracionLiga
+
+    cfg = ConfiguracionLiga.obtener()
+    nombre_liga = (cfg.nombre_liga if cfg else "") or "Liga Municipal de Futbol Juventino Rosas"
+    from django.core.cache import cache
+
+    texto = cache.get("share_texto_rol") or TEXTO_ROL_DEFAULT
+    descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
+    descripcion = re.sub(r"\s+", " ", descripcion).strip()
+    imagen_url = request.build_absolute_uri(reverse("compartir_rol_imagen"))
+    url_publica = request.build_absolute_uri(reverse("compartir_rol"))
+    return render(request, "league/compartir.html", {
+        "titulo": f"Próximos partidos · {nombre_liga}",
+        "descripcion": descripcion,
+        "texto": texto,
+        "imagen_url": imagen_url,
+        "url_publica": url_publica,
+        "nombre_liga": nombre_liga,
+        "volver_url": "/",
+        "whatsapp_url": "https://wa.me/?text=" + quote(texto + " " + url_publica),
+        "facebook_url": "https://www.facebook.com/sharer/sharer.php?u=" + quote(url_publica),
+    })
+
+
+def compartir_rol_imagen(request):
+    """Imagen pública del rol (para la vista previa del enlace)."""
+    from django.core.cache import cache
+    from .social_image import generar_imagen_rol_bonita
+
+    key = "share_img_rol"
+    data = cache.get(key)
+    if not data:
+        secciones, ahora_str = _secciones_rol()
+        if not secciones:
+            raise Http404()
+        data = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
+        cache.set(key, data, 600)
+    return HttpResponse(data, content_type="image/png")
+
+
+@login_required
+@require_POST
+def guardar_texto_rol(request):
+    """Guarda el texto del rol para la página de compartir."""
+    from django.core.cache import cache
+
+    if not (request.user.is_staff or request.user.tiene_permiso("jornada_publicar")):
+        return JsonResponse({"ok": False, "error": "Sin permiso."}, status=403)
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    texto = (payload.get("texto") or "").strip()[:4000]
+    if not texto:
+        return JsonResponse({"ok": False, "error": "Texto vacío."})
+    cache.set("share_texto_rol", texto, 60 * 60 * 24 * 7)
+    return JsonResponse({"ok": True})
 
 
 def _puede_ver_curp(request):

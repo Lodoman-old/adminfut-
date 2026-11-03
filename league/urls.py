@@ -54,6 +54,13 @@ urlpatterns = [
     path("jornadas/<int:jornada_id>/resumen-ia/", views.resumen_jornada_ia, name="resumen_jornada_ia"),
     path("jornadas/<int:jornada_id>/resumen-ia/imagen/", views.resumen_jornada_imagen, name="resumen_jornada_imagen"),
     path("jornadas/<int:jornada_id>/resumen-ia/publicar/", views.publicar_resumen_jornada, name="publicar_resumen_jornada"),
+    path("jornadas/<int:jornada_id>/resumen-ia/guardar/", views.guardar_texto_jornada, name="guardar_texto_jornada"),
+
+    path("compartir/jornada/<int:jornada_id>/", views.compartir_jornada, name="compartir_jornada"),
+    path("compartir/jornada/<int:jornada_id>/imagen.png", views.compartir_jornada_imagen, name="compartir_jornada_imagen"),
+    path("compartir/rol/", views.compartir_rol, name="compartir_rol"),
+    path("compartir/rol/imagen.png", views.compartir_rol_imagen, name="compartir_rol_imagen"),
+    path("rol-todas/guardar-texto/", views.guardar_texto_rol, name="guardar_texto_rol"),
 
     path("periodo-altas/", views.PeriodoAltasListView.as_view(), name="periodoaltas_list"),
     path("periodo-altas/nuevo/", views.PeriodoAltasCreateView.as_view(), name="periodoaltas_create"),

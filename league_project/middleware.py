@@ -242,6 +242,7 @@ PREFIJOS_PUBLICOS = (
     '/publicidad/',  # página pública de detalle de anuncios
     '/equipo/',  # ficha pública de equipo
     '/jugador/',  # ficha pública de jugador
+    '/compartir/',  # páginas públicas para compartir en redes (OG)
 )
 
 # url_name -> permiso(s) requerido(s). '__staff__' exige is_staff.
