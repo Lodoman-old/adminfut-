@@ -568,6 +568,24 @@
                 <p class="mb-1">Accesos a <code>/accounts/login/</code> en 24 h: <strong>{{ login_24h }}</strong> desde <strong>{{ login_ips_24h }}</strong> IPs.</p>
                 <small class="text-muted">Cuenta solo GET (ver la página). Si aparecen POSTs sospechosos, revisa los logs del servidor.</small>
               </div>
+
+              <div class="card p-3 mb-3">
+                <h6 class="text-danger"><i class="bi bi-lightning-charge"></i> Ráfagas por IP (máx. en 1 minuto)</h6>
+                <p class="small text-muted mb-2">Muchas peticiones de una misma IP en un minuto es señal de bot. Se marca <span class="badge bg-danger">ráfaga</span> desde 20/min.</p>
+                <table class="table table-sm" style="font-size:.78rem">
+                  <thead class="table-dark"><tr><th>IP</th><th>Minuto</th><th>Peticiones</th><th></th></tr></thead>
+                  <tbody>
+                    {% for p in picos_ip %}
+                    <tr>
+                      <td>{{ p.ip|default:"-" }}</td>
+                      <td>{{ p.minuto|date:"d/m H:i" }}</td>
+                      <td><strong>{{ p.n }}</strong></td>
+                      <td>{% if p.rafaga %}<span class="badge bg-danger">ráfaga</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}<tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>{% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div class="col-lg-5">

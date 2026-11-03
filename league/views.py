@@ -1052,7 +1052,7 @@ def admin_push_logs(request):
     from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail
     from datetime import timedelta
     from django.db.models import Count, Case, When, F, Value, CharField, Max
-    from django.db.models.functions import TruncDate, Cast
+    from django.db.models.functions import TruncDate, Cast, TruncMinute
     from django.utils import timezone
 
     logs = get_push_logs(limit=200)
@@ -1266,6 +1266,18 @@ def admin_push_logs(request):
     bloqueos_ultimos = list(bloqueos_24h.order_by("-fecha")[:15])
     top_ips_24h = list(visitas_24h.values("ip").annotate(n=Count("id")).order_by("-n")[:10])
 
+    # Ráfagas: máximo de peticiones de una IP en un mismo minuto (bot que golpea).
+    picos_ip = list(
+        visitas_24h.annotate(minuto=TruncMinute("fecha"))
+        .values("ip", "minuto")
+        .annotate(n=Count("id"))
+        .order_by("-n")[:8]
+    )
+    for p in picos_ip:
+        p["rafaga"] = p["n"] >= 20
+    alerta_rafaga = any(p["rafaga"] for p in picos_ip)
+    alerta_bots = alerta_bots or alerta_rafaga
+
     if bloqueos_total >= 20 or alerta_bots:
         nivel_alerta = "alta"
     elif bloqueos_total > 0 or (trafico_total_24h and trafico_ratio < 2):
@@ -1327,6 +1339,8 @@ def admin_push_logs(request):
         "bloqueos_path": bloqueos_path,
         "bloqueos_ultimos": bloqueos_ultimos,
         "top_ips_24h": top_ips_24h,
+        "picos_ip": picos_ip,
+        "alerta_rafaga": alerta_rafaga,
         "nivel_alerta": nivel_alerta,
     })
 
