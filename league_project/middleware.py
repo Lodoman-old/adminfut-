@@ -101,6 +101,84 @@ class BloqueoScrapersMiddleware:
         return self.get_response(request)
 
 
+class RateLimitMiddleware:
+    """Límite de peticiones por IP para frenar ráfagas y bots.
+
+    Se aplica solo a anónimos: los usuarios con sesión (staff, árbitros,
+    invitados logueados) no se limitan. Los assets, la API y el health check
+    están exentos. Al exceder, responde 429 y registra el evento para la
+    pestaña Trafico de /push-logs/.
+    """
+
+    VENTANA = 60  # segundos
+    LIMITE_GLOBAL = 120
+    REGLAS = (
+        ('/accounts/login/', 20, 'login'),
+        ('/reportes/', 40, 'reportes'),
+        ('/cedula-arbitral/', 40, 'cedula'),
+        ('/jugador/', 60, 'jugador'),
+        ('/equipo/', 60, 'equipo'),
+    )
+    EXENTOS = (
+        '/api/', '/health/', '/static/', '/media/', '/sw.js',
+        '/pwa-icon/', '/manifest.webmanifest',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    @staticmethod
+    def _ip(request):
+        valor = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '')
+        return valor.split(',')[0].strip()
+
+    @staticmethod
+    def _registrar(request, ip):
+        try:
+            from league.models import SolicitudBloqueada
+            SolicitudBloqueada.objects.create(
+                ip=ip or None,
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:300],
+                path=request.path[:300],
+                metodo=request.method,
+                motivo='limite',
+            )
+        except Exception:
+            pass
+
+    def __call__(self, request):
+        if request.path.startswith(self.EXENTOS):
+            return self.get_response(request)
+        if getattr(request.user, 'is_authenticated', False):
+            return self.get_response(request)
+
+        limite, etiqueta = self.LIMITE_GLOBAL, 'global'
+        for prefijo, lim, nombre in self.REGLAS:
+            if request.path.startswith(prefijo):
+                limite, etiqueta = lim, nombre
+                break
+
+        ip = self._ip(request) or 'sin-ip'
+        clave = f'rl:{etiqueta}:{ip}'
+        from django.core.cache import cache
+        try:
+            actual = cache.incr(clave)
+        except ValueError:
+            cache.add(clave, 1, self.VENTANA)
+            actual = 1
+
+        if actual > limite:
+            self._registrar(request, ip)
+            respuesta = HttpResponse(
+                'Demasiadas solicitudes. Espera un momento e intenta de nuevo.',
+                status=429,
+                content_type='text/plain; charset=utf-8',
+            )
+            respuesta['Retry-After'] = str(self.VENTANA)
+            return respuesta
+        return self.get_response(request)
+
+
 class AutoNgrokCSRFMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response

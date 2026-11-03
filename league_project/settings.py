@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -8,6 +9,15 @@ SECRET_KEY = os.environ.get('SECRET_KEY') or os.environ.get('DJANGO_SECRET_KEY',
 DEBUG = (os.environ.get('DEBUG', 'False') == 'True') or (os.environ.get('DJANGO_DEBUG', 'False') == 'True')
 
 ALLOWED_HOSTS = (os.environ.get('ALLOWED_HOSTS', '') or os.environ.get('DJANGO_ALLOWED_HOSTS', '*')).split(',')
+
+# Caché compartida entre los workers (rate limit, contadores). Archivo en /tmp.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(tempfile.gettempdir(), 'adminfut-cache'),
+        'TIMEOUT': 300,
+    }
+}
 
 CSRF_TRUSTED_ORIGINS = (os.environ.get('CSRF_TRUSTED_ORIGINS', '') or os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')).split(',') if (os.environ.get('CSRF_TRUSTED_ORIGINS') or os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS')) else []
 
@@ -36,6 +46,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'league_project.middleware.RateLimitMiddleware',
     'league_project.middleware.LoginPermisoMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

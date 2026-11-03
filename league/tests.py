@@ -3656,6 +3656,60 @@ class TarjetasUltimaJornadaTest(TestCase):
         self.assertEqual(ids, sorted([self.jug1.id, self.jug2.id]))
 
 
+class RateLimitTest(TestCase):
+    """Límite de peticiones por IP (ráfagas/bots)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def _mw(self):
+        from django.contrib.auth.models import AnonymousUser
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from league_project.middleware import RateLimitMiddleware
+        mw = RateLimitMiddleware(lambda r: HttpResponse("ok"))
+        return mw, RequestFactory(), AnonymousUser()
+
+    def test_login_limite_y_registro(self):
+        mw, rf, anon = self._mw()
+        codigos = []
+        for _ in range(21):
+            r = rf.get("/accounts/login/", REMOTE_ADDR="10.0.0.1", HTTP_USER_AGENT="monitor-bot")
+            r.user = anon
+            codigos.append(mw(r).status_code)
+        self.assertEqual(codigos[:20], [200] * 20)
+        self.assertEqual(codigos[20], 429)
+        from league.models import SolicitudBloqueada
+        self.assertTrue(SolicitudBloqueada.objects.filter(motivo="limite").exists())
+
+    def test_otra_ip_no_afectada(self):
+        mw, rf, anon = self._mw()
+        for _ in range(21):
+            r = rf.get("/accounts/login/", REMOTE_ADDR="10.0.0.1")
+            r.user = anon
+            mw(r)
+        r = rf.get("/accounts/login/", REMOTE_ADDR="10.0.0.2")
+        r.user = anon
+        self.assertEqual(mw(r).status_code, 200)
+
+    def test_api_exenta(self):
+        mw, rf, anon = self._mw()
+        for _ in range(50):
+            r = rf.get("/api/vapid-public-key/", REMOTE_ADDR="10.0.0.3")
+            r.user = anon
+            self.assertEqual(mw(r).status_code, 200)
+
+    def test_usuario_logueado_exento(self):
+        from django.contrib.auth import get_user_model
+        mw, rf, _ = self._mw()
+        user = get_user_model().objects.create_user(username="rl_usuario", password="x")
+        for _ in range(30):
+            r = rf.get("/accounts/login/", REMOTE_ADDR="10.0.0.4")
+            r.user = user
+            self.assertEqual(mw(r).status_code, 200)
+
+
 class BloqueoScrapersTest(TestCase):
     """El bloqueo debe cubrir las variantes del actor (LigaJR) y WordPress."""
 
