@@ -1773,7 +1773,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     y_final = dibuja_cedula(table_top)
 
-    footer_y = y_final - 30
+    footer_y = y_final - 15
     if footer_y < 150:
         footer_y = 150
     p.setFillColor(colors.black)
@@ -1783,16 +1783,12 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, footer_y, f"Goles local: {gol_local}")
     p.drawString(right_x, footer_y, f"Goles visitante: {gol_visit}")
 
-    # Firmas en un solo renglon, al final de la hoja (sin nombres de capitanes)
-    p.setFont("Helvetica", 11)
-    firma_y = footer_y - 25
-    if firma_y < 130:
-        firma_y = 130
-    p.drawString(left_x, firma_y, "Firma local: ____________")
-    p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
-    p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
-
-    # QR hacia la cédula digital (solo lectura para usuarios con sesión)
+    # QR entre los goles y las firmas (sin encimarse con la tabla).
+    lado = 72
+    x_qr = w - left_x - lado
+    y_qr = footer_y - (lado + 10)
+    if y_qr < 70:
+        y_qr = 70
     try:
         from reportlab.graphics import renderPDF
         from reportlab.graphics.barcode.qr import QrCodeWidget
@@ -1807,22 +1803,27 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         b = qr.getBounds()
         ancho_qr = b[2] - b[0]
         alto_qr = b[3] - b[1]
-        lado = 72
         d = Drawing(lado, lado, transform=[lado / ancho_qr, 0, 0, lado / alto_qr, 0, 0])
         d.add(qr)
-        x_qr = w - left_x - lado
-        y_qr = firma_y - 90
-        if y_qr < 40:
-            y_qr = 40
         # Zona blanca de silencio alrededor del QR (mejor lectura al imprimir).
         p.setFillColor(colors.white)
         p.rect(x_qr - 6, y_qr - 6, lado + 12, lado + 12, fill=1, stroke=0)
         renderPDF.draw(d, p, x_qr, y_qr)
         p.setFillColor(colors.black)
         p.setFont("Helvetica", 6.5)
-        p.drawCentredString(x_qr + lado / 2, y_qr + lado + 4, "Cédula digital")
+        p.drawCentredString(x_qr + lado / 2, y_qr - 10, "Cédula digital")
     except Exception:
         pass
+
+    # Firmas debajo del QR.
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica", 11)
+    firma_y = y_qr - 24
+    if firma_y < 45:
+        firma_y = 45
+    p.drawString(left_x, firma_y, "Firma local: ____________")
+    p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
+    p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     draw_footer(p, w, h, 14)
 
