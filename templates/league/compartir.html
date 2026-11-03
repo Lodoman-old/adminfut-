@@ -48,17 +48,9 @@
             padding: 18px 18px 6px; font-size: 16px; line-height: 1.55;
             white-space: pre-wrap; word-wrap: break-word;
         }
-        .acciones { display: grid; gap: 10px; padding: 16px 18px 20px; }
-        .btn {
-            display: block; text-align: center; text-decoration: none;
-            padding: 12px 16px; border-radius: 10px; font-weight: 700;
-            font-size: 15px; border: 2px solid transparent; cursor: pointer;
-        }
-        .btn-wa { background: #25D366; color: #fff; }
-        .btn-fb { background: #1877F2; color: #fff; }
-        .btn-copiar { background: #fff; color: #225428; border-color: #225428; }
-        .btn-sitio { background: transparent; color: #6e766e; font-weight: 600; }
-        .pie { text-align: center; color: #6e766e; font-size: 12px; margin-top: 18px; }
+        .pie { text-align: center; font-size: 12px; margin-top: 18px; }
+        .pie a { color: #6e766e; text-decoration: none; }
+        .pie a:hover { color: #225428; }
     </style>
 </head>
 <body>
@@ -67,38 +59,10 @@
 
     <div class="card">
         <img src="{{ imagen_grande_url }}" alt="{{ titulo }}">
-        <div class="texto" id="textoCompartir">{{ texto }}</div>
-        <div class="acciones">
-            <a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
-            <a class="btn btn-fb" href="{{ facebook_url }}" target="_blank" rel="noopener">Compartir en Facebook</a>
-            <button class="btn btn-copiar" type="button" id="btnCopiar">Copiar texto</button>
-            <a class="btn btn-sitio" href="{{ volver_url }}">Ver juventinorosasliga.com</a>
-        </div>
+        <div class="texto">{{ texto }}</div>
     </div>
 
-    <p class="pie">Comparte este enlace: la imagen y el texto aparecen en la vista previa.</p>
+    <p class="pie"><a href="{{ volver_url }}">juventinorosasliga.com</a></p>
 </div>
-<script>
-(function(){
-    var btn = document.getElementById('btnCopiar');
-    var txt = document.getElementById('textoCompartir');
-    if(!btn || !txt) return;
-    btn.addEventListener('click', function(){
-        var texto = txt.textContent || '';
-        if(navigator.clipboard){
-            navigator.clipboard.writeText(texto).catch(function(){});
-        } else {
-            var ta = document.createElement('textarea');
-            ta.value = texto;
-            document.body.appendChild(ta);
-            ta.select();
-            try { document.execCommand('copy'); } catch(e) {}
-            document.body.removeChild(ta);
-        }
-        btn.textContent = '¡Texto copiado!';
-        setTimeout(function(){ btn.textContent = 'Copiar texto'; }, 2000);
-    });
-})();
-</script>
 </body>
 </html>

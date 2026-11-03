@@ -1051,7 +1051,7 @@ def generar_miniatura_og(png_bytes, ancho=1200, alto=630, max_bytes=290_000):
     calidad = 82
     while True:
         buf = io.BytesIO()
-        recorte.save(buf, format="JPEG", quality=calidad, optimize=True, progressive=True)
+        recorte.save(buf, format="JPEG", quality=calidad, optimize=True, progressive=False)
         if buf.tell() <= max_bytes or calidad <= 50:
             break
         calidad -= 8

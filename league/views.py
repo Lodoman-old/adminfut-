@@ -1609,7 +1609,7 @@ def compartir_jornada(request, jornada_id):
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
     imagen_url = _url_absoluta(request, reverse("compartir_jornada_miniatura", args=[jornada_id]))
     imagen_grande = _url_absoluta(request, reverse("compartir_jornada_imagen", args=[jornada_id]))
-    url_publica = _url_absoluta(request, reverse("compartir_jornada", args=[jornada_id]))
+    url_publica = _url_absoluta(request, request.get_full_path())
     return render(request, "league/compartir.html", {
         "titulo": f"{jornada.nombre} · {nombre_liga}",
         "descripcion": descripcion,
@@ -5736,7 +5736,7 @@ def compartir_rol(request):
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
     imagen_url = _url_absoluta(request, reverse("compartir_rol_miniatura"))
     imagen_grande = _url_absoluta(request, reverse("compartir_rol_imagen"))
-    url_publica = _url_absoluta(request, reverse("compartir_rol"))
+    url_publica = _url_absoluta(request, request.get_full_path())
     return render(request, "league/compartir.html", {
         "titulo": f"Próximos partidos · {nombre_liga}",
         "descripcion": descripcion,
