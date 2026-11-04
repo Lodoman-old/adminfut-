@@ -183,7 +183,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi bi-download"></i> Descargar imagen
                 </a>
                 <button type="button" class="btn btn-outline-dark" id="copiarTextoRol"><i class="bi bi-clipboard"></i> Copiar texto</button>
-                <button type="button" class="btn btn-outline-primary" id="compartirRol"><i class="bi bi-share-fill"></i> Compartir…</button>
                 <button type="button" class="btn btn-success" id="compartirRolWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
                 <button type="button" class="btn btn-primary" id="compartirRolFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -213,7 +212,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="modal-footer flex-wrap">
                 <a class="btn btn-outline-success d-none" id="resumenIaDescargar" download="resumen-jornada.png" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
                 <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
-                <button type="button" class="btn btn-outline-primary" id="resumenIaCompartir"><i class="bi bi-share-fill"></i> Compartir…</button>
                 <button type="button" class="btn btn-success" id="resumenIaWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
                 <button type="button" class="btn btn-primary" id="resumenIaFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -248,23 +246,6 @@ window.adminfutGuardarTexto = function(url, texto){
     }catch(e){}
 };
 
-window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
-    if(navigator.share){
-        navigator.share({
-            title: 'Liga Municipal de Futbol Juventino Rosas',
-            text: texto || '',
-            url: url
-        }).then(function(){
-            if(onDone) onDone();
-        }).catch(function(err){
-            if(err && err.name === 'AbortError') return;
-            onFallback();
-        });
-        return;
-    }
-    onFallback();
-};
-
 // Abre un enlace fuera de la app cuando el contenedor lo permite.
 window.adminfutAbrirExterno = function(enlace){
     var w = null;
@@ -297,7 +278,6 @@ window.adminfutFacebook = function(url){
     var errBox = document.getElementById('resumenIaError');
     var imgResumen = document.getElementById('resumenIaImagen');
     var dlResumen = document.getElementById('resumenIaDescargar');
-    var btnCompartir = document.getElementById('resumenIaCompartir');
     var jornadaId = null;
 
     function mostrarError(msg){
@@ -352,28 +332,10 @@ window.adminfutFacebook = function(url){
         mostrarOk('Texto y enlace copiados.');
     });
 
-    if(btnCompartir){
-        btnCompartir.addEventListener('click', function(){
-            var texto = txt.value.trim();
-            if(!jornadaId) return;
-            if(!texto){
-                mostrarAviso('Espera a que se genere el resumen o escríbelo antes de compartir.');
-                return;
-            }
-            var urlCompartir = window.location.origin + '/s/jornada/' + jornadaId + '/?v=' + Date.now();
-            window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', texto);
-            window.adminfutCompartirEnlace(urlCompartir, texto, function(){
-                window.adminfutCopiar(texto + '\n\n' + urlCompartir);
-                mostrarAviso('Tu navegador no abrió el menú de compartir. Se copió el texto y el enlace: pégalos en WhatsApp o Facebook.');
-            }, function(){
-                mostrarOk('Enlace compartido. WhatsApp y Facebook mostrarán la imagen y el texto.');
-            });
-        });
-    }
-
     // Botones directos: abren WhatsApp/Facebook aunque la app no soporte compartir.
     var btnWa = document.getElementById('resumenIaWa');
     var btnFb = document.getElementById('resumenIaFb');
+
     if(btnWa){
         btnWa.addEventListener('click', function(){
             var texto = txt.value.trim();
@@ -474,22 +436,6 @@ window.adminfutFacebook = function(url){
             window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
             btnCopiar.innerHTML = '<i class="bi bi-check2"></i> Copiado';
             setTimeout(function(){ btnCopiar.innerHTML = '<i class="bi bi-clipboard"></i> Copiar texto'; }, 2000);
-        });
-    }
-
-    var btnComp = document.getElementById('compartirRol');
-    if(btnComp){
-        btnComp.addEventListener('click', function(){
-            guardarTexto();
-            var urlConVersion = urlCompartir + '?v=' + Date.now();
-            window.adminfutCompartirEnlace(urlConVersion, textoActual(), function(){
-                window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
-                btnComp.innerHTML = '<i class="bi bi-check2"></i> Texto y enlace copiados';
-                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir…'; }, 3500);
-            }, function(){
-                btnComp.innerHTML = '<i class="bi bi-check2"></i> Enlace compartido';
-                setTimeout(function(){ btnComp.innerHTML = '<i class="bi bi-share-fill"></i> Compartir…'; }, 2500);
-            });
         });
     }
 
