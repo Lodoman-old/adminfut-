@@ -5762,7 +5762,11 @@ def rol_resumen_ia(request):
     )
     texto, error = _generar_texto_gemini(prompt)
     if error:
-        return JsonResponse({"ok": False, "error": error})
+        return JsonResponse({
+            "ok": False,
+            "error": error,
+            "ids": [s["jornada_id"] for s in secciones],
+        })
     return JsonResponse({
         "ok": True,
         "texto": texto,
@@ -5957,6 +5961,9 @@ def guardar_texto_rol(request):
         ids_lista = []
     sufijo = ("_" + "-".join(str(i) for i in ids_lista)) if ids_lista else ""
     cache.set("share_texto_rol" + sufijo, texto, 60 * 60 * 24 * 7)
+    # Mantener también el texto del rol "actual" para /s/rol/ (sin ids).
+    if sufijo:
+        cache.set("share_texto_rol", texto, 60 * 60 * 24 * 7)
     return JsonResponse({"ok": True})
 
 

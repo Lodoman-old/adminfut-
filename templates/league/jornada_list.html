@@ -420,8 +420,8 @@ window.adminfutFacebook = function(url){
         fetch(urlIa, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(function(r){ return r.json(); })
             .then(function(data){
-                if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
                 idsRol = data.ids || [];
+                if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
                 txtRol.value = data.texto || '';
                 txtRol.classList.remove('d-none');
                 hint.classList.remove('d-none');
