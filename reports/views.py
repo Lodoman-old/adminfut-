@@ -1824,9 +1824,9 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     # Leyenda de columnas (una línea, entre las firmas y el pie, sin encimarse).
-    leyenda_y = firma_y - 18
-    if leyenda_y < 44:
-        leyenda_y = 44
+    leyenda_y = firma_y - 20
+    if leyenda_y < 42:
+        leyenda_y = 42
     segmentos = [
         ("T", "Helvetica-Bold"), (" = Titular   ·   ", "Helvetica"),
         ("C", "Helvetica-Bold"), (" = Cambio   ·   ", "Helvetica"),
@@ -1854,7 +1854,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         x_leyenda += p.stringWidth(txt, font, leyenda_size)
     p.setFillColor(colors.black)
 
-    draw_footer(p, w, h, 12, 18)
+    draw_footer(p, w, h, 12, 22)
 
     p.showPage()
     p.save()
