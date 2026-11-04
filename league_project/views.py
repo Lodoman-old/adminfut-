@@ -89,7 +89,7 @@ def home(request):
 
     if temp_activa:
         jornada_activa = (
-            Jornada.objects.filter(temporada=temp_activa, partidos__estado__in=["PEND", "SUSP"])
+            Jornada.objects.filter(temporada=temp_activa, partidos__estado="PEND")
             .distinct()
             .order_by("numero")
             .first()

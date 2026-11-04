@@ -5568,7 +5568,7 @@ def _secciones_rol():
         if not temp_activa:
             continue
         jornada = (
-            Jornada.objects.filter(temporada=temp_activa, partidos__estado__in=["PEND", "SUSP"])
+            Jornada.objects.filter(temporada=temp_activa, partidos__estado="PEND")
             .distinct()
             .order_by("numero")
             .first()
