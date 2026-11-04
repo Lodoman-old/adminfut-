@@ -1,4 +1,4 @@
-﻿from django.contrib import messages
+from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -1822,6 +1822,21 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
+
+    # Leyenda de columnas (entre las firmas y el pie, sin encimarse).
+    leyenda_y = max(46, firma_y - 14)
+    p.setFillColor(colors.HexColor("#444444"))
+    p.setFont("Helvetica", 6.5)
+    p.drawCentredString(
+        w / 2, leyenda_y,
+        "T = Titular  ·  C = Cambio  ·  G = Goles  ·  A1/A2 = Amarillas  ·  R = Roja",
+    )
+    p.setFont("Helvetica", 6)
+    p.drawCentredString(
+        w / 2, leyenda_y - 8,
+        "Marca con X o ✓ dentro del recuadro, sin salirte, para que se lea mejor.",
+    )
+    p.setFillColor(colors.black)
 
     draw_footer(p, w, h, 14)
 

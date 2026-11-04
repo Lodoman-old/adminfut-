@@ -296,6 +296,7 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'change_server' %}"><i class="bi bi-server"></i> Cambiar servidor</a></li>
                             {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'admin_push_logs' %}"><i class="bi bi-bell"></i> Push & Dispositivos</a></li>{% endif %}
+                            {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'cedulas_capturas' %}"><i class="bi bi-camera"></i> Cédulas por validar</a></li>{% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-key"></i> Cambiar contraseña</a></li>
                             <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar sesión</a></li>

@@ -1,3 +1,4 @@
+import os
 import uuid
 from django.db import models, ProgrammingError
 from django.db.models import Manager
@@ -7,6 +8,8 @@ from django.conf import settings
 from django.core.files.storage import Storage
 from django.utils.deconstruct import deconstructible
 from PIL import Image
+
+from .private_storage import PrivateStorage
 
 
 class CategoriaQuerySet(models.QuerySet):
@@ -3051,3 +3054,44 @@ class PronosticoQuiniela(models.Model):
             -1 if self.goles_local < self.goles_visitante else 0
         )
         return 1 if signo_real == signo_mio else 0
+
+
+class CedulaCaptura(models.Model):
+    """Foto de una cédula subida para lectura asistida (borrador, no oficial).
+
+    La imagen se guarda en almacenamiento privado y se borra al validar.
+    """
+    ESTADOS = [
+        ("SUBIDA", "Subida (sin leer)"),
+        ("SIN_IDENTIFICAR", "Sin identificar"),
+        ("LEIDA", "Leída por IA"),
+        ("VALIDADA", "Validada"),
+        ("ERROR", "Error de lectura"),
+    ]
+
+    partido = models.ForeignKey(
+        "Partido", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="capturas_cedula", verbose_name="Partido",
+    )
+    imagen = models.FileField(
+        upload_to="cedulas/%Y/%m/",
+        storage=PrivateStorage(),
+        verbose_name="Foto de la cédula",
+    )
+    estado = models.CharField(max_length=20, choices=ESTADOS, default="SUBIDA")
+    datos_json = models.JSONField(default=dict, blank=True, verbose_name="Datos leídos")
+    error = models.TextField(blank=True, default="", verbose_name="Error")
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="cedulas_subidas",
+    )
+    creado = models.DateTimeField(auto_now_add=True, db_index=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Cédula subida"
+        verbose_name_plural = "Cédulas subidas"
+        ordering = ["-creado"]
+
+    def __str__(self):
+        return f"Cédula {self.pk} ({self.get_estado_display()})"

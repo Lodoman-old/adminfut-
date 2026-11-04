@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Cédulas por validar - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-camera"></i> Cédulas por validar</h3>
+    <a href="{% url 'partido_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<div class="alert alert-info py-2">
+    <i class="bi bi-info-circle"></i>
+    Sube las fotos de las cédulas. El sistema lee el <strong>QR</strong> para identificar el partido.
+    La IA solo genera un <strong>borrador</strong>: tú lo revisas y finalizas en la cédula del partido.
+    Las fotos se borran al validar.
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white"><i class="bi bi-upload"></i> Subir cédulas</div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-md-9">
+                <label class="form-label">Fotos de cédulas (puedes seleccionar varias)</label>
+                <input type="file" name="imagenes" class="form-control" accept="image/*" multiple required>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-success w-100"><i class="bi bi-cloud-upload"></i> Subir</button>
+            </div>
+        </form>
+        <small class="text-muted">Máximo 8 MB por foto. Si el QR no se lee, podrás asignar el partido a mano.</small>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-secondary text-white"><i class="bi bi-list-check"></i> Bandeja ({{ capturas|length }})</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width:90px">Foto</th>
+                        <th>Partido</th>
+                        <th style="width:130px">Estado</th>
+                        <th style="width:170px">Lectura</th>
+                        <th style="width:260px">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cap in capturas %}
+                    <tr>
+                        <td>
+                            {% if cap.imagen %}
+                            <a href="{% url 'cedula_captura_foto' cap.id %}" target="_blank">
+                                <img src="{% url 'cedula_captura_foto' cap.id %}" alt="Cédula" class="rounded border" style="width:72px;height:72px;object-fit:cover">
+                            </a>
+                            {% else %}
+                            <span class="text-muted small">Sin foto</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cap.partido %}
+                            <strong>{{ cap.partido.equipo_local.nombre }}</strong> vs <strong>{{ cap.partido.equipo_visitante.nombre }}</strong>
+                            <div class="small text-muted">{{ cap.partido.jornada.nombre|default:"Sin jornada" }} · {{ cap.partido.fecha_hora|date:"d/m/Y H:i" }}</div>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Sin identificar</span>
+                            <form method="post" action="{% url 'cedula_captura_asignar' cap.id %}" class="d-flex gap-1 mt-1">
+                                {% csrf_token %}
+                                <select name="partido_id" class="form-select form-select-sm" required>
+                                    <option value="">Asignar partido...</option>
+                                    {% for p in partidos %}
+                                    <option value="{{ p.id }}">{{ p.equipo_local.nombre }} vs {{ p.equipo_visitante.nombre }} · {{ p.fecha_hora|date:"d/m/Y" }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary" type="submit">OK</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cap.estado == "SUBIDA" %}<span class="badge bg-secondary">Subida</span>
+                            {% elif cap.estado == "SIN_IDENTIFICAR" %}<span class="badge bg-warning text-dark">Sin identificar</span>
+                            {% elif cap.estado == "LEIDA" %}<span class="badge bg-info text-dark">Leída</span>
+                            {% elif cap.estado == "VALIDADA" %}<span class="badge bg-success">Validada</span>
+                            {% else %}<span class="badge bg-danger">Error</span>{% endif %}
+                            {% if cap.error %}<div class="small text-danger">{{ cap.error|truncatechars:120 }}</div>{% endif %}
+                        </td>
+                        <td class="small">
+                            {% if cap.estado == "LEIDA" %}
+                            <div>{{ cap.n_local }} local · {{ cap.n_visit }} visitante</div>
+                            <div>{{ cap.n_goles }} goles · {{ cap.n_tarjetas }} tarjetas</div>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cap.partido %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% if cap.estado != "LEIDA" and cap.estado != "VALIDADA" %}
+                                <form method="post" action="{% url 'cedula_captura_leer' cap.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-stars"></i> Leer con IA</button>
+                                </form>
+                                {% endif %}
+                                {% if cap.estado == "LEIDA" %}
+                                <a class="btn btn-sm btn-success" href="{% url 'cedula_arbitral' cap.partido.id %}?captura={{ cap.id }}"><i class="bi bi-check2-square"></i> Validar</a>
+                                <form method="post" action="{% url 'cedula_captura_leer' cap.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-arrow-clockwise"></i> Releer</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'cedula_captura_eliminar' cap.id %}" onsubmit="return confirm('¿Eliminar esta cédula y su foto?');">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">Aún no hay cédulas subidas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

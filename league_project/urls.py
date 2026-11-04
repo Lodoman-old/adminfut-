@@ -3,13 +3,25 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
-from league.views import admin_push_logs
+from league.views import (
+    admin_push_logs,
+    cedulas_capturas,
+    cedula_captura_foto,
+    cedula_captura_leer,
+    cedula_captura_asignar,
+    cedula_captura_eliminar,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", views.health, name="health"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("push-logs/", admin_push_logs, name="admin_push_logs"),
+    path("push-logs/cedulas/", cedulas_capturas, name="cedulas_capturas"),
+    path("push-logs/cedulas/<int:pk>/foto/", cedula_captura_foto, name="cedula_captura_foto"),
+    path("push-logs/cedulas/<int:pk>/leer/", cedula_captura_leer, name="cedula_captura_leer"),
+    path("push-logs/cedulas/<int:pk>/asignar/", cedula_captura_asignar, name="cedula_captura_asignar"),
+    path("push-logs/cedulas/<int:pk>/eliminar/", cedula_captura_eliminar, name="cedula_captura_eliminar"),
     path("", views.home, name="home"),
     path("change-server/", views.change_server, name="change_server"),
     path("accounts/", include("accounts.urls")),

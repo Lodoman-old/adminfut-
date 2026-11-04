@@ -4118,6 +4118,25 @@ def cedula_arbitral(request, partido_id):
             for e in result["errors"]:
                 messages.error(request, e)
             return redirect("cedula_arbitral", partido_id=partido.id)
+
+        # Si venía de una foto validada, marcar la captura y borrar la imagen.
+        captura_post_id = request.POST.get("captura_id")
+        if captura_post_id:
+            from .models import CedulaCaptura
+
+            cap = CedulaCaptura.objects.filter(
+                pk=captura_post_id, partido=partido
+            ).first()
+            if cap:
+                cap.estado = "VALIDADA"
+                cap.error = ""
+                try:
+                    cap.imagen.delete(save=False)
+                except Exception:
+                    pass
+                cap.imagen = ""
+                cap.save(update_fields=["estado", "error", "imagen", "actualizado"])
+
         for w in result["warnings"]:
             messages.warning(request, w)
         if result["finalizado"]:
@@ -4255,6 +4274,59 @@ def cedula_arbitral(request, partido_id):
         for j in jugadores_local + jugadores_visit:
             j.elegible_liguilla = True
 
+    # Precargar el borrador leído por IA (si viene desde la bandeja de cédulas).
+    captura = None
+    captura_id = request.GET.get("captura")
+    if captura_id and not es_invitado:
+        from .models import CedulaCaptura
+
+        captura = CedulaCaptura.objects.filter(
+            pk=captura_id, partido=partido, estado="LEIDA"
+        ).first()
+        if captura:
+            datos = captura.datos_json or {}
+
+            def _aplicar(lista, clave):
+                items = {}
+                for x in datos.get(clave) or []:
+                    try:
+                        items[int(x.get("jugador_id"))] = x
+                    except (TypeError, ValueError):
+                        continue
+                for j in lista:
+                    d = items.get(j.id)
+                    if not d:
+                        continue
+                    participacion = (d.get("participacion") or "").lower()
+                    if participacion == "titular":
+                        j.es_titular = True
+                    elif participacion == "cambio":
+                        j.es_titular = False
+                    try:
+                        j.cantidad_goles = int(d.get("goles") or 0)
+                    except (TypeError, ValueError):
+                        j.cantidad_goles = 0
+                    try:
+                        j.cantidad_amarillas = int(d.get("amarillas") or 0)
+                    except (TypeError, ValueError):
+                        j.cantidad_amarillas = 0
+                    j.tiene_roja = bool(d.get("rojas"))
+
+            _aplicar(jugadores_local, "local")
+            _aplicar(jugadores_visit, "visitante")
+
+            def _suma_goles(clave):
+                total = 0
+                for x in datos.get(clave) or []:
+                    try:
+                        total += int(x.get("goles") or 0)
+                    except (TypeError, ValueError):
+                        pass
+                return total
+
+            partido.goles_local = _suma_goles("local")
+            partido.goles_visitante = _suma_goles("visitante")
+
     from .models import ConfiguracionLiga
     return render(request, "league/cedula_arbitral.html" if not es_invitado else "league/cedula_invitado.html", {
         "partido": partido,
@@ -4262,6 +4334,7 @@ def cedula_arbitral(request, partido_id):
         "jugadores_visit": jugadores_visit,
         "arbitros": arbitros_list,
         "es_invitado": es_invitado,
+        "captura": captura,
         "config": ConfiguracionLiga.obtener(),
     })
 
@@ -4313,6 +4386,201 @@ def cedula_escanear(request, partido_id):
         return JsonResponse(resultado, safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def _puede_cedulas(user):
+    return bool(
+        user.is_authenticated
+        and (getattr(user, "is_staff", False) or user.tiene_permiso("partido_cedula"))
+    )
+
+
+def _jugadores_para_cedula(partido):
+    from .models import Jugador, JugadorEquipo
+    from django.db.models import Q
+
+    def _lista(equipo):
+        ids = JugadorEquipo.objects.filter(
+            equipo=equipo, activo=True
+        ).values_list("jugador_id", flat=True)
+        jugadores = list(
+            Jugador.objects.filter(
+                Q(pk__in=ids) | Q(equipo=equipo), activo=True
+            ).select_related("equipo").distinct()
+        )
+        jugadores.sort(key=lambda x: ((x.nombre or "").upper(), (x.apellido or "").upper()))
+        return jugadores
+
+    return (
+        _lista(partido.equipo_local),
+        _lista(partido.equipo_visitante),
+    )
+
+
+@login_required
+def cedulas_capturas(request):
+    """Subida múltiple de cédulas y bandeja de validación."""
+    from .models import CedulaCaptura
+    from .cedula_qr import leer_partido_de_qr
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+
+    if request.method == "POST":
+        archivos = request.FILES.getlist("imagenes")
+        if not archivos:
+            messages.error(request, "Selecciona al menos una foto.")
+            return redirect("cedulas_capturas")
+        subidas = 0
+        identificadas = 0
+        for archivo in archivos:
+            if archivo.size > 8 * 1024 * 1024:
+                messages.error(request, f"{archivo.name}: supera 8 MB.")
+                continue
+            partido_id = leer_partido_de_qr(archivo)
+            partido = Partido.objects.filter(pk=partido_id).first() if partido_id else None
+            cap = CedulaCaptura(
+                imagen=archivo,
+                creado_por=request.user,
+                partido=partido,
+                estado="SUBIDA" if partido else "SIN_IDENTIFICAR",
+            )
+            cap.save()
+            subidas += 1
+            if partido:
+                identificadas += 1
+        messages.success(
+            request,
+            f"{subidas} cédula(s) subida(s). {identificadas} identificada(s) por QR.",
+        )
+        return redirect("cedulas_capturas")
+
+    capturas = list(
+        CedulaCaptura.objects.select_related(
+            "partido__equipo_local", "partido__equipo_visitante",
+            "partido__jornada", "creado_por",
+        ).order_by("-creado")[:300]
+    )
+    for cap in capturas:
+        datos = cap.datos_json or {}
+        local = datos.get("local") or []
+        visit = datos.get("visitante") or []
+        cap.n_local = len(local)
+        cap.n_visit = len(visit)
+        cap.n_goles = sum(int(x.get("goles") or 0) for x in local + visit)
+        cap.n_tarjetas = sum(
+            int(x.get("amarillas") or 0) + (1 if x.get("rojas") else 0)
+            for x in local + visit
+        )
+    partidos = list(
+        Partido.objects.select_related("equipo_local", "equipo_visitante", "jornada")
+        .order_by("-fecha_hora")[:300]
+    )
+    return render(request, "league/cedulas_capturas.html", {
+        "capturas": capturas,
+        "partidos": partidos,
+    })
+
+
+@login_required
+def cedula_captura_foto(request, pk):
+    import mimetypes
+
+    from .models import CedulaCaptura
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    cap = get_object_or_404(CedulaCaptura, pk=pk)
+    if not cap.imagen:
+        raise Http404()
+    tipo = mimetypes.guess_type(cap.imagen.name)[0] or "image/jpeg"
+    try:
+        return FileResponse(cap.imagen.open("rb"), content_type=tipo)
+    except Exception:
+        raise Http404()
+
+
+@login_required
+@require_POST
+def cedula_captura_leer(request, pk):
+    from .models import CedulaCaptura
+    from .cedula_scan import escanear_cedula_con_vision
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    cap = get_object_or_404(
+        CedulaCaptura.objects.select_related(
+            "partido__equipo_local", "partido__equipo_visitante"
+        ),
+        pk=pk,
+    )
+    if not cap.partido_id:
+        messages.error(request, "Asigna primero el partido de esta cédula.")
+        return redirect("cedulas_capturas")
+
+    jugadores_local, jugadores_visit = _jugadores_para_cedula(cap.partido)
+    try:
+        cap.imagen.open("rb")
+        resultado = escanear_cedula_con_vision(
+            cap.imagen, cap.partido, jugadores_local, jugadores_visit
+        )
+        cap.imagen.close()
+    except Exception as e:
+        resultado = {"error": str(e)}
+
+    if resultado.get("error"):
+        cap.estado = "ERROR"
+        cap.error = str(resultado["error"])[:1000]
+        cap.datos_json = {}
+        messages.error(request, f"No se pudo leer la cédula: {cap.error}")
+    else:
+        cap.estado = "LEIDA"
+        cap.error = ""
+        cap.datos_json = resultado
+        messages.success(
+            request,
+            "Cédula leída. Revisa el borrador y valida en la cédula del partido.",
+        )
+    cap.save(update_fields=["estado", "error", "datos_json", "actualizado"])
+    return redirect("cedulas_capturas")
+
+
+@login_required
+@require_POST
+def cedula_captura_asignar(request, pk):
+    from .models import CedulaCaptura
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    cap = get_object_or_404(CedulaCaptura, pk=pk)
+    partido = Partido.objects.filter(pk=request.POST.get("partido_id")).first()
+    if not partido:
+        messages.error(request, "Selecciona un partido válido.")
+    else:
+        cap.partido = partido
+        cap.datos_json = {}
+        cap.estado = "SUBIDA"
+        cap.error = ""
+        cap.save(update_fields=["partido", "datos_json", "estado", "error", "actualizado"])
+        messages.success(request, "Partido asignado. Ya puedes leer la cédula.")
+    return redirect("cedulas_capturas")
+
+
+@login_required
+@require_POST
+def cedula_captura_eliminar(request, pk):
+    from .models import CedulaCaptura
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    cap = get_object_or_404(CedulaCaptura, pk=pk)
+    try:
+        cap.imagen.delete(save=False)
+    except Exception:
+        pass
+    cap.delete()
+    messages.success(request, "Cédula eliminada.")
+    return redirect("cedulas_capturas")
 
 
 def tabla_tarjetas(request):

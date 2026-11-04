@@ -82,9 +82,15 @@ def construir_prompt(partido, jugadores_local, jugadores_visit, prompt_template=
 
 
 def _imagen_payload(archivo):
+    import mimetypes
+
     data = archivo.read()
     archivo.seek(0)
-    mime = getattr(archivo, 'content_type', None) or 'image/jpeg'
+    mime = (
+        getattr(archivo, 'content_type', None)
+        or mimetypes.guess_type(getattr(archivo, 'name', '') or '')[0]
+        or 'image/jpeg'
+    )
     b64 = base64.b64encode(data).decode('utf-8')
     return mime, b64
 

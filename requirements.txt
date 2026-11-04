@@ -15,3 +15,4 @@ sendgrid
 requests
 firebase-admin
 pywebpush
+zxing-cpp
