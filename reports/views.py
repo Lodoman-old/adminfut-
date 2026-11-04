@@ -98,14 +98,14 @@ def draw_header(p, width, height, extra_line="", right_reserved=0):
     return y_sep - 10
 
 
-def draw_footer(p, width, height, font_size=7):
+def draw_footer(p, width, height, font_size=7, y_inicio=30):
     """Dibuja el pie de pagina (redes sociales)."""
     cfg = ConfiguracionLiga.obtener()
     if cfg.redes_sociales:
         p.setFont("Helvetica", font_size)
         p.setFillColor(colors.grey)
         lineas = cfg.redes_sociales.split("\n")
-        y = 30
+        y = y_inicio
         for linea in lineas:
             linea = linea.strip()
             if linea:
@@ -1825,8 +1825,8 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
 
     # Leyenda de columnas (una línea, entre las firmas y el pie, sin encimarse).
     leyenda_y = firma_y - 18
-    if leyenda_y < 42:
-        leyenda_y = 42
+    if leyenda_y < 44:
+        leyenda_y = 44
     segmentos = [
         ("T", "Helvetica-Bold"), (" = Titular   ·   ", "Helvetica"),
         ("C", "Helvetica-Bold"), (" = Cambio   ·   ", "Helvetica"),
@@ -1854,7 +1854,7 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         x_leyenda += p.stringWidth(txt, font, leyenda_size)
     p.setFillColor(colors.black)
 
-    draw_footer(p, w, h, 14)
+    draw_footer(p, w, h, 12, 18)
 
     p.showPage()
     p.save()
