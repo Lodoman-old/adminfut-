@@ -1266,6 +1266,41 @@ def admin_push_logs(request):
     bloqueos_ultimos = list(bloqueos_24h.order_by("-fecha")[:15])
     top_ips_24h = list(visitas_24h.values("ip").annotate(n=Count("id")).order_by("-n")[:10])
 
+    # Resumen de bloqueos (24 h / 7 d / 30 d) para la pestaña Tráfico.
+    _motivos_labels = dict(SolicitudBloqueada.MOTIVOS)
+    bloqueos_7d = SolicitudBloqueada.objects.filter(fecha__gte=hace_7dias)
+    bloqueos_30d = SolicitudBloqueada.objects.filter(fecha__gte=hace_30dias)
+    bloqueos_7d_total = bloqueos_7d.count()
+    bloqueos_30d_total = bloqueos_30d.count()
+    bloqueos_motivos = []
+    for _clave in ("ua", "ruta", "limite"):
+        bloqueos_motivos.append({
+            "label": _motivos_labels.get(_clave, _clave),
+            "n24": bloqueos_24h.filter(motivo=_clave).count(),
+            "n7": bloqueos_7d.filter(motivo=_clave).count(),
+            "n30": bloqueos_30d.filter(motivo=_clave).count(),
+        })
+    bloqueos_top_ips_30d = list(
+        bloqueos_30d.values("ip").annotate(
+            total=Count("id"),
+            rutas=Count("id", filter=Q(motivo="ruta")),
+            agentes=Count("id", filter=Q(motivo="ua")),
+            limites=Count("id", filter=Q(motivo="limite")),
+            ultima=Max("fecha"),
+        ).order_by("-total")[:10]
+    )
+    desde_serie_bloqueos = inicio_hoy - timedelta(days=13)
+    por_dia_bloqueos = {
+        r["d"]: r["c"]
+        for r in SolicitudBloqueada.objects.filter(fecha__gte=desde_serie_bloqueos)
+        .annotate(d=TruncDate("fecha")).values("d").annotate(c=Count("id"))
+    }
+    bloqueos_serie = []
+    for i in range(14):
+        d = (desde_serie_bloqueos + timedelta(days=i)).date()
+        bloqueos_serie.append({"fecha": d.strftime("%d/%m"), "c": por_dia_bloqueos.get(d, 0)})
+    bloqueos_serie_max = max([s["c"] for s in bloqueos_serie] or [1]) or 1
+
     # Ráfagas: máximo de peticiones de una IP en un mismo minuto (bot que golpea).
     picos_ip = list(
         visitas_24h.annotate(minuto=TruncMinute("fecha"))
@@ -1335,6 +1370,12 @@ def admin_push_logs(request):
         "login_24h": login_24h,
         "login_ips_24h": login_ips_24h,
         "bloqueos_total": bloqueos_total,
+        "bloqueos_7d_total": bloqueos_7d_total,
+        "bloqueos_30d_total": bloqueos_30d_total,
+        "bloqueos_motivos": bloqueos_motivos,
+        "bloqueos_top_ips_30d": bloqueos_top_ips_30d,
+        "bloqueos_serie": bloqueos_serie,
+        "bloqueos_serie_max": bloqueos_serie_max,
         "bloqueos_ua": bloqueos_ua,
         "bloqueos_path": bloqueos_path,
         "bloqueos_ultimos": bloqueos_ultimos,

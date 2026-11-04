@@ -532,6 +532,54 @@
           <div class="alert alert-success"><i class="bi bi-check-circle"></i> Sin señales claras de bots en las últimas 24 h.</div>
           {% endif %}
 
+          <div class="card p-3 mb-3">
+            <h6 class="text-danger"><i class="bi bi-shield-exclamation"></i> Resumen de bloqueos</h6>
+            <p class="small text-muted mb-2">Solo se cuentan peticiones rechazadas (bots, rutas y límites), no todo el tráfico.</p>
+            <div class="row g-2 mb-3">
+              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_total }}</h5><small class="text-muted">24 h</small></div></div>
+              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_7d_total }}</h5><small class="text-muted">7 días</small></div></div>
+              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_30d_total }}</h5><small class="text-muted">30 días</small></div></div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <table class="table table-sm mb-0" style="font-size:.8rem">
+                  <thead class="table-dark"><tr><th>Motivo</th><th class="text-end">24 h</th><th class="text-end">7 d</th><th class="text-end">30 d</th></tr></thead>
+                  <tbody>
+                    {% for m in bloqueos_motivos %}
+                    <tr><td>{{ m.label }}</td><td class="text-end">{{ m.n24 }}</td><td class="text-end">{{ m.n7 }}</td><td class="text-end">{{ m.n30 }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="col-md-6">
+                <small class="text-muted">Bloqueos por día (14 días)</small>
+                <div class="d-flex align-items-end gap-1 mt-1" style="height:70px">
+                  {% for d in bloqueos_serie %}
+                  <div title="{{ d.fecha }}: {{ d.c }}" style="flex:1;height:{% widthratio d.c bloqueos_serie_max 100 %}%;min-height:2px;background:#dc3545;border-radius:2px"></div>
+                  {% endfor %}
+                </div>
+                <div class="d-flex justify-content-between small text-muted"><span>{{ bloqueos_serie.0.fecha }}</span><span>Hoy</span></div>
+              </div>
+            </div>
+            <div class="table-responsive mt-3">
+              <table class="table table-sm table-striped mb-0" style="font-size:.78rem">
+                <thead class="table-dark"><tr><th>IP</th><th class="text-end">Total</th><th class="text-end">Ruta</th><th class="text-end">Agente</th><th class="text-end">Límite</th><th>Última</th></tr></thead>
+                <tbody>
+                  {% for ip in bloqueos_top_ips_30d %}
+                  <tr>
+                    <td>{{ ip.ip|default:"-" }}</td>
+                    <td class="text-end"><strong>{{ ip.total }}</strong></td>
+                    <td class="text-end">{{ ip.rutas }}</td>
+                    <td class="text-end">{{ ip.agentes }}</td>
+                    <td class="text-end">{{ ip.limites }}</td>
+                    <td>{{ ip.ultima|date:"d/m H:i" }}</td>
+                  </tr>
+                  {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin bloqueos en 30 días.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="row g-3 mb-3">
             <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ trafico_total_24h }}</h4><small class="text-muted">Visitas 24 h</small></div></div>
             <div class="col-6 col-md-3"><div class="card p-3 text-center"><h4 class="mb-0">{{ trafico_ips_24h }}</h4><small class="text-muted">IPs únicas</small></div></div>
