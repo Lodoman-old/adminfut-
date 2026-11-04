@@ -191,7 +191,7 @@ def _post_con_reintentos(url, headers, payload, timeout, intentos=3):
     resp = None
     for intento in range(intentos):
         resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
-        if resp.status_code not in (429, 500, 502, 503, 504):
+        if resp.status_code not in (500, 502, 503, 504):
             return resp
         if intento < intentos - 1:
             time.sleep(1.5 * (intento + 1))
