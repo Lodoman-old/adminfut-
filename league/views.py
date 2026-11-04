@@ -1520,9 +1520,26 @@ def resumen_jornada_ia(request, jornada_id):
             f"{p.equipo_local.nombre} {p.goles_local}-{p.goles_visitante} "
             f"{p.equipo_visitante.nombre}. Goles: {detalle}."
         )
+        if p.ganador_walkover:
+            linea += f" (Gana {p.ganador_walkover.nombre} por default)."
         if rojas:
             linea += " Expulsados: " + ", ".join(rojas) + "."
         lineas.append(linea)
+
+    suspendidos = list(
+        Partido.objects.filter(jornada=jornada, estado="SUSP")
+        .select_related("equipo_local", "equipo_visitante")
+        .order_by("fecha_hora")
+    )
+    if suspendidos:
+        lineas.append(
+            "Partidos suspendidos (sin resultado): "
+            + "; ".join(
+                f"{p.equipo_local.nombre} vs {p.equipo_visitante.nombre}"
+                for p in suspendidos
+            )
+            + "."
+        )
 
     prompt = (
         "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
@@ -1530,6 +1547,7 @@ def resumen_jornada_ia(request, jornada_id):
         "Datos reales (NO inventes nada):\n- " + "\n- ".join(lineas) + "\n\n"
         "Reglas: español de México, tono emocionante pero respetuoso, máximo 1,200 caracteres. "
         "Incluye TODOS los partidos de la lista, uno por línea, con el marcador. "
+        "Si hay partidos suspendidos, menciónalos como suspendidos y sin marcador. "
         "Menciona a los goleadores destacados y usa 2-4 emojis. "
         "No expliques tu proceso, no verifiques partido por partido ni escribas 'Check'. "
         "Devuelve únicamente el texto final, sin comillas ni encabezados."
@@ -1543,7 +1561,7 @@ def resumen_jornada_ia(request, jornada_id):
 def _imagen_resultados_bytes(jornada):
     """PNG de resultados de la jornada (o None si no hay partidos finalizados)."""
     partidos = list(
-        Partido.objects.filter(jornada=jornada, estado="FIN")
+        Partido.objects.filter(jornada=jornada, estado__in=["FIN", "SUSP"])
         .select_related("equipo_local", "equipo_visitante")
         .order_by("fecha_hora")
     )
@@ -5550,7 +5568,7 @@ def _secciones_rol():
         if not temp_activa:
             continue
         jornada = (
-            Jornada.objects.filter(temporada=temp_activa, partidos__estado="PEND")
+            Jornada.objects.filter(temporada=temp_activa, partidos__estado__in=["PEND", "SUSP"])
             .distinct()
             .order_by("numero")
             .first()
@@ -5559,7 +5577,7 @@ def _secciones_rol():
             continue
         partidos_qs = [
             x for x in Partido.objects.filter(
-                temporada=temp_activa, jornada=jornada, estado="PEND"
+                temporada=temp_activa, jornada=jornada, estado__in=["PEND", "SUSP"]
             ).select_related(
                 "equipo_local", "equipo_visitante", "campo"
             ).order_by("fecha_hora")
@@ -5573,10 +5591,17 @@ def _secciones_rol():
         ]
         if not partidos_qs:
             continue
+        partidos_qs.sort(key=lambda x: x.fecha_hora or timezone.now())
 
-        ids_juegan = {p.equipo_local_id for p in partidos_qs} | {
-            p.equipo_visitante_id for p in partidos_qs
-        }
+        # Todos los equipos con partido en la jornada (aunque esté suspendido o
+        # resuelto por default) NO descansan.
+        ids_juegan = set(
+            Partido.objects.filter(temporada=temp_activa, jornada=jornada)
+            .values_list("equipo_local_id", flat=True)
+        ) | set(
+            Partido.objects.filter(temporada=temp_activa, jornada=jornada)
+            .values_list("equipo_visitante_id", flat=True)
+        )
         todos_ids = set(
             Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
         )
@@ -5597,6 +5622,7 @@ def _secciones_rol():
                 "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
                 "marcador": "",
                 "is_fin": p.estado == "FIN",
+                "susp": p.estado == "SUSP",
                 "local_win": False,
                 "vis_win": False,
                 "default_win": None,
@@ -5606,7 +5632,7 @@ def _secciones_rol():
                 d["marcador"] = f"{gl}\u2013{gv}"
                 d["local_win"] = gl > gv
                 d["vis_win"] = gv > gl
-            ganador_dft = p.ganador_walkover
+            ganador_dft = p.ganador_walkover if p.estado != "SUSP" else None
             if ganador_dft:
                 if ganador_dft == p.equipo_local:
                     d["default_win"] = "local"

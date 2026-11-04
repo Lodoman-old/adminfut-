@@ -89,21 +89,24 @@ def home(request):
 
     if temp_activa:
         jornada_activa = (
-            Jornada.objects.filter(temporada=temp_activa, partidos__estado="PEND")
+            Jornada.objects.filter(temporada=temp_activa, partidos__estado__in=["PEND", "SUSP"])
             .distinct()
             .order_by("numero")
             .first()
         )
         if jornada_activa:
             proximos_liga = Partido.objects.filter(
-                temporada=temp_activa, jornada=jornada_activa, estado="PEND"
+                temporada=temp_activa, jornada=jornada_activa,
+                estado__in=["PEND", "SUSP"],
             ).select_related(
                 "equipo_local", "equipo_visitante", "campo", "jornada"
             ).order_by("fecha_hora")
             ids_juegan = set(
-                proximos_liga.values_list("equipo_local_id", flat=True)
+                Partido.objects.filter(temporada=temp_activa, jornada=jornada_activa)
+                .values_list("equipo_local_id", flat=True)
             ) | set(
-                proximos_liga.values_list("equipo_visitante_id", flat=True)
+                Partido.objects.filter(temporada=temp_activa, jornada=jornada_activa)
+                .values_list("equipo_visitante_id", flat=True)
             )
             todos_ids = set(
                 Equipo.objects.filter(categoria=categoria_sel, activo=True)

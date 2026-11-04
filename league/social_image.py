@@ -223,9 +223,17 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
     DARK = (28, 32, 28)
     GRAY = (110, 118, 110)
     WHITE = (255, 255, 255)
+    RED = (176, 0, 32)
+    ORANGE = (194, 65, 12)
+
+    hay_susp = any(p.estado == "SUSP" for p in partidos)
+    hay_dft = any(
+        p.estado != "SUSP" and p.ganador_walkover is not None for p in partidos
+    )
+    leyenda = 34 if (hay_susp or hay_dft) else 0
 
     n = max(1, len(partidos))
-    H = 200 + n * 130 + 70
+    H = 200 + n * 130 + 70 + leyenda
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
@@ -233,6 +241,8 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
     f_sub = _font(24)
     f_team = _font(28, bold=True)
     f_score = _font(40, bold=True)
+    f_susp = _font(28, bold=True)
+    f_chica = _font(13, bold=True)
     f_footer = _font(20)
 
     draw.text((M, 28), "RESULTADOS", font=f_title, fill=GREEN)
@@ -269,19 +279,37 @@ def generar_imagen_resultados(temporada_nombre, jornada_nombre, partidos, ahora_
 
         gl = p.goles_local or 0
         gv = p.goles_visitante or 0
-        score = f"{gl} - {gv}" if p.estado == "FIN" else "VS"
-        local_win = p.estado == "FIN" and gl > gv
-        visit_win = p.estado == "FIN" and gv > gl
+        gw = p.ganador_walkover if p.estado != "SUSP" else None
+        es_susp = p.estado == "SUSP"
+        score = f"{gl} - {gv}" if p.estado == "FIN" else ("SUSP" if es_susp else "VS")
+        local_win = (p.estado == "FIN" and gl > gv) or (gw == p.equipo_local if gw else False)
+        visit_win = (p.estado == "FIN" and gv > gl) or (gw == p.equipo_visitante if gw else False)
 
         cx = W // 2
-        draw.rounded_rectangle((cx - 62, top + 26, cx + 62, top + 84), radius=12, fill=GREEN)
-        draw.text((cx, top + 55), score, font=f_score, fill=WHITE, anchor="mm")
+        caja_fill = RED if es_susp else GREEN
+        draw.rounded_rectangle((cx - 62, top + 26, cx + 62, top + 84), radius=12, fill=caja_fill)
+        draw.text((cx, top + 55), score, font=(f_susp if es_susp else f_score), fill=WHITE, anchor="mm")
+        if gw:
+            draw.text((cx, top + 96), "Gana por default", font=f_chica, fill=ORANGE, anchor="mm")
 
         tw = draw.textlength(local, font=f_team)
         draw.text((cx - 80 - tw, top + 42), local, font=f_team,
-                  fill=DARK if local_win else GRAY)
+                  fill=GREEN if (local_win and gw) else (DARK if local_win else GRAY))
         draw.text((cx + 80, top + 42), visit, font=f_team,
-                  fill=DARK if visit_win else GRAY)
+                  fill=GREEN if (visit_win and gw) else (DARK if visit_win else GRAY))
+
+    if leyenda:
+        ly = H - 100
+        lx = M
+        if hay_dft:
+            draw.rounded_rectangle((lx, ly, lx + 58, ly + 24), radius=12, fill=ORANGE)
+            draw.text((lx + 29, ly + 12), "DFT", font=f_chica, fill=WHITE, anchor="mm")
+            draw.text((lx + 68, ly + 6), "Gana por default", font=f_chica, fill=GRAY)
+            lx += 68 + draw.textlength("Gana por default", font=f_chica) + 34
+        if hay_susp:
+            draw.rounded_rectangle((lx, ly, lx + 64, ly + 24), radius=12, fill=RED)
+            draw.text((lx + 32, ly + 12), "SUSP", font=f_chica, fill=WHITE, anchor="mm")
+            draw.text((lx + 74, ly + 6), "Partido suspendido", font=f_chica, fill=GRAY)
 
     draw.line((M, H - 70, W - M, H - 70), fill=BORDER, width=2)
     draw.text((W // 2, H - 40), "juventinorosasliga.com", font=f_footer,
@@ -694,8 +722,18 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     DARK = (28, 32, 28)
     GRAY = (110, 118, 110)
     WHITE = (255, 255, 255)
+    RED = (176, 0, 32)
+    ORANGE = (194, 65, 12)
 
-    H = 190
+    hay_default = any(
+        p.get("default_win") for sec in secciones for p in (sec.get("partidos") or [])
+    )
+    hay_susp = any(
+        p.get("susp") for sec in secciones for p in (sec.get("partidos") or [])
+    )
+    leyenda_h = 36 if (hay_default or hay_susp) else 0
+
+    H = 190 + leyenda_h
     for sec in secciones:
         n = len(sec.get("partidos") or [])
         filas = (n + 1) // 2
@@ -736,6 +774,19 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
     nombre_liga = (sec0.get("nombre_liga") or "").upper() or "MI LIGA"
     draw.text((tx, 84), f"{nombre_liga} · Todas las categorías", font=f_sub, fill=GRAY)
     draw.rectangle((M, 130, W - M, 136), fill=GOLD)
+
+    if leyenda_h:
+        ly = 148
+        lx = M
+        if hay_default:
+            draw.rounded_rectangle((lx, ly, lx + 54, ly + 24), radius=12, fill=ORANGE)
+            draw.text((lx + 27, ly + 12), "DFT", font=f_campo, fill=WHITE, anchor="mm")
+            draw.text((lx + 64, ly + 6), "Gana por default", font=f_campo, fill=GRAY)
+            lx += 64 + _tw("Gana por default", f_campo) + 30
+        if hay_susp:
+            draw.rounded_rectangle((lx, ly, lx + 60, ly + 24), radius=12, fill=RED)
+            draw.text((lx + 30, ly + 12), "SUSP", font=f_campo, fill=WHITE, anchor="mm")
+            draw.text((lx + 70, ly + 6), "Partido suspendido", font=f_campo, fill=GRAY)
 
     def pegar(logo, x, y, lado=40):
         if logo:
@@ -800,25 +851,34 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         pegar(p.get("logo_local"), x + 10, y + 30)
         pegar(p.get("logo_visitante"), x + COL_W - 50, y + 30)
 
-        lineas_local, f_local = _nombre_lineas(local, max_w_local)
+        extra = 16 if (p.get("susp") or p.get("default_win")) else 0
+        lineas_local, f_local = _nombre_lineas(local, max_w_local - extra)
         _dibujar_nombre(lineas_local, f_local, x + 56, max_w_local, y,
-                        DARK if p.get("local_win") else GRAY)
-        lineas_visit, f_visit = _nombre_lineas(visit, max_w_visit)
+                        GREEN if (p.get("local_win") and p.get("default_win")) else
+                        (DARK if p.get("local_win") else GRAY))
+        lineas_visit, f_visit = _nombre_lineas(visit, max_w_visit - extra)
         _dibujar_nombre(lineas_visit, f_visit, x + COL_W - 58 - max_w_visit,
-                        max_w_visit, y, DARK if p.get("vis_win") else GRAY,
+                        max_w_visit, y,
+                        GREEN if (p.get("vis_win") and p.get("default_win")) else
+                        (DARK if p.get("vis_win") else GRAY),
                         derecha=True)
 
-        draw.text((cx, y + 56), "VS", font=f_vs, fill=GREEN, anchor="mm")
+        if p.get("susp"):
+            draw.rounded_rectangle((cx - 30, y + 44, cx + 30, y + 66), radius=10, fill=RED)
+            draw.text((cx, y + 55), "SUSP", font=_font(13, bold=True), fill=WHITE, anchor="mm")
+        elif p.get("default_win"):
+            draw.rounded_rectangle((cx - 24, y + 44, cx + 24, y + 66), radius=10, fill=ORANGE)
+            draw.text((cx, y + 55), "DFT", font=_font(13, bold=True), fill=WHITE, anchor="mm")
+        else:
+            draw.text((cx, y + 56), "VS", font=f_vs, fill=GREEN, anchor="mm")
 
         campo = p.get("campo") or ""
         if len(campo) > 26:
             campo = campo[:25] + "…"
-        if p.get("default_win"):
-            campo = (campo + " · Gana por default").strip(" ·")
         if campo:
             draw.text((cx, y + 84), campo, font=f_campo, fill=GRAY, anchor="mm")
 
-    y = 158
+    y = 158 + leyenda_h
     for sec in secciones:
         cab1 = f"{sec['categoria'].upper()}  ·  {sec['temporada'].upper()}"
         cab2 = (sec.get("jornada") or "").strip()

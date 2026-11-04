@@ -506,6 +506,9 @@ body {
           </div>
           <div class="match-center-col">
             <div class="match-vs-badge">VS</div>
+            {% if p.estado == "SUSP" %}
+            <div class="match-info"><span class="badge bg-danger">Suspendido</span></div>
+            {% endif %}
             {% with gw=p.ganador_walkover %}{% if gw %}
             <div class="match-info"><span class="badge bg-warning text-dark" title="Este partido se resuelve por default">Gana {{ gw.nombre }} por DEFAULT</span></div>
             {% endif %}{% endwith %}
