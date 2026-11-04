@@ -1824,17 +1824,28 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     # Leyenda de columnas (entre las firmas y el pie, sin encimarse).
-    leyenda_y = max(46, firma_y - 14)
-    p.setFillColor(colors.HexColor("#444444"))
-    p.setFont("Helvetica", 6.5)
-    p.drawCentredString(
-        w / 2, leyenda_y,
-        "T = Titular  ·  C = Cambio  ·  G = Goles  ·  A1/A2 = Amarillas  ·  R = Roja",
+    leyenda_y = max(50, firma_y - 30)
+    leyenda_size = 9
+    segmentos = [
+        ("T", "Helvetica-Bold"), (" = Titular   ·   ", "Helvetica"),
+        ("C", "Helvetica-Bold"), (" = Cambio   ·   ", "Helvetica"),
+        ("G", "Helvetica-Bold"), (" = Goles   ·   ", "Helvetica"),
+        ("A1/A2", "Helvetica-Bold"), (" = Amarillas   ·   ", "Helvetica"),
+        ("R", "Helvetica-Bold"), (" = Roja", "Helvetica"),
+    ]
+    ancho_total = sum(
+        p.stringWidth(txt, font, leyenda_size) for txt, font in segmentos
     )
-    p.setFont("Helvetica", 6)
+    x_leyenda = (w - ancho_total) / 2
+    p.setFillColor(colors.HexColor("#333333"))
+    for txt, font in segmentos:
+        p.setFont(font, leyenda_size)
+        p.drawString(x_leyenda, leyenda_y, txt)
+        x_leyenda += p.stringWidth(txt, font, leyenda_size)
+    p.setFont("Helvetica", 8)
     p.drawCentredString(
-        w / 2, leyenda_y - 8,
-        "Marca con X o ✓ dentro del recuadro, sin salirte, para que se lea mejor.",
+        w / 2, leyenda_y - 11,
+        "Marca con X o palomita dentro del recuadro, sin salirte, para que se lea mejor.",
     )
     p.setFillColor(colors.black)
 
