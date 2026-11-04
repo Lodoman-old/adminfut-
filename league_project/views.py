@@ -95,12 +95,26 @@ def home(request):
             .first()
         )
         if jornada_activa:
-            proximos_liga = Partido.objects.filter(
-                temporada=temp_activa, jornada=jornada_activa,
-                estado__in=["PEND", "SUSP"],
-            ).select_related(
-                "equipo_local", "equipo_visitante", "campo", "jornada"
-            ).order_by("fecha_hora")
+            proximos_liga = list(
+                Partido.objects.filter(
+                    temporada=temp_activa, jornada=jornada_activa,
+                    estado__in=["PEND", "SUSP"],
+                ).select_related(
+                    "equipo_local", "equipo_visitante", "campo", "jornada"
+                ).order_by("fecha_hora")
+            )
+            # Incluye los ya resueltos por default para que se vea quién ganó.
+            proximos_liga += [
+                p for p in Partido.objects.filter(
+                    temporada=temp_activa, jornada=jornada_activa, estado="FIN"
+                ).select_related(
+                    "equipo_local", "equipo_visitante", "campo", "jornada"
+                ).order_by("fecha_hora")
+                if p.ganador_walkover is not None
+            ]
+            proximos_liga.sort(
+                key=lambda p: p.fecha_hora or timezone.datetime.min
+            )
             ids_juegan = set(
                 Partido.objects.filter(temporada=temp_activa, jornada=jornada_activa)
                 .values_list("equipo_local_id", flat=True)
