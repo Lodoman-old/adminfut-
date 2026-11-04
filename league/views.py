@@ -1498,9 +1498,20 @@ def resumen_jornada_ia(request, jornada_id):
     """Genera un resumen de la jornada para redes sociales con Gemini."""
     from collections import Counter
 
-    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    jornada = get_object_or_404(
+        Jornada.objects.select_related("temporada__categoria"), pk=jornada_id
+    )
     if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
         return JsonResponse({"ok": False, "error": "Sin permiso para generar el resumen."}, status=403)
+
+    categoria_nombre = ""
+    temporada_nombre = ""
+    if jornada.temporada_id:
+        temporada_nombre = jornada.temporada.nombre
+        categoria_nombre = jornada.temporada.categoria.nombre
+    etiqueta = " · ".join(
+        x for x in [jornada.nombre, categoria_nombre, temporada_nombre] if x
+    )
 
     partidos = list(
         Partido.objects.filter(jornada=jornada, estado="FIN")
@@ -1550,9 +1561,11 @@ def resumen_jornada_ia(request, jornada_id):
 
     prompt = (
         "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
-        f"Redacta un resumen de {jornada.nombre} para publicar en Facebook y WhatsApp.\n"
+        f"Redacta un resumen de {etiqueta} para publicar en Facebook y WhatsApp.\n"
         "Datos reales (NO inventes nada):\n- " + "\n- ".join(lineas) + "\n\n"
         "Reglas: español de México, tono emocionante pero respetuoso, máximo 1,200 caracteres. "
+        "Empieza mencionando SIEMPRE la categoría y el torneo, por ejemplo: "
+        f"'Resultados de {jornada.nombre} · {categoria_nombre} · {temporada_nombre}'. "
         "Incluye TODOS los partidos de la lista, uno por línea, con el marcador. "
         "Si hay partidos suspendidos, menciónalos como suspendidos y sin marcador. "
         "Menciona a los goleadores destacados y usa 2-4 emojis. "
@@ -1621,22 +1634,32 @@ def compartir_jornada(request, jornada_id):
     from django.urls import reverse
     from urllib.parse import quote
 
-    jornada = get_object_or_404(Jornada.objects.select_related("temporada"), pk=jornada_id)
+    jornada = get_object_or_404(
+        Jornada.objects.select_related("temporada__categoria"), pk=jornada_id
+    )
     from .models import ConfiguracionLiga
 
     cfg = ConfiguracionLiga.obtener()
     nombre_liga = (cfg.nombre_liga if cfg else "") or "Liga Municipal de Futbol Juventino Rosas"
+    categoria = ""
+    temporada = ""
+    if jornada.temporada_id:
+        categoria = jornada.temporada.categoria.nombre
+        temporada = jornada.temporada.nombre
     texto = _cache_texto_jornada(jornada_id)
     if not texto:
-        temporada = jornada.temporada.nombre if jornada.temporada_id else ""
-        texto = f"Resultados de {jornada.nombre}" + (f" - {temporada}" if temporada else "")
+        etiqueta = " · ".join(
+            x for x in [jornada.nombre, categoria, temporada] if x
+        )
+        texto = f"Resultados de {etiqueta}"
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
     imagen_url = _url_absoluta(request, reverse("s_jornada_miniatura", args=[jornada_id]))
     imagen_grande = _url_absoluta(request, reverse("s_jornada_imagen", args=[jornada_id]))
     url_publica = _url_absoluta(request, request.get_full_path())
+    titulo = " · ".join(x for x in [categoria, jornada.nombre, nombre_liga] if x)
     return render(request, "league/compartir.html", {
-        "titulo": f"{jornada.nombre} · {nombre_liga}",
+        "titulo": titulo,
         "descripcion": descripcion,
         "texto": texto,
         "imagen_url": imagen_url,
