@@ -1823,16 +1823,24 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
-    # Leyenda de columnas (entre las firmas y el pie, sin encimarse).
-    leyenda_y = max(50, firma_y - 30)
-    leyenda_size = 9
+    # Leyenda de columnas (una línea, entre las firmas y el pie, sin encimarse).
+    leyenda_y = 44
     segmentos = [
         ("T", "Helvetica-Bold"), (" = Titular   ·   ", "Helvetica"),
         ("C", "Helvetica-Bold"), (" = Cambio   ·   ", "Helvetica"),
         ("G", "Helvetica-Bold"), (" = Goles   ·   ", "Helvetica"),
         ("A1/A2", "Helvetica-Bold"), (" = Amarillas   ·   ", "Helvetica"),
-        ("R", "Helvetica-Bold"), (" = Roja", "Helvetica"),
+        ("R", "Helvetica-Bold"), (" = Roja   ·   ", "Helvetica"),
+        ("Marca con X o palomita, sin salirte", "Helvetica"),
     ]
+    leyenda_size = 8.5
+    while leyenda_size > 7:
+        ancho_total = sum(
+            p.stringWidth(txt, font, leyenda_size) for txt, font in segmentos
+        )
+        if ancho_total <= w - 60:
+            break
+        leyenda_size -= 0.5
     ancho_total = sum(
         p.stringWidth(txt, font, leyenda_size) for txt, font in segmentos
     )
@@ -1842,11 +1850,6 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
         p.setFont(font, leyenda_size)
         p.drawString(x_leyenda, leyenda_y, txt)
         x_leyenda += p.stringWidth(txt, font, leyenda_size)
-    p.setFont("Helvetica", 8)
-    p.drawCentredString(
-        w / 2, leyenda_y - 11,
-        "Marca con X o palomita dentro del recuadro, sin salirte, para que se lea mejor.",
-    )
     p.setFillColor(colors.black)
 
     draw_footer(p, w, h, 14)
