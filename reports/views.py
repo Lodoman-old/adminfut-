@@ -1816,15 +1816,17 @@ def reporte_cedula_arbitral_pdf(request, partido_id):
     # Firmas debajo del QR.
     p.setFillColor(colors.black)
     p.setFont("Helvetica", 11)
-    firma_y = y_qr - 20
-    if firma_y < 60:
-        firma_y = 60
+    firma_y = y_qr - 42
+    if firma_y < 58:
+        firma_y = 58
     p.drawString(left_x, firma_y, "Firma local: ____________")
     p.drawCentredString(w / 2, firma_y, "Firma del Arbitro: ____________")
     p.drawRightString(w - left_x, firma_y, "Firma visitante: ____________")
 
     # Leyenda de columnas (una línea, entre las firmas y el pie, sin encimarse).
-    leyenda_y = 44
+    leyenda_y = firma_y - 18
+    if leyenda_y < 42:
+        leyenda_y = 42
     segmentos = [
         ("T", "Helvetica-Bold"), (" = Titular   ·   ", "Helvetica"),
         ("C", "Helvetica-Bold"), (" = Cambio   ·   ", "Helvetica"),
