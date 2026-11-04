@@ -265,19 +265,25 @@ window.adminfutCompartirEnlace = function(url, texto, onFallback, onDone){
     onFallback();
 };
 
+// Abre un enlace fuera de la app cuando el contenedor lo permite.
+window.adminfutAbrirExterno = function(enlace){
+    var w = null;
+    try { w = window.open(enlace, '_system'); } catch(e){}
+    if(!w){ try { w = window.open(enlace, '_blank'); } catch(e){} }
+    if(!w){ window.location.href = enlace; }
+};
+
 // Abre WhatsApp con el mensaje ya escrito (funciona también dentro de la APK).
 window.adminfutWhatsApp = function(url, texto){
     var mensaje = (texto ? texto + '\n\n' : '') + url;
-    var enlace = 'https://wa.me/?text=' + encodeURIComponent(mensaje);
-    var w = window.open(enlace, '_blank');
-    if(!w){ window.location.href = enlace; }
+    window.adminfutAbrirExterno('https://wa.me/?text=' + encodeURIComponent(mensaje));
 };
 
 // Abre el diálogo de compartir de Facebook con la vista previa del enlace.
 window.adminfutFacebook = function(url){
-    var enlace = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
-    var w = window.open(enlace, '_blank');
-    if(!w){ window.location.href = enlace; }
+    window.adminfutAbrirExterno(
+        'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url)
+    );
 };
 
 </script>
