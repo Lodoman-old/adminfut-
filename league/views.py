@@ -3678,6 +3678,7 @@ def tabla_posiciones(request):
     tabla = []
     tablas_por_grupo = []
     por_grupo = 0
+    temp = None
     if temp_id:
         temp = Temporada.objects.get(pk=temp_id)
         if temp.tipo_rol == "GRUPOS" and temp.clasificacion_por_grupos:
@@ -3688,6 +3689,25 @@ def tabla_posiciones(request):
         else:
             tabla = temp.calcular_tabla()
 
+    og_descripcion = ""
+    og_imagen = ""
+    og_url = ""
+    cat_share = None
+    if temp:
+        from django.core.cache import cache
+
+        cat_share = temp.categoria_id
+        og_descripcion = cache.get(f"tabla_ia_{temp.id}") or (
+            f"Tabla de posiciones de {temp.categoria.nombre} · {temp.nombre}. "
+            "Consulta la tabla completa en juventinorosasliga.com"
+        )
+        og_descripcion = re.sub(r"\s+", " ", og_descripcion).strip()[:280]
+        og_imagen = _url_absoluta(request, f"/s/tabla-posiciones/{temp.id}/imagen.jpg")
+        og_url = _url_absoluta(
+            request,
+            f"/tabla-posiciones/?categoria={temp.categoria_id}&temporada={temp.id}",
+        )
+
     return render(request, "league/tabla_posiciones.html", {
         "tabla": tabla,
         "tablas_por_grupo": tablas_por_grupo,
@@ -3697,6 +3717,131 @@ def tabla_posiciones(request):
         "temporadas": temporadas,
         "temp_id": int(temp_id) if temp_id else None,
         "temporada": temp if temp_id else None,
+        "og_descripcion": og_descripcion,
+        "og_imagen": og_imagen,
+        "og_url": og_url,
+        "cat_share": cat_share,
+    })
+
+
+def _tabla_posiciones_datos(temporada):
+    """Devuelve (tabla, tablas_por_grupo, por_grupo) para la temporada."""
+    grupos_mode = temporada.tipo_rol == "GRUPOS" and temporada.clasificacion_por_grupos
+    if grupos_mode:
+        tablas = temporada.calcular_tablas_por_grupo()
+        grupos = temporada.grupos_asignados()
+        ng = len(grupos)
+        por_grupo = max(1, temporada.num_clasificados // max(ng, 1)) if ng else 0
+        return [], tablas, por_grupo
+    return temporada.calcular_tabla(), None, 0
+
+
+def _lineas_tabla_posiciones(tabla):
+    lineas = []
+    for t in tabla:
+        signo = "+" if t["dif"] > 0 else ""
+        lineas.append(
+            f"{t['pos']}. {t['nombre']} - PJ {t['pj']}, PG {t['pg']}, PE {t['pe']}, "
+            f"PP {t['pp']}, GF {t['gf']}, GC {t['gc']}, DIF {signo}{t['dif']}, PTS {t['pts']}"
+        )
+    return lineas
+
+
+def tabla_posiciones_imagen(request, temporada_id):
+    """Imagen de la tabla (la misma que se publica en Facebook) como JPEG para OG."""
+    import io
+
+    from django.core.cache import cache
+    from PIL import Image
+
+    from .social_image import generar_imagen_posiciones
+
+    key = f"tabla_img_{temporada_id}"
+    data = cache.get(key)
+    if not data:
+        temporada = get_object_or_404(
+            Temporada.objects.select_related("categoria"), pk=temporada_id
+        )
+        tabla, tablas, por_grupo = _tabla_posiciones_datos(temporada)
+        if not tabla and not tablas:
+            raise Http404()
+        ahora_str = timezone.localtime().strftime("%d/%m/%Y %H:%M")
+        buf = generar_imagen_posiciones(
+            temporada.nombre, tabla, ahora_str, temporada.num_clasificados,
+            tablas_por_grupo=tablas, por_grupo=por_grupo,
+        )
+        img = Image.open(buf).convert("RGB")
+        calidad = 82
+        while True:
+            salida = io.BytesIO()
+            img.save(salida, format="JPEG", quality=calidad, optimize=True, progressive=False)
+            if salida.tell() <= 290_000 or calidad <= 50:
+                break
+            calidad -= 8
+        data = salida.getvalue()
+        cache.set(key, data, 600)
+    response = HttpResponse(data, content_type="image/jpeg")
+    response["Cache-Control"] = "public, max-age=600"
+    return response
+
+
+@login_required
+def tabla_posiciones_texto_ia(request):
+    """Texto de IA para compartir la tabla de posiciones (caché 12 h)."""
+    from django.core.cache import cache
+
+    if not (request.user.is_staff or request.user.tiene_permiso("jornada_publicar")):
+        return JsonResponse({"ok": False, "error": "Sin permiso."}, status=403)
+
+    temp_id = request.GET.get("temporada")
+    if not temp_id:
+        return JsonResponse({"ok": False, "error": "Falta la temporada."})
+    temporada = get_object_or_404(
+        Temporada.objects.select_related("categoria"), pk=temp_id
+    )
+    refresh = request.GET.get("refresh") == "1"
+    key = f"tabla_ia_{temporada.id}"
+    if not refresh:
+        texto = cache.get(key)
+        if texto:
+            return JsonResponse({
+                "ok": True, "texto": texto, "cache": True,
+                "categoria": temporada.categoria.nombre,
+                "temporada": temporada.nombre,
+            })
+
+    tabla, tablas, por_grupo = _tabla_posiciones_datos(temporada)
+    if not tabla and not tablas:
+        return JsonResponse({"ok": False, "error": "La tabla está vacía todavía."})
+
+    lineas = []
+    if tablas:
+        for letra, grupo in tablas:
+            lineas.append(f"Grupo {letra}:")
+            lineas.extend(_lineas_tabla_posiciones(grupo))
+    else:
+        lineas.extend(_lineas_tabla_posiciones(tabla))
+
+    categoria = temporada.categoria.nombre
+    etiqueta = f"Tabla de Posiciones · {categoria} · {temporada.nombre}"
+    prompt = (
+        "Eres el community manager de la Liga Municipal de Futbol Juventino Rosas.\n"
+        f"Redacta un texto para redes sociales sobre la {etiqueta}.\n"
+        "Datos reales (NO inventes nada):\n- " + "\n- ".join(lineas) + "\n\n"
+        "Reglas: español de México, tono emocionante, 100-160 palabras. "
+        f"Empieza con la línea: '{etiqueta}'. "
+        f"Menciona al líder, los escoltas, el Top {temporada.num_clasificados} que clasifica, "
+        "el último lugar y la mejor ofensiva/defensiva. "
+        "Usa 2-3 emojis, 2-3 hashtags y termina con juventinorosasliga.com. "
+        "No expliques tu proceso ni escribas 'Check'. Devuelve solo el texto final."
+    )
+    texto, error = _generar_texto_gemini(prompt)
+    if error:
+        return JsonResponse({"ok": False, "error": error})
+    cache.set(key, texto, 60 * 60 * 12)
+    return JsonResponse({
+        "ok": True, "texto": texto, "cache": False,
+        "categoria": categoria, "temporada": temporada.nombre,
     })
 
 

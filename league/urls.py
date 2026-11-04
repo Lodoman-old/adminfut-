@@ -93,6 +93,8 @@ urlpatterns = [
 
     path("jugadores-heredados/", views.alta_jugadores_heredados, name="alta_jugadores_heredados"),
     path("tabla-posiciones/", views.tabla_posiciones, name="tabla_posiciones"),
+    path("tabla-posiciones/texto-ia/", views.tabla_posiciones_texto_ia, name="tabla_posiciones_texto_ia"),
+    path("s/tabla-posiciones/<int:temporada_id>/imagen.jpg", views.tabla_posiciones_imagen, name="tabla_posiciones_imagen"),
     path("tabla-goleo/", views.tabla_goleo, name="tabla_goleo"),
     path("tabla-tarjetas/", views.tabla_tarjetas, name="tabla_tarjetas"),
     path("tabla-castigados/", views.tabla_castigados, name="tabla_castigados"),

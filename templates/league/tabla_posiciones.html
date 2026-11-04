@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 {% load permisos %}
 {% block title %}Tabla de Posiciones - AdminFut{% endblock %}
+{% block extra_head %}
+{% if temporada %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="Tabla de posiciones · {{ temporada.categoria.nombre }} · {{ temporada.nombre }}">
+<meta property="og:description" content="{{ og_descripcion }}">
+<meta property="og:image" content="{{ og_imagen }}">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:url" content="{{ og_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tabla de posiciones · {{ temporada.categoria.nombre }} · {{ temporada.nombre }}">
+<meta name="twitter:description" content="{{ og_descripcion }}">
+<meta name="twitter:image" content="{{ og_imagen }}">
+{% endif %}
+{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
     <h3 class="mb-0"><i class="bi bi-list-ol text-warning"></i> Tabla de Posiciones</h3>
@@ -12,6 +26,7 @@
         </div>
         {% if user.is_authenticated and user|tiene_permiso:"jornada_publicar" %}
         <a href="{% url 'publicar_posiciones_facebook' temp_id %}" class="btn btn-primary" style="background-color:#1877F2;border-color:#1877F2;color:#fff" data-bs-toggle="modal" data-bs-target="#publicarPosicionesModal" data-href="{% url 'publicar_posiciones_facebook' temp_id %}"><i class="bi bi-facebook"></i> Publicar</a>
+        <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#tablaIaModal" data-temp="{{ temp_id }}" data-cat="{{ cat_share|default:'' }}"><i class="bi bi-stars"></i> Texto con IA</button>
         {% endif %}
     {% endif %}
     </div>
@@ -125,6 +140,36 @@
     </div>
 </div>
 
+<!-- Modal Compartir tabla con IA -->
+<div class="modal fade" id="tablaIaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-stars"></i> Compartir tabla con IA</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tablaIaSpinner" class="text-center py-4 d-none">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="text-muted small mb-0 mt-2">Generando texto con IA...</p>
+                </div>
+                <div id="tablaIaError" class="alert alert-warning small d-none"></div>
+                <img id="tablaIaImagen" class="img-fluid rounded border mb-3 d-none" alt="Tabla de posiciones">
+                <textarea id="tablaIaTexto" class="form-control" rows="8" placeholder="Aquí aparecerá el texto..."></textarea>
+                <small class="text-muted">Revisa y edita el texto. Usa <b>WhatsApp</b> o <b>Facebook</b>: se envía un enlace a esta misma tabla con su categoría y temporada.</small>
+            </div>
+            <div class="modal-footer flex-wrap">
+                <a class="btn btn-outline-success d-none" id="tablaIaDescargar" download="tabla-posiciones.jpg" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
+                <button type="button" class="btn btn-outline-secondary" id="tablaIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
+                <button type="button" class="btn btn-outline-dark" id="tablaIaRegenerar"><i class="bi bi-arrow-clockwise"></i> Regenerar</button>
+                <button type="button" class="btn btn-success" id="tablaIaWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
+                <button type="button" class="btn btn-primary" id="tablaIaFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var modal = document.getElementById('publicarPosicionesModal');
@@ -135,5 +180,115 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+</script>
+
+<script>
+(function(){
+    var modal = document.getElementById('tablaIaModal');
+    if(!modal) return;
+    var txt = document.getElementById('tablaIaTexto');
+    var spinner = document.getElementById('tablaIaSpinner');
+    var errBox = document.getElementById('tablaIaError');
+    var img = document.getElementById('tablaIaImagen');
+    var dl = document.getElementById('tablaIaDescargar');
+    var urlTexto = "{% url 'tabla_posiciones_texto_ia' %}";
+    var tempId = null;
+    var catId = null;
+    var cargado = false;
+    var cargando = false;
+
+    function mostrarError(msg){
+        errBox.textContent = msg;
+        errBox.className = 'alert alert-warning small';
+    }
+
+    function copiar(texto){
+        if(navigator.clipboard){ navigator.clipboard.writeText(texto).catch(function(){}); return; }
+        var ta = document.createElement('textarea');
+        ta.value = texto;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch(e){}
+        document.body.removeChild(ta);
+    }
+
+    function abrirExterno(enlace){
+        var w = null;
+        try { w = window.open(enlace, '_system'); } catch(e){}
+        if(!w){ try { w = window.open(enlace, '_blank'); } catch(e){} }
+        if(!w){ window.location.href = enlace; }
+    }
+
+    function urlTabla(){
+        return window.location.origin + '/tabla-posiciones/?categoria=' + catId + '&temporada=' + tempId;
+    }
+
+    function cargarTexto(refresh){
+        if(cargando || !tempId) return;
+        cargando = true;
+        if(spinner) spinner.classList.remove('d-none');
+        if(errBox) errBox.classList.add('d-none');
+        var url = urlTexto + '?temporada=' + tempId + (refresh ? '&refresh=1' : '');
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
+                txt.value = data.texto || '';
+                cargado = true;
+            })
+            .catch(function(e){
+                mostrarError(e.message || 'No se pudo generar el texto con IA.');
+            })
+            .then(function(){
+                cargando = false;
+                if(spinner) spinner.classList.add('d-none');
+            });
+    }
+
+    modal.addEventListener('show.bs.modal', function(event){
+        var boton = event.relatedTarget;
+        tempId = boton ? boton.getAttribute('data-temp') : tempId;
+        catId = boton ? boton.getAttribute('data-cat') : catId;
+        if(img){
+            img.src = window.location.origin + '/s/tabla-posiciones/' + tempId + '/imagen.jpg?v=' + Date.now();
+            img.classList.remove('d-none');
+        }
+        if(dl){
+            dl.href = window.location.origin + '/s/tabla-posiciones/' + tempId + '/imagen.jpg';
+            dl.classList.remove('d-none');
+        }
+        if(!cargado) cargarTexto(false);
+    });
+
+    var btnRegenerar = document.getElementById('tablaIaRegenerar');
+    if(btnRegenerar){
+        btnRegenerar.addEventListener('click', function(){ cargarTexto(true); });
+    }
+
+    var btnCopiar = document.getElementById('tablaIaCopiar');
+    if(btnCopiar){
+        btnCopiar.addEventListener('click', function(){
+            copiar(txt.value + '\n\n' + urlTabla());
+            btnCopiar.innerHTML = '<i class="bi bi-check2"></i> Copiado';
+            setTimeout(function(){ btnCopiar.innerHTML = '<i class="bi bi-clipboard"></i> Copiar'; }, 2000);
+        });
+    }
+
+    var btnWa = document.getElementById('tablaIaWa');
+    if(btnWa){
+        btnWa.addEventListener('click', function(){
+            var texto = txt.value.trim();
+            if(!texto){ mostrarError('Espera a que se genere el texto.'); return; }
+            abrirExterno('https://wa.me/?text=' + encodeURIComponent(texto + '\n\n' + urlTabla() + '&v=' + Date.now()));
+        });
+    }
+
+    var btnFb = document.getElementById('tablaIaFb');
+    if(btnFb){
+        btnFb.addEventListener('click', function(){
+            abrirExterno('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(urlTabla() + '&v=' + Date.now()));
+        });
+    }
+})();
 </script>
 {% endblock %}
