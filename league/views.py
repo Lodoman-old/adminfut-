@@ -1467,10 +1467,17 @@ def _generar_texto_gemini(prompt):
                 },
                 timeout=90,
             )
-            if resp.status_code not in (429, 500, 502, 503, 504):
+            if resp.status_code not in (500, 502, 503, 504):
                 break
             if intento < 2:
                 _time.sleep(1.5 * (intento + 1))
+        if resp.status_code == 429:
+            return None, (
+                "Se agotó la cuota gratuita de Gemini (20 solicitudes al día). "
+                "Espera a que se reinicie o usa una API key con facturación."
+            )
+        if resp.status_code in (401, 403):
+            return None, "La API key de Gemini no es válida o no tiene permisos."
         if resp.status_code >= 400:
             return None, f"Gemini respondió {resp.status_code}. Intenta de nuevo."
         data = resp.json()
