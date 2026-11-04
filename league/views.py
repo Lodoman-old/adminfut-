@@ -5535,6 +5535,110 @@ def gestionar_indisponibilidad(request):
     })
 
 
+def _prioridad_categoria(nombre):
+    """Orden jerárquico del rol: Veteranos 50+, Veteranos 35+, Primera,
+    Intermedia, Segunda y el resto por orden alfabético."""
+    n = (nombre or "").lower()
+    for i, clave in enumerate(
+        ["veteranos 50", "veteranos 35", "primera", "intermedia", "segunda"]
+    ):
+        if clave in n:
+            return (0, i)
+    return (1, n)
+
+
+def _seccion_rol(jornada, nombre_liga, logo_liga, incluir_todos=False):
+    """Sección del rol para una jornada concreta.
+
+    incluir_todos=True se usa en los enlaces fijos: muestra también los
+    partidos finalizados normales para conservar el rol original.
+    """
+    from .social_image import _cargar_logo
+
+    temp = jornada.temporada
+    if not temp:
+        return None
+    cat = temp.categoria
+
+    if incluir_todos:
+        partidos_qs = list(
+            Partido.objects.filter(
+                jornada=jornada, estado__in=["PEND", "SUSP", "FIN"]
+            ).select_related("equipo_local", "equipo_visitante", "campo").order_by("fecha_hora")
+        )
+    else:
+        partidos_qs = list(
+            Partido.objects.filter(
+                jornada=jornada, estado__in=["PEND", "SUSP"]
+            ).select_related("equipo_local", "equipo_visitante", "campo").order_by("fecha_hora")
+        )
+        partidos_qs += [
+            x for x in Partido.objects.filter(
+                jornada=jornada, estado="FIN"
+            ).select_related("equipo_local", "equipo_visitante", "campo")
+            if x.ganador_walkover is not None
+        ]
+    if not partidos_qs:
+        return None
+    partidos_qs.sort(key=lambda x: x.fecha_hora or timezone.now())
+
+    ids_juegan = set(
+        Partido.objects.filter(jornada=jornada).values_list("equipo_local_id", flat=True)
+    ) | set(
+        Partido.objects.filter(jornada=jornada).values_list("equipo_visitante_id", flat=True)
+    )
+    todos_ids = set(
+        Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
+    )
+    descansan_ids = todos_ids - ids_juegan
+    descansan = (
+        list(Equipo.objects.filter(id__in=descansan_ids).order_by("nombre").values_list("nombre", flat=True))
+        if descansan_ids else []
+    )
+
+    partidos_data = []
+    for p in partidos_qs:
+        d = {
+            "local": p.equipo_local.nombre,
+            "visitante": p.equipo_visitante.nombre,
+            "campo": p.campo.nombre if p.campo else "",
+            "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m/%Y %H:%M") if p.fecha_hora else "Pendiente",
+            "logo_local": _cargar_logo(p.equipo_local.logo),
+            "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
+            "marcador": "",
+            "is_fin": p.estado == "FIN",
+            "susp": p.estado == "SUSP",
+            "local_win": False,
+            "vis_win": False,
+            "default_win": None,
+        }
+        if p.estado == "FIN":
+            gl, gv = p.goles_local, p.goles_visitante
+            d["marcador"] = f"{gl}\u2013{gv}"
+            d["local_win"] = gl > gv
+            d["vis_win"] = gv > gl
+        ganador_dft = p.ganador_walkover if p.estado != "SUSP" else None
+        if ganador_dft:
+            if ganador_dft == p.equipo_local:
+                d["default_win"] = "local"
+                d["local_win"] = True
+            else:
+                d["default_win"] = "visitante"
+                d["vis_win"] = True
+        partidos_data.append(d)
+
+    return {
+        "categoria": cat.nombre,
+        "temporada": temp.nombre,
+        "jornada": jornada.nombre,
+        "jornada_id": jornada.id,
+        "partidos": partidos_data,
+        "descansan": descansan,
+        "nombre_liga": nombre_liga,
+        "logo_liga": logo_liga,
+    }
+
+
 def _secciones_rol():
     """Secciones del rol de la próxima jornada de TODAS las categorías activas."""
     from django.utils import timezone
@@ -5575,82 +5679,49 @@ def _secciones_rol():
         )
         if not jornada:
             continue
-        partidos_qs = [
-            x for x in Partido.objects.filter(
-                temporada=temp_activa, jornada=jornada, estado__in=["PEND", "SUSP"]
-            ).select_related(
-                "equipo_local", "equipo_visitante", "campo"
-            ).order_by("fecha_hora")
-        ]
-        # Incluye partidos FIN resueltos por walkover (DFT) para mostrarlos en el rol.
-        partidos_qs += [
-            x for x in Partido.objects.filter(
-                temporada=temp_activa, jornada=jornada, estado="FIN"
-            ).select_related("equipo_local", "equipo_visitante", "campo")
-            if x.ganador_walkover is not None
-        ]
-        if not partidos_qs:
-            continue
-        partidos_qs.sort(key=lambda x: x.fecha_hora or timezone.now())
+        sec = _seccion_rol(jornada, nombre_liga, logo_liga)
+        if sec:
+            secciones.append(sec)
 
-        # Todos los equipos con partido en la jornada (aunque esté suspendido o
-        # resuelto por default) NO descansan.
-        ids_juegan = set(
-            Partido.objects.filter(temporada=temp_activa, jornada=jornada)
-            .values_list("equipo_local_id", flat=True)
-        ) | set(
-            Partido.objects.filter(temporada=temp_activa, jornada=jornada)
-            .values_list("equipo_visitante_id", flat=True)
-        )
-        todos_ids = set(
-            Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
-        )
-        descansan_ids = todos_ids - ids_juegan
-        descansan = (
-            list(Equipo.objects.filter(id__in=descansan_ids).order_by("nombre").values_list("nombre", flat=True))
-            if descansan_ids else []
-        )
-
-        partidos_data = []
-        for p in partidos_qs:
-            d = {
-                "local": p.equipo_local.nombre,
-                "visitante": p.equipo_visitante.nombre,
-                "campo": p.campo.nombre if p.campo else "",
-                "fecha": timezone.localtime(p.fecha_hora).strftime("%d/%m/%Y %H:%M") if p.fecha_hora else "Pendiente",
-                "logo_local": _cargar_logo(p.equipo_local.logo),
-                "logo_visitante": _cargar_logo(p.equipo_visitante.logo),
-                "marcador": "",
-                "is_fin": p.estado == "FIN",
-                "susp": p.estado == "SUSP",
-                "local_win": False,
-                "vis_win": False,
-                "default_win": None,
-            }
-            if p.estado == "FIN":
-                gl, gv = p.goles_local, p.goles_visitante
-                d["marcador"] = f"{gl}\u2013{gv}"
-                d["local_win"] = gl > gv
-                d["vis_win"] = gv > gl
-            ganador_dft = p.ganador_walkover if p.estado != "SUSP" else None
-            if ganador_dft:
-                if ganador_dft == p.equipo_local:
-                    d["default_win"] = "local"
-                    d["local_win"] = True
-                else:
-                    d["default_win"] = "visitante"
-                    d["vis_win"] = True
-            partidos_data.append(d)
-        secciones.append({
-            "categoria": cat.nombre,
-            "temporada": temp_activa.nombre,
-            "jornada": jornada.nombre,
-            "partidos": partidos_data,
-            "descansan": descansan,
-            "nombre_liga": nombre_liga,
-            "logo_liga": logo_liga,
-        })
     return secciones, ahora_str
+
+
+def _parse_ids_rol(ids):
+    """Convierte '11-3-9' en [11, 3, 9] (sin duplicados)."""
+    if not ids:
+        return []
+    try:
+        valores = [int(x) for x in str(ids).split("-") if x]
+    except (TypeError, ValueError):
+        return []
+    return list(dict.fromkeys(valores))[:20]
+
+
+def _secciones_rol_por_ids(ids):
+    """Secciones del rol para las jornadas indicadas (enlace fijo/histórico)."""
+    from .social_image import _cargar_logo
+    from .models import ConfiguracionLiga
+
+    if not ids:
+        return []
+    cfg = ConfiguracionLiga.obtener()
+    nombre_liga = (cfg.nombre_liga if cfg else "") or "Mi Liga"
+    logo_liga = _cargar_logo(cfg.logo) if cfg else None
+
+    jornadas = list(
+        Jornada.objects.filter(id__in=ids).select_related("temporada__categoria")
+    )
+    jornadas.sort(
+        key=lambda j: _prioridad_categoria(
+            j.temporada.categoria.nombre if j.temporada_id else ""
+        )
+    )
+    secciones = []
+    for j in jornadas:
+        sec = _seccion_rol(j, nombre_liga, logo_liga, incluir_todos=True)
+        if sec:
+            secciones.append(sec)
+    return secciones
 
 
 @login_required
@@ -5692,7 +5763,11 @@ def rol_resumen_ia(request):
     texto, error = _generar_texto_gemini(prompt)
     if error:
         return JsonResponse({"ok": False, "error": error})
-    return JsonResponse({"ok": True, "texto": texto})
+    return JsonResponse({
+        "ok": True,
+        "texto": texto,
+        "ids": [s["jornada_id"] for s in secciones],
+    })
 
 
 def publicar_rol_facebook(request, temporada_id):
@@ -5752,25 +5827,38 @@ TEXTO_ROL_DEFAULT = (
 )
 
 
-def compartir_rol(request):
-    """Página pública del rol de próximos partidos para compartir por enlace."""
+def compartir_rol(request, ids=None):
+    """Página pública del rol. Si se pasan ids, muestra esas jornadas fijas."""
     from django.urls import reverse
     from urllib.parse import quote
+    from django.core.cache import cache
 
     from .models import ConfiguracionLiga
 
+    ids_lista = _parse_ids_rol(ids)
+    if ids and not ids_lista:
+        raise Http404()
+    sufijo = ("_" + "-".join(str(i) for i in ids_lista)) if ids_lista else ""
+
     cfg = ConfiguracionLiga.obtener()
     nombre_liga = (cfg.nombre_liga if cfg else "") or "Liga Municipal de Futbol Juventino Rosas"
-    from django.core.cache import cache
-
-    texto = cache.get("share_texto_rol") or TEXTO_ROL_DEFAULT
+    texto = cache.get("share_texto_rol" + sufijo) or TEXTO_ROL_DEFAULT
     descripcion = texto if len(texto) <= 280 else texto[:277].rstrip() + "…"
     descripcion = re.sub(r"\s+", " ", descripcion).strip()
-    imagen_url = _url_absoluta(request, reverse("s_rol_miniatura"))
-    imagen_grande = _url_absoluta(request, reverse("s_rol_imagen"))
+
+    if ids_lista:
+        ruta_ids = "-".join(str(i) for i in ids_lista)
+        imagen_url = _url_absoluta(request, reverse("s_rol_ids_miniatura", args=[ruta_ids]))
+        imagen_grande = _url_absoluta(request, reverse("s_rol_ids_imagen", args=[ruta_ids]))
+        titulo = "Próximos partidos · " + nombre_liga
+    else:
+        imagen_url = _url_absoluta(request, reverse("s_rol_miniatura"))
+        imagen_grande = _url_absoluta(request, reverse("s_rol_imagen"))
+        titulo = "Próximos partidos · " + nombre_liga
+
     url_publica = _url_absoluta(request, request.get_full_path())
     return render(request, "league/compartir.html", {
-        "titulo": f"Próximos partidos · {nombre_liga}",
+        "titulo": titulo,
         "descripcion": descripcion,
         "texto": texto,
         "imagen_url": imagen_url,
@@ -5785,17 +5873,29 @@ def compartir_rol(request):
     })
 
 
-def compartir_rol_imagen(request):
+def _secciones_para_imagen_rol(ids_lista):
+    if ids_lista:
+        return _secciones_rol_por_ids(ids_lista)
+    secciones, _ = _secciones_rol()
+    return secciones
+
+
+def compartir_rol_imagen(request, ids=None):
     """Imagen pública del rol (para la vista previa del enlace)."""
     from django.core.cache import cache
     from .social_image import generar_imagen_rol_bonita
 
-    key = "share_img_rol"
+    ids_lista = _parse_ids_rol(ids)
+    if ids and not ids_lista:
+        raise Http404()
+    sufijo = ("_" + "-".join(str(i) for i in ids_lista)) if ids_lista else ""
+    key = "share_img_rol" + sufijo
     data = cache.get(key)
     if not data:
-        secciones, ahora_str = _secciones_rol()
+        secciones = _secciones_para_imagen_rol(ids_lista)
         if not secciones:
             raise Http404()
+        ahora_str = timezone.localtime().strftime("%d/%m/%Y %H:%M")
         data = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
         cache.set(key, data, 600)
     response = HttpResponse(data, content_type="image/png")
@@ -5803,21 +5903,26 @@ def compartir_rol_imagen(request):
     return response
 
 
-def compartir_rol_miniatura(request):
+def compartir_rol_miniatura(request, ids=None):
     """Miniatura JPEG 1200x630 del rol para WhatsApp/Facebook."""
     from django.core.cache import cache
     from .models import ConfiguracionLiga
     from .social_image import _cargar_logo, generar_imagen_rol_bonita, generar_miniatura_og
 
-    key_img = "share_img_rol"
-    key_thumb = "share_thumb_rol"
+    ids_lista = _parse_ids_rol(ids)
+    if ids and not ids_lista:
+        raise Http404()
+    sufijo = ("_" + "-".join(str(i) for i in ids_lista)) if ids_lista else ""
+    key_img = "share_img_rol" + sufijo
+    key_thumb = "share_thumb_rol" + sufijo
     data = cache.get(key_thumb)
     if not data:
         png = cache.get(key_img)
         if not png:
-            secciones, ahora_str = _secciones_rol()
+            secciones = _secciones_para_imagen_rol(ids_lista)
             if not secciones:
                 raise Http404()
+            ahora_str = timezone.localtime().strftime("%d/%m/%Y %H:%M")
             png = generar_imagen_rol_bonita(secciones, ahora_str).getvalue()
             cache.set(key_img, png, 600)
         cfg = ConfiguracionLiga.obtener()
@@ -5832,7 +5937,7 @@ def compartir_rol_miniatura(request):
 @login_required
 @require_POST
 def guardar_texto_rol(request):
-    """Guarda el texto del rol para la página de compartir."""
+    """Guarda el texto del rol para la página de compartir (global o por jornadas)."""
     from django.core.cache import cache
 
     if not (request.user.is_staff or request.user.tiene_permiso("jornada_publicar")):
@@ -5844,7 +5949,14 @@ def guardar_texto_rol(request):
     texto = (payload.get("texto") or "").strip()[:4000]
     if not texto:
         return JsonResponse({"ok": False, "error": "Texto vacío."})
-    cache.set("share_texto_rol", texto, 60 * 60 * 24 * 7)
+    ids = payload.get("ids") or []
+    ids_lista = []
+    try:
+        ids_lista = [int(x) for x in ids][:20]
+    except (TypeError, ValueError):
+        ids_lista = []
+    sufijo = ("_" + "-".join(str(i) for i in ids_lista)) if ids_lista else ""
+    cache.set("share_texto_rol" + sufijo, texto, 60 * 60 * 24 * 7)
     return JsonResponse({"ok": True})
 
 

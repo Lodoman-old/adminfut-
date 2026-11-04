@@ -851,7 +851,7 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         pegar(p.get("logo_local"), x + 10, y + 30)
         pegar(p.get("logo_visitante"), x + COL_W - 50, y + 30)
 
-        extra = 16 if (p.get("susp") or p.get("default_win")) else 0
+        extra = 16 if (p.get("susp") or p.get("default_win")) else (10 if p.get("is_fin") else 0)
         lineas_local, f_local = _nombre_lineas(local, max_w_local - extra)
         _dibujar_nombre(lineas_local, f_local, x + 56, max_w_local, y,
                         GREEN if (p.get("local_win") and p.get("default_win")) else
@@ -869,6 +869,14 @@ def generar_imagen_rol_bonita(secciones, ahora_str):
         elif p.get("default_win"):
             draw.rounded_rectangle((cx - 24, y + 44, cx + 24, y + 66), radius=10, fill=ORANGE)
             draw.text((cx, y + 55), "DFT", font=_font(13, bold=True), fill=WHITE, anchor="mm")
+        elif p.get("is_fin") and p.get("marcador"):
+            f_marc = _font(16, bold=True)
+            tw_marc = _tw(p["marcador"], f_marc)
+            draw.rounded_rectangle(
+                (cx - tw_marc / 2 - 10, y + 44, cx + tw_marc / 2 + 10, y + 66),
+                radius=10, fill=GREEN,
+            )
+            draw.text((cx, y + 55), p["marcador"], font=f_marc, fill=WHITE, anchor="mm")
         else:
             draw.text((cx, y + 56), "VS", font=f_vs, fill=GREEN, anchor="mm")
 

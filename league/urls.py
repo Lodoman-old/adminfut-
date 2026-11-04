@@ -70,6 +70,9 @@ urlpatterns = [
     path("s/rol/", views.compartir_rol, name="s_rol"),
     path("s/rol/imagen.png", views.compartir_rol_imagen, name="s_rol_imagen"),
     path("s/rol/miniatura.jpg", views.compartir_rol_miniatura, name="s_rol_miniatura"),
+    path("s/rol/<str:ids>/imagen.png", views.compartir_rol_imagen, name="s_rol_ids_imagen"),
+    path("s/rol/<str:ids>/miniatura.jpg", views.compartir_rol_miniatura, name="s_rol_ids_miniatura"),
+    path("s/rol/<str:ids>/", views.compartir_rol, name="s_rol_ids"),
     path("rol-todas/guardar-texto/", views.guardar_texto_rol, name="guardar_texto_rol"),
 
     path("periodo-altas/", views.PeriodoAltasListView.as_view(), name="periodoaltas_list"),

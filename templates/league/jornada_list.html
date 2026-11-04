@@ -369,7 +369,7 @@ window.adminfutFacebook = function(url){
     var textoDefault = '📋 Próximos partidos · Todas las categorías\n#FutbolLiga · juventinorosasliga.com';
     var urlIa = "{% url 'rol_resumen_ia' %}";
     var urlGuardar = "{% url 'guardar_texto_rol' %}";
-    var urlCompartir = window.location.origin + "{% url 's_rol' %}";
+    var idsRol = [];
     var modalRol = document.getElementById('rolTodasModal');
     var txtRol = document.getElementById('rolIaTexto');
     var spinner = document.getElementById('rolIaSpinner');
@@ -383,8 +383,24 @@ window.adminfutFacebook = function(url){
         return t || textoDefault;
     }
 
+    function urlRolActual(){
+        if(idsRol && idsRol.length){
+            return window.location.origin + '/s/rol/' + idsRol.join('-') + '/';
+        }
+        return window.location.origin + "{% url 's_rol' %}";
+    }
+
     function guardarTexto(){
-        window.adminfutGuardarTexto(urlGuardar, textoActual());
+        var m = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+        var token = m ? m.pop() : '';
+        try{
+            fetch(urlGuardar, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
+                credentials: 'same-origin',
+                body: JSON.stringify({texto: textoActual(), ids: idsRol})
+            }).catch(function(){});
+        }catch(e){}
     }
 
     // Guarda lo que el usuario edite, poco después de dejar de escribir.
@@ -405,6 +421,7 @@ window.adminfutFacebook = function(url){
             .then(function(r){ return r.json(); })
             .then(function(data){
                 if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
+                idsRol = data.ids || [];
                 txtRol.value = data.texto || '';
                 txtRol.classList.remove('d-none');
                 hint.classList.remove('d-none');
@@ -433,7 +450,7 @@ window.adminfutFacebook = function(url){
     var btnCopiar = document.getElementById('copiarTextoRol');
     if(btnCopiar){
         btnCopiar.addEventListener('click', function(){
-            window.adminfutCopiar(textoActual() + '\n\n' + urlCompartir);
+            window.adminfutCopiar(textoActual() + '\n\n' + urlRolActual());
             btnCopiar.innerHTML = '<i class="bi bi-check2"></i> Copiado';
             setTimeout(function(){ btnCopiar.innerHTML = '<i class="bi bi-clipboard"></i> Copiar texto'; }, 2000);
         });
@@ -444,14 +461,14 @@ window.adminfutFacebook = function(url){
     if(btnWaRol){
         btnWaRol.addEventListener('click', function(){
             guardarTexto();
-            window.adminfutWhatsApp(urlCompartir + '?v=' + Date.now(), textoActual());
+            window.adminfutWhatsApp(urlRolActual() + '?v=' + Date.now(), textoActual());
         });
     }
     var btnFbRol = document.getElementById('compartirRolFb');
     if(btnFbRol){
         btnFbRol.addEventListener('click', function(){
             guardarTexto();
-            window.adminfutFacebook(urlCompartir + '?v=' + Date.now());
+            window.adminfutFacebook(urlRolActual() + '?v=' + Date.now());
         });
     }
 })();
