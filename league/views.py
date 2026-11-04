@@ -1534,6 +1534,70 @@ def _generar_texto_gemini(prompt):
         return None, f"No se pudo conectar con Gemini: {e}"
 
 
+def _texto_respaldo_resultados(etiqueta, lineas):
+    """Texto sin IA para cuando Gemini no está disponible."""
+    partes = [f"Resultados de {etiqueta}", ""]
+    partes.extend("- " + linea for linea in lineas)
+    partes += ["", "#FutbolLiga · juventinorosasliga.com"]
+    return "\n".join(partes)
+
+
+def _texto_respaldo_rol(secciones):
+    """Texto sin IA con el rol de próximos partidos."""
+    partes = ["📋 Próximos partidos · Todas las categorías", ""]
+    for sec in secciones:
+        partes.append(
+            f"{sec['categoria'].upper()} · {sec['temporada']} · {sec['jornada']}"
+        )
+        for p in sec.get("partidos") or []:
+            if p.get("is_fin") and p.get("marcador"):
+                linea = f"- {p['local']} {p['marcador']} {p['visitante']}"
+            else:
+                linea = f"- {p['local']} vs {p['visitante']}"
+            if p.get("susp"):
+                linea += " (SUSPENDIDO)"
+            elif p.get("default_win"):
+                ganador = p["local"] if p["default_win"] == "local" else p["visitante"]
+                linea += f" (Gana {ganador} por default)"
+            if p.get("fecha"):
+                linea += f" · {p['fecha']}"
+            if p.get("campo"):
+                linea += f" · {p['campo']}"
+            partes.append(linea)
+        if sec.get("descansan"):
+            partes.append("Descansan: " + ", ".join(sec["descansan"]))
+        partes.append("")
+    partes += ["#FutbolLiga · juventinorosasliga.com"]
+    return "\n".join(partes)
+
+
+def _texto_respaldo_tabla(temporada, tabla, tablas):
+    """Texto sin IA con la tabla de posiciones."""
+    etiqueta = f"📊 Tabla de Posiciones · {temporada.categoria.nombre} · {temporada.nombre}"
+    partes = [etiqueta, ""]
+    if tablas:
+        for letra, grupo in tablas:
+            if not grupo:
+                continue
+            lider = grupo[0]
+            partes.append(
+                f"Grupo {letra}: {lider['nombre']} lidera con {lider['pts']} puntos."
+            )
+    elif tabla:
+        lider = tabla[0]
+        partes.append(f"Líder: {lider['nombre']} con {lider['pts']} puntos.")
+        top = tabla[:4]
+        partes.append(
+            "Top: " + ", ".join(f"{t['pos']}. {t['nombre']} ({t['pts']})" for t in top)
+        )
+        ultimo = tabla[-1]
+        partes.append(f"Último: {ultimo['nombre']} con {ultimo['pts']} puntos.")
+        if temporada.num_clasificados:
+            partes.append(f"Top {temporada.num_clasificados} clasifican a liguilla.")
+    partes += ["", "Tabla completa en juventinorosasliga.com", "#FutbolLiga"]
+    return "\n".join(partes)
+
+
 @login_required
 def resumen_jornada_ia(request, jornada_id):
     """Genera un resumen de la jornada para redes sociales con Gemini."""
@@ -1615,7 +1679,13 @@ def resumen_jornada_ia(request, jornada_id):
     )
     texto, error = _generar_texto_gemini(prompt)
     if error:
-        return JsonResponse({"ok": False, "error": error})
+        return JsonResponse({
+            "ok": True,
+            "texto": _texto_respaldo_resultados(etiqueta, lineas),
+            "fallback": True,
+            "aviso": "La IA no está disponible (cuota agotada). "
+                     "Este texto se generó automáticamente; puedes editarlo.",
+        })
     return JsonResponse({"ok": True, "texto": texto, "jornada": jornada.nombre})
 
 
@@ -3878,7 +3948,13 @@ def tabla_posiciones_texto_ia(request):
     )
     texto, error = _generar_texto_gemini(prompt)
     if error:
-        return JsonResponse({"ok": False, "error": error})
+        return JsonResponse({
+            "ok": True,
+            "texto": _texto_respaldo_tabla(temporada, tabla, tablas),
+            "fallback": True,
+            "aviso": "La IA no está disponible (cuota agotada). "
+                     "Este texto se generó automáticamente; puedes editarlo.",
+        })
     cache.set(key, texto, 60 * 60 * 12)
     return JsonResponse({
         "ok": True, "texto": texto, "cache": False,
@@ -5979,9 +6055,12 @@ def rol_resumen_ia(request):
     texto, error = _generar_texto_gemini(prompt)
     if error:
         return JsonResponse({
-            "ok": False,
-            "error": error,
+            "ok": True,
+            "texto": _texto_respaldo_rol(secciones),
             "ids": [s["jornada_id"] for s in secciones],
+            "fallback": True,
+            "aviso": "La IA no está disponible (cuota agotada). "
+                     "Este texto se generó automáticamente; puedes editarlo.",
         })
     return JsonResponse({
         "ok": True,

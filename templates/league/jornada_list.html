@@ -316,6 +316,7 @@ window.adminfutFacebook = function(url){
                     spinner.classList.add('d-none');
                     if(!data.ok){ mostrarError(data.error || 'No se pudo generar el resumen.'); return; }
                     txt.value = data.texto || '';
+                    if(data.aviso){ mostrarAviso(data.aviso); } else { errBox.classList.add('d-none'); }
                     if(txt.value){
                         window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', txt.value);
                     }
@@ -423,6 +424,15 @@ window.adminfutFacebook = function(url){
                 idsRol = data.ids || [];
                 if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
                 txtRol.value = data.texto || '';
+                if(data.aviso){
+                    if(errBox){
+                        errBox.textContent = data.aviso;
+                        errBox.className = 'alert alert-warning small';
+                        errBox.classList.remove('d-none');
+                    }
+                } else if(errBox){
+                    errBox.classList.add('d-none');
+                }
                 txtRol.classList.remove('d-none');
                 hint.classList.remove('d-none');
                 cargado = true;

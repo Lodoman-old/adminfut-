@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(data){
                 if(!data.ok) throw new Error(data.error || 'No se pudo generar el texto.');
                 txt.value = data.texto || '';
+                if(data.aviso){ mostrarError(data.aviso); } else if(errBox){ errBox.classList.add('d-none'); }
                 cargado = true;
             })
             .catch(function(e){
