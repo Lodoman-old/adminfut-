@@ -4584,6 +4584,26 @@ def cedula_captura_asignar(request, pk):
 
 @login_required
 @require_POST
+def cedula_captura_limpiar(request):
+    """Elimina todas las cédulas subidas y sus fotos."""
+    from .models import CedulaCaptura
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    total = 0
+    for cap in CedulaCaptura.objects.all():
+        try:
+            cap.imagen.delete(save=False)
+        except Exception:
+            pass
+        cap.delete()
+        total += 1
+    messages.success(request, f"{total} cédula(s) eliminada(s) de la bandeja.")
+    return redirect("cedulas_capturas")
+
+
+@login_required
+@require_POST
 def cedula_captura_eliminar(request, pk):
     from .models import CedulaCaptura
 

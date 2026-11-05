@@ -10,6 +10,7 @@ from league.views import (
     cedula_captura_leer,
     cedula_captura_asignar,
     cedula_captura_eliminar,
+    cedula_captura_limpiar,
 )
 
 urlpatterns = [
@@ -18,6 +19,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("push-logs/", admin_push_logs, name="admin_push_logs"),
     path("push-logs/cedulas/", cedulas_capturas, name="cedulas_capturas"),
+    path("push-logs/cedulas/limpiar/", cedula_captura_limpiar, name="cedula_captura_limpiar"),
     path("push-logs/cedulas/<int:pk>/foto/", cedula_captura_foto, name="cedula_captura_foto"),
     path("push-logs/cedulas/<int:pk>/leer/", cedula_captura_leer, name="cedula_captura_leer"),
     path("push-logs/cedulas/<int:pk>/asignar/", cedula_captura_asignar, name="cedula_captura_asignar"),
