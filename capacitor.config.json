@@ -4,7 +4,7 @@
   "webDir": "www",
   "server": {
     "url": "https://juventinorosasliga.com/accounts/login/",
-    "allowNavigation": ["*"],
+    "allowNavigation": ["juventinorosasliga.com", "*.juventinorosasliga.com"],
     "errorPath": "index.html"
   },
   "plugins": {
