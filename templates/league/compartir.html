@@ -32,6 +32,17 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
         }
         .wrap { max-width: 720px; margin: 0 auto; padding: 18px 14px 40px; }
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; flex-wrap: wrap;
+        }
+        .btn-top {
+            font-size: 12px; font-weight: 700; color: #225428;
+            text-decoration: none; border: 1px solid #225428;
+            border-radius: 8px; padding: 5px 10px; white-space: nowrap;
+            background: #fff;
+        }
+        .btn-top:hover { background: #225428; color: #fff; }
         .brand {
             display: flex; align-items: center; gap: 10px;
             color: #225428; font-weight: 700; font-size: 15px;
@@ -62,7 +73,10 @@
 </head>
 <body>
 <div class="wrap">
-    <div class="brand"><span></span>{{ nombre_liga }}</div>
+    <div class="topbar">
+        <div class="brand"><span></span>{{ nombre_liga }}</div>
+        <a class="btn-top" href="{{ volver_url }}">← Dashboard</a>
+    </div>
 
     <div class="card">
         <img src="{{ imagen_grande_url }}" alt="{{ titulo }}">
