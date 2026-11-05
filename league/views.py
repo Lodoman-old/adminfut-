@@ -1243,8 +1243,22 @@ def admin_push_logs(request):
         .annotate(ips=Count("ip", distinct=True), reqs=Count("id"), ultima=Max("fecha"))
         .order_by("-ips", "-reqs")[:10]
     )
+    _UA_BOT = re.compile(
+        r"bot|crawl|spider|headless|puppeteer|playwright|lighthouse|scrapy|"
+        r"python-requests|curl|wget|undici|node",
+        re.I,
+    )
+    _UA_NAV = re.compile(r"Mozilla/5\.0.*(Chrome|Safari|Firefox|Edg|OPR)", re.I)
     for u in ua_clusters:
-        u["sospechoso"] = u["ips"] >= 10
+        ua = u["user_agent"] or ""
+        comun = bool(_UA_NAV.search(ua)) and not _UA_BOT.search(ua)
+        reqs_ip = (u["reqs"] or 0) / max(u["ips"] or 1, 1)
+        u["comun"] = comun
+        u["reqs_ip"] = round(reqs_ip, 1)
+        u["sospechoso"] = (
+            (u["ips"] >= 10 and reqs_ip >= 15 and not comun)
+            or (u["ips"] >= 10 and reqs_ip >= 30)
+        )
     alerta_bots = any(u["sospechoso"] for u in ua_clusters) or (
         trafico_total_24h >= 30 and trafico_ratio < 1.3
     )
@@ -1255,6 +1269,7 @@ def admin_push_logs(request):
 
     bloqueos_24h = SolicitudBloqueada.objects.filter(fecha__gte=desde_trafico)
     bloqueos_total = bloqueos_24h.count()
+    bloqueos_riesgo = bloqueos_24h.filter(motivo__in=["limite", "ua"]).count()
     bloqueos_ua = list(
         bloqueos_24h.values("user_agent").annotate(n=Count("id")).order_by("-n")[:8]
     )
@@ -1313,9 +1328,9 @@ def admin_push_logs(request):
     alerta_rafaga = any(p["rafaga"] for p in picos_ip)
     alerta_bots = alerta_bots or alerta_rafaga
 
-    if bloqueos_total >= 20 or alerta_bots:
+    if bloqueos_riesgo >= 10 or alerta_bots:
         nivel_alerta = "alta"
-    elif bloqueos_total > 0 or (trafico_total_24h and trafico_ratio < 2):
+    elif bloqueos_riesgo > 0 or (trafico_total_24h and trafico_ratio < 2):
         nivel_alerta = "media"
     else:
         nivel_alerta = "baja"
@@ -1370,6 +1385,7 @@ def admin_push_logs(request):
         "login_24h": login_24h,
         "login_ips_24h": login_ips_24h,
         "bloqueos_total": bloqueos_total,
+        "bloqueos_riesgo": bloqueos_riesgo,
         "bloqueos_7d_total": bloqueos_7d_total,
         "bloqueos_30d_total": bloqueos_30d_total,
         "bloqueos_motivos": bloqueos_motivos,

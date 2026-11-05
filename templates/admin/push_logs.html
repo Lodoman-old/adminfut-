@@ -536,9 +536,10 @@
             <h6 class="text-danger"><i class="bi bi-shield-exclamation"></i> Resumen de bloqueos</h6>
             <p class="small text-muted mb-2">Solo se cuentan peticiones rechazadas (bots, rutas y límites), no todo el tráfico.</p>
             <div class="row g-2 mb-3">
-              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_total }}</h5><small class="text-muted">24 h</small></div></div>
-              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_7d_total }}</h5><small class="text-muted">7 días</small></div></div>
-              <div class="col-4"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_30d_total }}</h5><small class="text-muted">30 días</small></div></div>
+              <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_total }}</h5><small class="text-muted">24 h</small></div></div>
+              <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_riesgo }}</h5><small class="text-muted">de riesgo (24 h)</small></div></div>
+              <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_7d_total }}</h5><small class="text-muted">7 días</small></div></div>
+              <div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><h5 class="mb-0">{{ bloqueos_30d_total }}</h5><small class="text-muted">30 días</small></div></div>
             </div>
             <div class="row g-3">
               <div class="col-md-6">
@@ -591,7 +592,7 @@
             <div class="col-lg-7">
               <div class="card p-3 mb-3">
                 <h6 class="text-primary"><i class="bi bi-people"></i> Agentes con más IPs distintas</h6>
-                <p class="small text-muted mb-2">Un mismo agente visto desde muchas IPs en 24 h sugiere un pool de proxies (bot). Se marca <span class="badge bg-danger">posible bot</span> desde 10 IPs.</p>
+                <p class="small text-muted mb-2">Un mismo agente visto desde muchas IPs en 24 h puede ser un pool de proxies. Se marca <span class="badge bg-danger">posible bot</span> si no es un navegador común y promedia muchas peticiones por IP; si es Chrome/Safari/Firefox normal se muestra como <span class="badge bg-secondary">navegador común</span>.</p>
                 <div class="table-responsive">
                   <table class="table table-sm table-striped" style="font-size:.78rem">
                     <thead class="table-dark"><tr><th>Agente</th><th>IPs</th><th>Peticiones</th><th>Última</th><th></th></tr></thead>
@@ -602,7 +603,7 @@
                         <td><strong>{{ u.ips }}</strong></td>
                         <td>{{ u.reqs }}</td>
                         <td>{{ u.ultima|date:"d/m H:i" }}</td>
-                        <td>{% if u.sospechoso %}<span class="badge bg-danger">posible bot</span>{% endif %}</td>
+                        <td>{% if u.sospechoso %}<span class="badge bg-danger">posible bot</span>{% elif u.comun %}<span class="badge bg-secondary">navegador común</span>{% endif %}</td>
                       </tr>
                       {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin datos.</td></tr>{% endfor %}
                     </tbody>

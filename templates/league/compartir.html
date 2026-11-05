@@ -48,6 +48,13 @@
             padding: 18px 18px 6px; font-size: 16px; line-height: 1.55;
             white-space: pre-wrap; word-wrap: break-word;
         }
+        .acciones { padding: 0 18px 20px; }
+        .btn-volver {
+            display: block; text-align: center; text-decoration: none;
+            padding: 12px 16px; border-radius: 10px; font-weight: 700;
+            font-size: 15px; background: #225428; color: #fff;
+        }
+        .btn-volver:hover { background: #1a4320; color: #fff; }
         .pie { text-align: center; font-size: 12px; margin-top: 18px; }
         .pie a { color: #6e766e; text-decoration: none; }
         .pie a:hover { color: #225428; }
@@ -60,6 +67,9 @@
     <div class="card">
         <img src="{{ imagen_grande_url }}" alt="{{ titulo }}">
         <div class="texto">{{ texto }}</div>
+        <div class="acciones">
+            <a class="btn-volver" href="{{ volver_url }}">Ir al dashboard</a>
+        </div>
     </div>
 
     <p class="pie"><a href="{{ volver_url }}">juventinorosasliga.com</a></p>
