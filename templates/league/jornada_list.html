@@ -183,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi bi-download"></i> Descargar imagen
                 </a>
                 <button type="button" class="btn btn-outline-dark" id="copiarTextoRol"><i class="bi bi-clipboard"></i> Copiar texto</button>
+                <button type="button" class="btn btn-outline-dark" id="rolIaRegenerar"><i class="bi bi-arrow-clockwise"></i> Regenerar</button>
                 <button type="button" class="btn btn-success" id="compartirRolWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
                 <button type="button" class="btn btn-primary" id="compartirRolFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -212,6 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="modal-footer flex-wrap">
                 <a class="btn btn-outline-success d-none" id="resumenIaDescargar" download="resumen-jornada.png" href="#"><i class="bi bi-download"></i> Descargar imagen</a>
                 <button type="button" class="btn btn-outline-secondary" id="resumenIaCopiar"><i class="bi bi-clipboard"></i> Copiar</button>
+                <button type="button" class="btn btn-outline-dark" id="resumenIaRegenerar"><i class="bi bi-arrow-clockwise"></i> Regenerar</button>
                 <button type="button" class="btn btn-success" id="resumenIaWa"><i class="bi bi-whatsapp"></i> WhatsApp</button>
                 <button type="button" class="btn btn-primary" id="resumenIaFb" style="background-color:#1877F2;border-color:#1877F2"><i class="bi bi-facebook"></i> Facebook</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -295,6 +297,33 @@ window.adminfutFacebook = function(url){
         errBox.className = 'alert alert-success small';
     }
 
+    var cargandoResumen = false;
+
+    function cargarResumen(refresh){
+        if(!jornadaId || cargandoResumen) return;
+        cargandoResumen = true;
+        spinner.classList.remove('d-none');
+        errBox.classList.add('d-none');
+        var url = '/jornadas/' + jornadaId + '/resumen-ia/' + (refresh ? '?refresh=1' : '');
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if(!data.ok) throw new Error(data.error || 'No se pudo generar el resumen.');
+                txt.value = data.texto || '';
+                if(data.aviso){ mostrarAviso(data.aviso); } else { errBox.classList.add('d-none'); }
+                if(txt.value){
+                    window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', txt.value);
+                }
+            })
+            .catch(function(e){
+                mostrarError(e.message || 'Error de red al generar el resumen.');
+            })
+            .then(function(){
+                cargandoResumen = false;
+                spinner.classList.add('d-none');
+            });
+    }
+
     document.querySelectorAll('.resumen-ia-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
             jornadaId = btn.getAttribute('data-id');
@@ -310,21 +339,7 @@ window.adminfutFacebook = function(url){
                 imgResumen.classList.remove('d-none');
                 if(dlResumen){ dlResumen.href = urlImg; dlResumen.classList.remove('d-none'); }
             }
-            fetch('/jornadas/' + jornadaId + '/resumen-ia/')
-                .then(function(r){ return r.json(); })
-                .then(function(data){
-                    spinner.classList.add('d-none');
-                    if(!data.ok){ mostrarError(data.error || 'No se pudo generar el resumen.'); return; }
-                    txt.value = data.texto || '';
-                    if(data.aviso){ mostrarAviso(data.aviso); } else { errBox.classList.add('d-none'); }
-                    if(txt.value){
-                        window.adminfutGuardarTexto('/jornadas/' + jornadaId + '/resumen-ia/guardar/', txt.value);
-                    }
-                })
-                .catch(function(){
-                    spinner.classList.add('d-none');
-                    mostrarError('Error de red al generar el resumen.');
-                });
+            cargarResumen(false);
         });
     });
 
@@ -332,6 +347,13 @@ window.adminfutFacebook = function(url){
         window.adminfutCopiar(txt.value + '\n\n' + window.location.origin + '/s/jornada/' + jornadaId + '/');
         mostrarOk('Texto y enlace copiados.');
     });
+
+    var btnRegenerarResumen = document.getElementById('resumenIaRegenerar');
+    if(btnRegenerarResumen){
+        btnRegenerarResumen.addEventListener('click', function(){
+            cargarResumen(true);
+        });
+    }
 
     // Botones directos: abren WhatsApp/Facebook aunque la app no soporte compartir.
     var btnWa = document.getElementById('resumenIaWa');
@@ -413,12 +435,13 @@ window.adminfutFacebook = function(url){
         });
     }
 
-    function cargarTextoIa(){
-        if(cargado || cargando) return;
+    function cargarTextoIa(refresh){
+        if(cargando || (cargado && !refresh)) return;
         cargando = true;
         if(spinner) spinner.classList.remove('d-none');
         if(errBox) errBox.classList.add('d-none');
-        fetch(urlIa, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        var url = urlIa + (refresh ? '?refresh=1' : '');
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(function(r){ return r.json(); })
             .then(function(data){
                 idsRol = data.ids || [];
@@ -454,7 +477,12 @@ window.adminfutFacebook = function(url){
     }
 
     if(modalRol){
-        modalRol.addEventListener('show.bs.modal', cargarTextoIa);
+        modalRol.addEventListener('show.bs.modal', function(){ cargarTextoIa(false); });
+    }
+
+    var btnRegenerarRol = document.getElementById('rolIaRegenerar');
+    if(btnRegenerarRol){
+        btnRegenerarRol.addEventListener('click', function(){ cargarTextoIa(true); });
     }
 
     var btnCopiar = document.getElementById('copiarTextoRol');

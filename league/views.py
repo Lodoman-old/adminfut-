@@ -1625,6 +1625,15 @@ def resumen_jornada_ia(request, jornada_id):
     if not (request.user.is_staff or request.user.tiene_permiso("partido_cedula")):
         return JsonResponse({"ok": False, "error": "Sin permiso para generar el resumen."}, status=403)
 
+    from django.core.cache import cache
+
+    refrescar = request.GET.get("refresh") == "1"
+    cache_key = f"resumen_ia_jornada_{jornada_id}"
+    if not refrescar:
+        texto_guardado = cache.get(cache_key)
+        if texto_guardado:
+            return JsonResponse({"ok": True, "texto": texto_guardado, "cache": True})
+
     categoria_nombre = ""
     temporada_nombre = ""
     if jornada.temporada_id:
@@ -1702,7 +1711,10 @@ def resumen_jornada_ia(request, jornada_id):
             "aviso": "La IA no está disponible (cuota agotada). "
                      "Este texto se generó automáticamente; puedes editarlo.",
         })
-    return JsonResponse({"ok": True, "texto": texto, "jornada": jornada.nombre})
+    cache.set(cache_key, texto, 60 * 60 * 12)
+    return JsonResponse({
+        "ok": True, "texto": texto, "jornada": jornada.nombre, "cache": False,
+    })
 
 
 def _imagen_resultados_bytes(jornada):
@@ -6438,6 +6450,18 @@ def rol_resumen_ia(request):
     if not secciones:
         return JsonResponse({"ok": False, "error": "No hay próximos partidos para generar el texto."})
 
+    from django.core.cache import cache
+
+    ids_rol = [s["jornada_id"] for s in secciones]
+    refrescar = request.GET.get("refresh") == "1"
+    cache_key = "resumen_ia_rol_" + "-".join(str(i) for i in ids_rol)
+    if not refrescar:
+        texto_guardado = cache.get(cache_key)
+        if texto_guardado:
+            return JsonResponse({
+                "ok": True, "texto": texto_guardado, "ids": ids_rol, "cache": True,
+            })
+
     lineas = []
     for sec in secciones:
         lineas.append(f"{sec['categoria']} - {sec['temporada']} - {sec['jornada']}")
@@ -6474,10 +6498,12 @@ def rol_resumen_ia(request):
             "aviso": "La IA no está disponible (cuota agotada). "
                      "Este texto se generó automáticamente; puedes editarlo.",
         })
+    cache.set(cache_key, texto, 60 * 60 * 12)
     return JsonResponse({
         "ok": True,
         "texto": texto,
-        "ids": [s["jornada_id"] for s in secciones],
+        "ids": ids_rol,
+        "cache": False,
     })
 
 
