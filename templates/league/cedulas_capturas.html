@@ -4,10 +4,6 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
     <h3 class="mb-0"><i class="bi bi-camera"></i> Cédulas por validar</h3>
     <div class="d-flex flex-wrap gap-2">
-        <form method="post" action="{% url 'cedula_captura_limpiar' %}" onsubmit="return confirm('¿Eliminar TODAS las cédulas subidas y sus fotos? No se puede deshacer.');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash3"></i> Limpiar todo</button>
-        </form>
         <a href="{% url 'partido_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Volver</a>
     </div>
 </div>
