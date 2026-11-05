@@ -4479,6 +4479,16 @@ def cedulas_capturas(request):
     )
     for cap in capturas:
         datos = cap.datos_json or {}
+        cap.encabezado = datos.get("encabezado") or {}
+        ids_candidatos = datos.get("candidatos") or []
+        cap.candidatos = (
+            list(
+                Partido.objects.filter(id__in=ids_candidatos).select_related(
+                    "equipo_local", "equipo_visitante", "jornada"
+                ).order_by("-fecha_hora")
+            )
+            if ids_candidatos else []
+        )
         local = datos.get("local") or []
         visit = datos.get("visitante") or []
         cap.n_local = len(local)
@@ -4579,6 +4589,103 @@ def cedula_captura_asignar(request, pk):
         cap.error = ""
         cap.save(update_fields=["partido", "datos_json", "estado", "error", "actualizado"])
         messages.success(request, "Partido asignado. Ya puedes leer la cédula.")
+    return redirect("cedulas_capturas")
+
+
+@login_required
+@require_POST
+def cedula_captura_identificar(request, pk):
+    """Intenta identificar el partido leyendo los nombres del encabezado."""
+    import unicodedata
+
+    from .models import CedulaCaptura
+    from .cedula_scan import identificar_encabezado_con_vision
+
+    if not _puede_cedulas(request.user):
+        return redirect("home")
+    cap = get_object_or_404(CedulaCaptura, pk=pk)
+    if cap.partido_id:
+        messages.info(request, "Esta cédula ya tiene partido asignado.")
+        return redirect("cedulas_capturas")
+
+    try:
+        cap.imagen.open("rb")
+        resultado = identificar_encabezado_con_vision(cap.imagen)
+        cap.imagen.close()
+    except Exception as e:
+        resultado = {"error": str(e)}
+    if resultado.get("error"):
+        messages.error(request, f"No se pudo leer el encabezado: {resultado['error']}")
+        return redirect("cedulas_capturas")
+
+    enc = resultado.get("encabezado") or {}
+
+    def _norm(texto):
+        texto = unicodedata.normalize("NFKD", texto or "")
+        texto = texto.encode("ascii", "ignore").decode("ascii")
+        return " ".join(texto.upper().split())
+
+    def _coincide(leido, real):
+        a, b = _norm(leido), _norm(real)
+        return bool(a and b and (a in b or b in a))
+
+    local = enc.get("local") or ""
+    visit = enc.get("visitante") or ""
+    partidos = list(
+        Partido.objects.select_related(
+            "equipo_local", "equipo_visitante", "jornada", "temporada__categoria"
+        ).order_by("-fecha_hora")[:2000]
+    )
+    candidatos = []
+    for p in partidos:
+        if (
+            _coincide(local, p.equipo_local.nombre)
+            and _coincide(visit, p.equipo_visitante.nombre)
+        ) or (
+            _coincide(local, p.equipo_visitante.nombre)
+            and _coincide(visit, p.equipo_local.nombre)
+        ):
+            candidatos.append(p)
+
+    # Preferir la categoría leída, si coincide con alguna.
+    if enc.get("categoria") and candidatos:
+        filtrados = [
+            p for p in candidatos
+            if p.temporada_id and _norm(enc["categoria"]) in _norm(p.temporada.categoria.nombre)
+        ]
+        if filtrados:
+            candidatos = filtrados
+
+    if not candidatos:
+        cap.datos_json = {"encabezado": enc}
+        cap.estado = "SIN_IDENTIFICAR"
+        cap.save(update_fields=["datos_json", "estado", "actualizado"])
+        messages.error(
+            request,
+            f"No se encontró partido para “{local or '?'} vs {visit or '?'}”. "
+            "Asígnalo manualmente.",
+        )
+        return redirect("cedulas_capturas")
+
+    if len(candidatos) == 1:
+        cap.partido = candidatos[0]
+        cap.datos_json = {"encabezado": enc}
+        cap.estado = "SUBIDA"
+        cap.error = ""
+        cap.save(update_fields=["partido", "datos_json", "estado", "error", "actualizado"])
+        messages.success(
+            request,
+            f"Identificada: {candidatos[0].equipo_local.nombre} vs "
+            f"{candidatos[0].equipo_visitante.nombre}. Pulsa “Leer con IA”.",
+        )
+    else:
+        cap.datos_json = {"encabezado": enc, "candidatos": [p.id for p in candidatos[:10]]}
+        cap.estado = "SIN_IDENTIFICAR"
+        cap.save(update_fields=["datos_json", "estado", "actualizado"])
+        messages.warning(
+            request,
+            f"Hay {len(candidatos)} partidos posibles con esos equipos. Elige uno de la lista.",
+        )
     return redirect("cedulas_capturas")
 
 

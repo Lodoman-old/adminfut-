@@ -260,6 +260,77 @@ def _post_gemini(url, api_key, modelo, prompt, mime, img_b64, timeout=120):
     return {'contenido': texto}
 
 
+def identificar_encabezado_con_vision(imagen_file):
+    """Lee solo el encabezado de la cédula (equipos, categoría, jornada, fecha)."""
+    from league.models import ConfiguracionLiga
+
+    cfg = ConfiguracionLiga.obtener()
+    prov = (cfg.cedula_vision_proveedor or 'groq').lower()
+    api_key = (cfg.cedula_vision_api_key or '').strip() or getattr(settings, 'GROQ_API_KEY', None) or os.environ.get('GROQ_API_KEY') or ''
+    modelo = _modelo_para(prov, cfg.cedula_vision_modelo)
+    endpoint = (cfg.cedula_vision_endpoint or '').strip()
+
+    prompt = """Eres un experto leyendo cédulas arbitrales de fútbol.
+Lee SOLO el encabezado de la cédula y devuelve un JSON válido con:
+{
+  "local": "nombre del equipo local tal como aparece",
+  "visitante": "nombre del equipo visitante tal como aparece",
+  "categoria": "categoría si aparece",
+  "jornada": "jornada si aparece",
+  "fecha": "fecha si aparece (dd/mm/aaaa)"
+}
+No inventes datos: si un campo no se lee, déjalo como cadena vacía.
+Devuelve únicamente el JSON, sin explicaciones ni comillas de bloque."""
+
+    mime, img_b64 = _imagen_payload(imagen_file)
+
+    if prov != 'ollama' and not api_key:
+        return {"error": "Falta la API Key del proveedor de visión. Configúrala en Configuración > Publicidad."}
+
+    try:
+        if prov == 'gemini':
+            url = endpoint or f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+            salida = _post_gemini(url, api_key, modelo, prompt, mime, img_b64)
+        elif prov == 'groq':
+            url = endpoint or "https://api.groq.com/openai/v1/chat/completions"
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime)
+        elif prov == 'openrouter':
+            url = endpoint or "https://openrouter.ai/api/v1/chat/completions"
+            extra = {
+                "HTTP-Referer": getattr(settings, 'SITE_URL', ''),
+                "X-Title": "AdminFut",
+            }
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime, extra_headers=extra)
+        elif prov == 'ollama':
+            url = endpoint or "http://localhost:11434/v1/chat/completions"
+            salida = _post_chat_compatible(url, api_key, modelo, prompt, img_b64, mime=mime)
+        else:
+            return {"error": f"Proveedor de visión no soportado: {prov}"}
+    except Exception as e:
+        return {"error": f"No se pudo conectar con el proveedor de visión: {e}"}
+
+    if salida.get('error'):
+        return {"error": salida['error']}
+
+    try:
+        data = _extraer_json(salida.get('contenido'))
+    except Exception:
+        return {"error": "La IA devolvió un JSON inválido al leer el encabezado."}
+    if not isinstance(data, dict):
+        return {"error": "La IA no devolvió datos del encabezado."}
+
+    encabezado = {
+        "local": str(data.get("local") or "").strip(),
+        "visitante": str(data.get("visitante") or "").strip(),
+        "categoria": str(data.get("categoria") or "").strip(),
+        "jornada": str(data.get("jornada") or "").strip(),
+        "fecha": str(data.get("fecha") or "").strip(),
+    }
+    if not encabezado["local"] and not encabezado["visitante"]:
+        return {"error": "No se pudieron leer los nombres de los equipos."}
+    return {"ok": True, "encabezado": encabezado}
+
+
 def escanear_cedula_con_vision(imagen_file, partido, jugadores_local, jugadores_visit, proveedor=None):
     from league.models import ConfiguracionLiga
 

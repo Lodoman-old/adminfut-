@@ -69,6 +69,20 @@
                             <div class="small text-muted">{{ cap.partido.jornada.nombre|default:"Sin jornada" }} · {{ cap.partido.fecha_hora|date:"d/m/Y H:i" }}</div>
                             {% else %}
                             <span class="badge bg-warning text-dark">Sin identificar</span>
+                            {% if cap.encabezado.local or cap.encabezado.visitante %}
+                            <div class="small text-muted">Leído: {{ cap.encabezado.local|default:"?" }} vs {{ cap.encabezado.visitante|default:"?" }}</div>
+                            {% endif %}
+                            {% if cap.candidatos %}
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% for p in cap.candidatos %}
+                                <form method="post" action="{% url 'cedula_captura_asignar' cap.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="partido_id" value="{{ p.id }}">
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">{{ p.equipo_local.nombre }} vs {{ p.equipo_visitante.nombre }} · {{ p.fecha_hora|date:"d/m/Y" }}</button>
+                                </form>
+                                {% endfor %}
+                            </div>
+                            {% else %}
                             <form method="post" action="{% url 'cedula_captura_asignar' cap.id %}" class="d-flex gap-1 mt-1">
                                 {% csrf_token %}
                                 <select name="partido_id" class="form-select form-select-sm" required>
@@ -79,6 +93,7 @@
                                 </select>
                                 <button class="btn btn-sm btn-outline-primary" type="submit">OK</button>
                             </form>
+                            {% endif %}
                             {% endif %}
                         </td>
                         <td>
@@ -113,6 +128,12 @@
                                     <button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-arrow-clockwise"></i> Releer</button>
                                 </form>
                                 {% endif %}
+                                {% endif %}
+                                {% if not cap.partido and cap.imagen %}
+                                <form method="post" action="{% url 'cedula_captura_identificar' cap.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-info" type="submit"><i class="bi bi-fonts"></i> Identificar por nombres</button>
+                                </form>
                                 {% endif %}
                                 <form method="post" action="{% url 'cedula_captura_eliminar' cap.id %}" onsubmit="return confirm('¿Eliminar esta cédula y su foto?');">
                                     {% csrf_token %}
