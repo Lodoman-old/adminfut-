@@ -4499,8 +4499,9 @@ def cedulas_capturas(request):
             for x in local + visit
         )
     partidos = list(
-        Partido.objects.select_related("equipo_local", "equipo_visitante", "jornada")
-        .order_by("-fecha_hora")[:300]
+        Partido.objects.filter(temporada__activa=True).select_related(
+            "equipo_local", "equipo_visitante", "jornada"
+        ).order_by("-fecha_hora")[:300]
     )
     return render(request, "league/cedulas_capturas.html", {
         "capturas": capturas,
@@ -4632,7 +4633,7 @@ def cedula_captura_identificar(request, pk):
     local = enc.get("local") or ""
     visit = enc.get("visitante") or ""
     partidos = list(
-        Partido.objects.select_related(
+        Partido.objects.filter(temporada__activa=True).select_related(
             "equipo_local", "equipo_visitante", "jornada", "temporada__categoria"
         ).order_by("-fecha_hora")[:2000]
     )
