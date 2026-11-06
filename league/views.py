@@ -6744,18 +6744,19 @@ def reporte_altas_jugadores(request):
     hasta = request.GET.get("hasta") or hoy.isoformat()
     cat_id = request.GET.get("categoria") or ""
     equipo_id = request.GET.get("equipo") or ""
+    faltan_filtros = not (cat_id and equipo_id)
 
     qs = JugadorEquipo.objects.select_related(
         "jugador", "equipo__categoria", "creado_por"
     )
-    if desde:
-        qs = qs.filter(fecha_alta__gte=desde)
-    if hasta:
-        qs = qs.filter(fecha_alta__lte=hasta)
-    if cat_id:
-        qs = qs.filter(equipo__categoria_id=cat_id)
-    if equipo_id:
-        qs = qs.filter(equipo_id=equipo_id)
+    if faltan_filtros:
+        qs = qs.none()
+    else:
+        if desde:
+            qs = qs.filter(fecha_alta__gte=desde)
+        if hasta:
+            qs = qs.filter(fecha_alta__lte=hasta)
+        qs = qs.filter(equipo__categoria_id=cat_id, equipo_id=equipo_id)
     qs = qs.order_by(
         "-fecha_alta", "equipo__categoria__nombre", "equipo__nombre", "jugador__apellido"
     )
@@ -6815,11 +6816,13 @@ def reporte_altas_jugadores(request):
     sin_periodo = sum(1 for r in altas if r.estado_periodo == "sin_periodo")
 
     categorias = Categoria.objects.filter(activo=True).order_by("nombre")
-    equipos = Equipo.objects.filter(activo=True).select_related("categoria").order_by(
-        "categoria__nombre", "nombre"
-    )
+    equipos = Equipo.objects.none()
     if cat_id:
-        equipos = equipos.filter(categoria_id=cat_id)
+        equipos = (
+            Equipo.objects.filter(activo=True, categoria_id=cat_id)
+            .select_related("categoria")
+            .order_by("nombre")
+        )
 
     return render(request, "league/reporte_altas.html", {
         "altas": altas,
@@ -6832,6 +6835,7 @@ def reporte_altas_jugadores(request):
         "equipo_id": equipo_id,
         "categorias": categorias,
         "equipos": equipos,
+        "faltan_filtros": faltan_filtros,
     })
 
 
