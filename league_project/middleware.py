@@ -206,6 +206,7 @@ RUTAS_PUBLICAS = {
     '/apk/descargar/',
     '/suscripcion/',
     '/reportes/registro/',  # reporte de registro: visible para cualquiera (logueado o no)
+    '/reportes/altas/',  # reporte público de altas de jugadores
     '/accounts/login/',
     '/accounts/invitado/registro/',
     '/robots.txt',

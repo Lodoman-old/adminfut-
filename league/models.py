@@ -153,6 +153,14 @@ class JugadorEquipo(models.Model):
     es_principal = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
     fecha_alta = models.DateField(auto_now_add=True)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="altas_jugadores",
+        verbose_name="Dado de alta por",
+    )
 
     class Meta:
         verbose_name = "Registro Jugador-Equipo"

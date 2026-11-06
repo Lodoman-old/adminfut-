@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Altas de jugadores - AdminFut{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="mb-0"><i class="bi bi-person-plus"></i> Altas de jugadores</h3>
+        <small class="text-muted">Fecha de alta, equipo y quién la registró.</small>
+    </div>
+    <button type="button" class="btn btn-outline-dark btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+</div>
+
+<form method="get" class="row g-2 mb-3 align-items-end">
+    <div class="col-6 col-md-2">
+        <label class="form-label small mb-0">Desde</label>
+        <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
+    </div>
+    <div class="col-6 col-md-2">
+        <label class="form-label small mb-0">Hasta</label>
+        <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small mb-0">Categoría</label>
+        <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Todas</option>
+            {% for c in categorias %}
+            <option value="{{ c.id }}" {% if cat_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label small mb-0">Equipo</label>
+        <select name="equipo" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% for e in equipos %}
+            <option value="{{ e.id }}" {% if equipo_id == e.id|stringformat:"s" %}selected{% endif %}>{{ e.categoria.nombre }} · {{ e.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> Filtrar</button>
+    </div>
+</form>
+
+<div class="row g-2 mb-3">
+    <div class="col-4"><div class="card p-2 text-center"><h5 class="mb-0">{{ total }}</h5><small class="text-muted">Altas</small></div></div>
+    <div class="col-4"><div class="card p-2 text-center"><h5 class="mb-0 text-danger">{{ fuera }}</h5><small class="text-muted">Fuera de periodo</small></div></div>
+    <div class="col-4"><div class="card p-2 text-center"><h5 class="mb-0 text-secondary">{{ sin_periodo }}</h5><small class="text-muted">Sin periodo configurado</small></div></div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha alta</th>
+                        <th>Jugador</th>
+                        <th>Equipo</th>
+                        <th>Categoría</th>
+                        <th>Tipo</th>
+                        <th>Alta por</th>
+                        <th>Periodo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in altas %}
+                    <tr class="{% if r.estado_periodo == 'fuera' %}table-danger{% endif %}">
+                        <td>{{ r.fecha_alta|date:"d/m/Y" }}</td>
+                        <td><strong>{{ r.jugador.nombre }} {{ r.jugador.apellido }}</strong>{% if not r.activo %} <span class="badge bg-secondary">inactivo</span>{% endif %}</td>
+                        <td>{{ r.equipo.nombre }}</td>
+                        <td>{{ r.equipo.categoria.nombre }}</td>
+                        <td>{% if r.es_principal %}<span class="badge bg-success">Principal</span>{% else %}<span class="badge bg-secondary">Secundario</span>{% endif %}</td>
+                        <td>{{ r.alta_por|default:"—" }}</td>
+                        <td>
+                            {% if r.estado_periodo == "dentro" %}<span class="badge bg-success">Dentro</span>
+                            {% elif r.estado_periodo == "fuera" %}<span class="badge bg-danger">Fuera</span>
+                            {% else %}<span class="badge bg-secondary">Sin periodo</span>{% endif %}
+                            {% if r.periodos %}
+                            <div class="small text-muted">
+                                {% for a, b in r.periodos %}{{ a|date:"d/m/Y" }}–{{ b|date:"d/m/Y" }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">No hay altas en el rango seleccionado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<p class="small text-muted mt-2">
+    “Fuera” significa que la fecha de alta no cae dentro de ningún periodo de altas configurado para la temporada de esa categoría.
+    Las altas anteriores a este cambio muestran “—” en “Alta por” porque el sistema no guardaba ese dato.
+</p>
+
+<style>
+@media print {
+    nav, form, .btn, .alert { display: none !important; }
+    .card { border: 0 !important; }
+    table { font-size: 10px; }
+}
+</style>
+{% endblock %}

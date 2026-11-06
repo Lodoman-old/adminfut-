@@ -669,7 +669,12 @@ class JugadorCreateView(JugadorGeneroContextMixin, CreateView):
         equipo = form.cleaned_data.get("equipo")
         if equipo and not validar_jugador(self.request, equipo, form):
             return self.form_invalid(form)
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if self.request.user.is_authenticated:
+            self.object.registros_equipo.filter(creado_por__isnull=True).update(
+                creado_por=self.request.user
+            )
+        return response
 
 
 class JugadorUpdateView(JugadorGeneroContextMixin, UpdateView):
@@ -3603,11 +3608,17 @@ def gestionar_altas_bajas(request, pk):
             # Crear o reactivar registro
             reg, created = JugadorEquipo.objects.get_or_create(
                 jugador=jug, equipo=eq,
-                defaults={"es_principal": es_principal, "activo": True}
+                defaults={
+                    "es_principal": es_principal,
+                    "activo": True,
+                    "creado_por": request.user if request.user.is_authenticated else None,
+                },
             )
             if not created:
                 reg.activo = True
                 reg.es_principal = es_principal
+                if not reg.creado_por_id and request.user.is_authenticated:
+                    reg.creado_por = request.user
                 reg.save()
             # Si es principal, actualizar el FK en Jugador
             if es_principal:
@@ -5871,11 +5882,21 @@ def jugador_agregar_equipo_secundario(request, pk):
                 jugador=jugador, es_principal=False,
                 equipo__categoria_id=cat_destino.pk
             ).delete()
-        JugadorEquipo.objects.update_or_create(
+        reg, created = JugadorEquipo.objects.get_or_create(
             jugador=jugador,
             equipo=equipo,
-            defaults={"es_principal": False, "activo": True},
+            defaults={
+                "es_principal": False,
+                "activo": True,
+                "creado_por": request.user if request.user.is_authenticated else None,
+            },
         )
+        if not created:
+            reg.es_principal = False
+            reg.activo = True
+            if not reg.creado_por_id and request.user.is_authenticated:
+                reg.creado_por = request.user
+            reg.save(update_fields=["es_principal", "activo", "creado_por"])
 
     return JsonResponse({
         "ok": True,
@@ -6708,6 +6729,110 @@ def _puede_ver_curp(request):
     """
     user = getattr(request, "user", None)
     return bool(user is not None and user.is_authenticated)
+
+
+def reporte_altas_jugadores(request):
+    """Reporte público de altas de jugadores (fecha, equipo y quién las registró)."""
+    from datetime import timedelta
+
+    from django.db.models import Max, Min
+
+    from .models import Categoria, Equipo, JugadorEquipo, Partido, Temporada
+
+    hoy = timezone.localdate()
+    desde = request.GET.get("desde") or (hoy - timedelta(days=30)).isoformat()
+    hasta = request.GET.get("hasta") or hoy.isoformat()
+    cat_id = request.GET.get("categoria") or ""
+    equipo_id = request.GET.get("equipo") or ""
+
+    qs = JugadorEquipo.objects.select_related(
+        "jugador", "equipo__categoria", "creado_por"
+    )
+    if desde:
+        qs = qs.filter(fecha_alta__gte=desde)
+    if hasta:
+        qs = qs.filter(fecha_alta__lte=hasta)
+    if cat_id:
+        qs = qs.filter(equipo__categoria_id=cat_id)
+    if equipo_id:
+        qs = qs.filter(equipo_id=equipo_id)
+    qs = qs.order_by(
+        "-fecha_alta", "equipo__categoria__nombre", "equipo__nombre", "jugador__apellido"
+    )
+
+    # Temporada por categoría: la activa o la más reciente.
+    temps = list(Temporada.objects.select_related("categoria").order_by("-fecha_inicio"))
+    temp_por_categoria = {}
+    for t in temps:
+        temp_por_categoria.setdefault(t.categoria_id, t)
+    for t in temps:
+        if t.activa:
+            temp_por_categoria[t.categoria_id] = t
+
+    def _rangos(temporada):
+        rangos = []
+        if not temporada:
+            return rangos
+        for p in temporada.periodos_altas.filter(activo=True):
+            if p.tipo == "fechas" and p.fecha_inicio and p.fecha_fin:
+                rangos.append((p.fecha_inicio, p.fecha_fin))
+            elif p.tipo == "jornadas" and p.jornada_inicio and p.jornada_fin:
+                agg = Partido.objects.filter(
+                    temporada=temporada,
+                    jornada__numero__gte=p.jornada_inicio,
+                    jornada__numero__lte=p.jornada_fin,
+                ).aggregate(desde=Min("fecha_hora"), hasta=Max("fecha_hora"))
+                if agg["desde"] and agg["hasta"]:
+                    rangos.append((
+                        timezone.localtime(agg["desde"]).date(),
+                        timezone.localtime(agg["hasta"]).date(),
+                    ))
+        return rangos
+
+    rangos_cache = {}
+    altas = []
+    for r in qs:
+        temp = temp_por_categoria.get(r.equipo.categoria_id)
+        if temp and temp.id not in rangos_cache:
+            rangos_cache[temp.id] = _rangos(temp)
+        rangos = rangos_cache.get(temp.id, []) if temp else []
+        if not rangos:
+            estado = "sin_periodo"
+        elif any(a <= r.fecha_alta <= b for a, b in rangos):
+            estado = "dentro"
+        else:
+            estado = "fuera"
+        r.estado_periodo = estado
+        r.periodos = rangos
+        if r.creado_por:
+            nombre = (r.creado_por.get_full_name() or "").strip()
+            r.alta_por = nombre or r.creado_por.username
+        else:
+            r.alta_por = ""
+        altas.append(r)
+
+    fuera = sum(1 for r in altas if r.estado_periodo == "fuera")
+    sin_periodo = sum(1 for r in altas if r.estado_periodo == "sin_periodo")
+
+    categorias = Categoria.objects.filter(activo=True).order_by("nombre")
+    equipos = Equipo.objects.filter(activo=True).select_related("categoria").order_by(
+        "categoria__nombre", "nombre"
+    )
+    if cat_id:
+        equipos = equipos.filter(categoria_id=cat_id)
+
+    return render(request, "league/reporte_altas.html", {
+        "altas": altas,
+        "total": len(altas),
+        "fuera": fuera,
+        "sin_periodo": sin_periodo,
+        "desde": desde,
+        "hasta": hasta,
+        "cat_id": cat_id,
+        "equipo_id": equipo_id,
+        "categorias": categorias,
+        "equipos": equipos,
+    })
 
 
 def reporte_registro(request):

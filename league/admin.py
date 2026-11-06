@@ -63,10 +63,16 @@ class JugadorAdmin(admin.ModelAdmin):
         return "-"
     equipos_extra.short_description = "Equipos compatibles"
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.registros_equipo.filter(creado_por__isnull=True).update(
+            creado_por=request.user
+        )
+
 
 @admin.register(JugadorEquipo)
 class JugadorEquipoAdmin(admin.ModelAdmin):
-    list_display = ["jugador", "equipo", "es_principal", "activo"]
+    list_display = ["jugador", "equipo", "es_principal", "activo", "creado_por"]
     list_filter = ["equipo__categoria", "es_principal"]
 
 
