@@ -1,3 +1,4 @@
+import ipaddress
 import re
 from urllib.parse import quote
 
@@ -80,9 +81,76 @@ class BloqueoScrapersMiddleware:
         except Exception:
             pass
 
+    @staticmethod
+    def _ip(request):
+        return (
+            request.META.get('HTTP_X_FORWARDED_FOR')
+            or request.META.get('REMOTE_ADDR')
+            or ''
+        ).split(',')[0].strip()
+
+    @staticmethod
+    def _ips_bloqueadas():
+        from django.core.cache import cache
+
+        lista = cache.get('ips_bloqueadas')
+        if lista is None:
+            from league.models import IPBloqueada
+            lista = list(
+                IPBloqueada.objects.filter(activa=True).values_list('valor', flat=True)
+            )
+            cache.set('ips_bloqueadas', lista, 60)
+        return lista
+
+    @classmethod
+    def _esta_bloqueada(cls, ip):
+        if not ip:
+            return False
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False
+        for valor in cls._ips_bloqueadas():
+            try:
+                if '/' in valor:
+                    if addr in ipaddress.ip_network(valor, strict=False):
+                        return True
+                elif addr == ipaddress.ip_address(valor):
+                    return True
+            except ValueError:
+                continue
+        return False
+
+    @staticmethod
+    def _baneada(ip):
+        from django.core.cache import cache
+        return bool(ip and cache.get(f'ban:{ip}'))
+
+    @staticmethod
+    def _sumar_abuso(ip):
+        """Banea 15 min a una IP que acumula bloqueos por UA en un minuto."""
+        if not ip:
+            return
+        from django.core.cache import cache
+        clave = f'abuso:{ip}'
+        try:
+            n = cache.incr(clave)
+        except ValueError:
+            cache.add(clave, 1, 60)
+            n = 1
+        if n >= 20:
+            cache.set(f'ban:{ip}', 1, 900)
+
     def __call__(self, request):
         if request.path.startswith(self.RUTAS_EXENTAS):
             return self.get_response(request)
+        ip = self._ip(request)
+        if self._baneada(ip) or self._esta_bloqueada(ip):
+            return HttpResponse(
+                'Acceso no permitido.',
+                status=403,
+                content_type='text/plain; charset=utf-8',
+            )
         if request.path.startswith(self.RUTAS_BLOQUEADAS):
             self._registrar(request, 'ruta')
             return HttpResponse(
@@ -93,6 +161,7 @@ class BloqueoScrapersMiddleware:
         ua = (request.META.get('HTTP_USER_AGENT') or '').strip().lower()
         if ua in self.UA_EXACTOS or self.UA_BLOQUEADOS.search(ua):
             self._registrar(request, 'ua')
+            self._sumar_abuso(ip)
             return HttpResponse(
                 'Acceso no permitido.',
                 status=403,
@@ -146,6 +215,26 @@ class RateLimitMiddleware:
         except Exception:
             pass
 
+    @staticmethod
+    def _sumar_exceso(ip):
+        """Banea 1 hora a una IP que reincide en pasarse del límite.
+
+        Un bot que rota ventanas (o que insiste cada minuto) acumula 15
+        respuestas 429 en 10 minutos y queda bloqueado sin depender de
+        Cloudflare. El bloqueo vive en caché; al expirar vuelve a intentar.
+        """
+        if not ip or ip == 'sin-ip':
+            return
+        from django.core.cache import cache
+        clave = f'exceso:{ip}'
+        try:
+            n = cache.incr(clave)
+        except ValueError:
+            cache.add(clave, 1, 600)
+            n = 1
+        if n >= 15:
+            cache.set(f'ban:{ip}', 1, 3600)
+
     def __call__(self, request):
         if request.path.startswith(self.EXENTOS):
             return self.get_response(request)
@@ -169,6 +258,7 @@ class RateLimitMiddleware:
 
         if actual > limite:
             self._registrar(request, ip)
+            self._sumar_exceso(ip)
             respuesta = HttpResponse(
                 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.',
                 status=429,

@@ -2984,6 +2984,25 @@ class Descarga(models.Model):
         return f"{self.get_tipo_display()} ({self.fecha:%d/%m/%Y %H:%M})"
 
 
+class IPBloqueada(models.Model):
+    """IP o rango CIDR bloqueado manualmente (sin depender de Cloudflare)."""
+    valor = models.CharField(
+        max_length=64, unique=True,
+        help_text="IP (ej. 1.2.3.4) o rango CIDR (ej. 1.2.3.0/24)",
+    )
+    motivo = models.CharField(max_length=200, blank=True, default="")
+    activa = models.BooleanField(default=True)
+    creada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "IP bloqueada"
+        verbose_name_plural = "IPs bloqueadas"
+        ordering = ["-creada"]
+
+    def __str__(self):
+        return self.valor
+
+
 class SolicitudBloqueada(models.Model):
     """Petición rechazada por el bloqueo de scrapers/rutas (para monitoreo).
 

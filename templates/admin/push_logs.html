@@ -677,10 +677,60 @@
           </div>
 
           <div class="card p-3 mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+              <h6 class="text-danger mb-0"><i class="bi bi-shield-lock"></i> IPs bloqueadas <span class="badge bg-danger">{{ ips_bloqueadas_total }}</span></h6>
+              <small class="text-muted">403 permanente, sin depender de Cloudflare.</small>
+            </div>
+            <form method="post" action="{% url 'admin_ip_bloqueada' %}" class="row g-2 align-items-end mt-1 mb-2">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="bloquear">
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-semibold mb-0">IP o rango CIDR</label>
+                <input name="ip" class="form-control form-control-sm" placeholder="1.2.3.4 o 1.2.3.0/24" required>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-semibold mb-0">Motivo (opcional)</label>
+                <input name="motivo" class="form-control form-control-sm" placeholder="Bot de reportes" maxlength="200">
+              </div>
+              <div class="col-12 col-md-2">
+                <button type="submit" class="btn btn-danger btn-sm w-100"><i class="bi bi-ban"></i> Bloquear</button>
+              </div>
+            </form>
+            <div class="table-responsive" style="max-height:22vh;overflow-y:auto">
+              <table class="table table-sm table-striped mb-0" style="font-size:.78rem">
+                <thead class="sticky-top table-dark"><tr><th>IP</th><th>Motivo</th><th>Estado</th><th>Desde</th><th></th></tr></thead>
+                <tbody>
+                  {% for ip in ips_bloqueadas %}
+                  <tr>
+                    <td><code>{{ ip.valor }}</code></td>
+                    <td title="{{ ip.motivo }}">{{ ip.motivo|default:"—"|truncatechars:46 }}</td>
+                    <td>{% if ip.activa %}<span class="badge bg-danger">Activa</span>{% else %}<span class="badge bg-secondary">Inactiva</span>{% endif %}</td>
+                    <td>{{ ip.creada|date:"d/m/Y" }}</td>
+                    <td class="text-end">
+                      <form method="post" action="{% url 'admin_ip_bloqueada' %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="ip" value="{{ ip.valor }}">
+                        {% if ip.activa %}
+                        <input type="hidden" name="accion" value="quitar">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm py-0">Quitar</button>
+                        {% else %}
+                        <input type="hidden" name="accion" value="reactivar">
+                        <button type="submit" class="btn btn-outline-danger btn-sm py-0">Reactivar</button>
+                        {% endif %}
+                      </form>
+                    </td>
+                  </tr>
+                  {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin IPs bloqueadas.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card p-3 mt-3">
             <h6 class="text-secondary"><i class="bi bi-clock-history"></i> Últimos bloqueos</h6>
             <div class="table-responsive" style="max-height:35vh;overflow-y:auto">
               <table class="table table-sm table-striped" style="font-size:.78rem">
-                <thead class="sticky-top table-dark"><tr><th>Fecha</th><th>Método</th><th>Ruta</th><th>Motivo</th><th>IP</th><th>Agente</th></tr></thead>
+                <thead class="sticky-top table-dark"><tr><th>Fecha</th><th>Método</th><th>Ruta</th><th>Motivo</th><th>IP</th><th>Agente</th><th></th></tr></thead>
                 <tbody>
                   {% for b in bloqueos_ultimos %}
                   <tr>
@@ -690,8 +740,19 @@
                     <td>{{ b.get_motivo_display }}</td>
                     <td>{{ b.ip|default:"-" }}</td>
                     <td title="{{ b.user_agent }}">{{ b.user_agent|truncatechars:40 }}</td>
+                    <td class="text-end">
+                      {% if b.ip %}
+                      <form method="post" action="{% url 'admin_ip_bloqueada' %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="bloquear">
+                        <input type="hidden" name="ip" value="{{ b.ip }}">
+                        <input type="hidden" name="motivo" value="{{ b.get_motivo_display }}: {{ b.path|truncatechars:120 }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm py-0" title="Bloquear esta IP"><i class="bi bi-ban"></i> Bloquear</button>
+                      </form>
+                      {% endif %}
+                    </td>
                   </tr>
-                  {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin bloqueos registrados.</td></tr>{% endfor %}
+                  {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin bloqueos registrados.</td></tr>{% endfor %}
                 </tbody>
               </table>
             </div>

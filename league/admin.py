@@ -1,7 +1,8 @@
 from django.contrib import admin
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga, IPBloqueada
 
 
 @admin.register(ConfiguracionLiga)
@@ -292,6 +293,40 @@ class DescargaAdmin(admin.ModelAdmin):
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(IPBloqueada)
+class IPBloqueadaAdmin(admin.ModelAdmin):
+    list_display = ["valor", "motivo", "activa", "creada"]
+    list_filter = ["activa"]
+    search_fields = ["valor", "motivo"]
+    actions = ["reactivar", "desactivar"]
+
+    @staticmethod
+    def _limpiar_cache():
+        cache.delete("ips_bloqueadas")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        self._limpiar_cache()
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        self._limpiar_cache()
+
+    def delete_queryset(self, request, queryset):
+        super().delete_queryset(request, queryset)
+        self._limpiar_cache()
+
+    @admin.action(description="Reactivar bloqueo")
+    def reactivar(self, request, queryset):
+        queryset.update(activa=True)
+        self._limpiar_cache()
+
+    @admin.action(description="Desactivar bloqueo")
+    def desactivar(self, request, queryset):
+        queryset.update(activa=False)
+        self._limpiar_cache()
 
 
 @admin.register(PronosticoQuiniela)

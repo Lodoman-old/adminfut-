@@ -1054,7 +1054,7 @@ def reporte_anuncio(request, anuncio_id):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
-    from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail
+    from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail, IPBloqueada
     from datetime import timedelta
     from django.db.models import Count, Case, When, F, Value, CharField, Max
     from django.db.models.functions import TruncDate, Cast, TruncMinute
@@ -1404,7 +1404,45 @@ def admin_push_logs(request):
         "picos_ip": picos_ip,
         "alerta_rafaga": alerta_rafaga,
         "nivel_alerta": nivel_alerta,
+        "ips_bloqueadas": list(IPBloqueada.objects.all()[:60]),
+        "ips_bloqueadas_total": IPBloqueada.objects.filter(activa=True).count(),
     })
+
+
+@admin.site.admin_view
+@require_POST
+def admin_ip_bloqueada(request):
+    """Bloquea, reactiva o quita una IP desde la pestaña Tráfico."""
+    from .models import IPBloqueada
+
+    accion = (request.POST.get("accion") or "bloquear").strip()
+    valor = (request.POST.get("ip") or "").strip()
+    motivo = (request.POST.get("motivo") or "").strip()[:200]
+
+    if not valor:
+        messages.error(request, "Indica una IP o un rango CIDR.")
+        return redirect("admin_push_logs")
+
+    if accion == "quitar":
+        borradas, _ = IPBloqueada.objects.filter(valor=valor).delete()
+        messages.success(request, f"Se quitó el bloqueo de {valor}." if borradas else f"{valor} no estaba bloqueada.")
+    elif accion == "reactivar":
+        IPBloqueada.objects.filter(valor=valor).update(activa=True)
+        messages.success(request, f"Bloqueo reactivado para {valor}.")
+    else:
+        obj, creada = IPBloqueada.objects.get_or_create(
+            valor=valor, defaults={"motivo": motivo or "Bloqueada manualmente"}
+        )
+        if not creada:
+            obj.activa = True
+            if motivo:
+                obj.motivo = motivo
+            obj.save(update_fields=["activa", "motivo"])
+        messages.success(request, f"{valor} bloqueada.")
+
+    from django.core.cache import cache
+    cache.delete("ips_bloqueadas")
+    return redirect("admin_push_logs")
 
 
 @login_required
