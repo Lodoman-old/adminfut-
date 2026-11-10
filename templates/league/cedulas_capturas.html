@@ -57,10 +57,12 @@
                     {% for cap in capturas %}
                     <tr>
                         <td>
-                            {% if cap.imagen %}
+                            {% if cap.foto_disponible %}
                             <a href="{% url 'cedula_captura_foto' cap.id %}" target="_blank">
                                 <img src="{% url 'cedula_captura_foto' cap.id %}" alt="Cédula" class="rounded border" style="width:72px;height:72px;object-fit:cover">
                             </a>
+                            {% elif cap.imagen %}
+                            <span class="badge bg-warning text-dark">Foto no disponible</span>
                             {% else %}
                             <span class="text-muted small">Sin foto</span>
                             {% endif %}
@@ -105,6 +107,7 @@
                             {% elif cap.estado == "VALIDADA" %}<span class="badge bg-success">Validada</span>
                             {% else %}<span class="badge bg-danger">Error</span>{% endif %}
                             {% if cap.error %}<div class="small text-danger">{{ cap.error|truncatechars:120 }}</div>{% endif %}
+                            {% if cap.estado == "LEIDA" and not cap.foto_disponible %}<div class="small text-warning">Foto no disponible; puedes validar con los datos ya leídos.</div>{% endif %}
                         </td>
                         <td class="small">
                             {% if cap.estado == "LEIDA" %}
@@ -117,7 +120,7 @@
                         <td>
                             <div class="d-flex flex-wrap gap-1">
                                 {% if cap.partido %}
-                                {% if cap.estado != "LEIDA" and cap.estado != "VALIDADA" %}
+                                {% if cap.estado != "LEIDA" and cap.estado != "VALIDADA" and cap.foto_disponible %}
                                 <form method="post" action="{% url 'cedula_captura_leer' cap.id %}">
                                     {% csrf_token %}
                                     <button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-stars"></i> Leer con IA</button>
@@ -125,13 +128,15 @@
                                 {% endif %}
                                 {% if cap.estado == "LEIDA" %}
                                 <a class="btn btn-sm btn-success" href="{% url 'cedula_arbitral' cap.partido.id %}?captura={{ cap.id }}"><i class="bi bi-check2-square"></i> Validar</a>
+                                {% if cap.foto_disponible %}
                                 <form method="post" action="{% url 'cedula_captura_leer' cap.id %}">
                                     {% csrf_token %}
                                     <button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-arrow-clockwise"></i> Releer</button>
                                 </form>
                                 {% endif %}
                                 {% endif %}
-                                {% if not cap.partido and cap.imagen %}
+                                {% endif %}
+                                {% if not cap.partido and cap.foto_disponible %}
                                 <form method="post" action="{% url 'cedula_captura_identificar' cap.id %}">
                                     {% csrf_token %}
                                     <button class="btn btn-sm btn-outline-info" type="submit"><i class="bi bi-fonts"></i> Identificar por nombres</button>

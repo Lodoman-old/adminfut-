@@ -4541,6 +4541,10 @@ def cedulas_capturas(request):
         ).order_by("-creado")[:300]
     )
     for cap in capturas:
+        try:
+            cap.foto_disponible = bool(cap.imagen) and cap.imagen.storage.exists(cap.imagen.name)
+        except Exception:
+            cap.foto_disponible = False
         datos = cap.datos_json or {}
         cap.encabezado = datos.get("encabezado") or {}
         ids_candidatos = datos.get("candidatos") or []
