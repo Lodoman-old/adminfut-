@@ -44,6 +44,7 @@ def register_device_token(request):
     obj.plataforma = plataforma
     obj.device_id = device_id
     obj.activo = True
+    obj.desactivado_motivo = ""
     if request.user.is_authenticated:
         obj.usuario = request.user
         obj.es_invitado = False
@@ -57,7 +58,10 @@ def register_device_token(request):
 
     # Desactivar otros registros del mismo dispositivo (un solo activo por dispositivo)
     if device_id:
-        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(activo=False)
+        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(
+            activo=False,
+            desactivado_motivo="Reemplazado por un token nuevo del mismo dispositivo",
+        )
 
     return JsonResponse({"ok": True, "created": created, "device_id": device_id})
 
@@ -120,6 +124,7 @@ def register_guest_device(request):
     obj.email = email
     obj.usuario = None
     obj.activo = True
+    obj.desactivado_motivo = ""
 
     # --- NUEVO: Auto-crear User y generar contraseña ---
     # Username limpio: nombre (sin espacios/acentos) + últimos 4 dígitos del teléfono
@@ -185,7 +190,10 @@ def register_guest_device(request):
 
     # Deactivate other same-device tokens
     if device_id:
-        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(activo=False)
+        DeviceToken.objects.filter(device_id=device_id).exclude(pk=obj.pk).update(
+            activo=False,
+            desactivado_motivo="Reemplazado por un token nuevo del mismo dispositivo",
+        )
 
     # Devolvemos las credenciales para que el modal las muestre
     return JsonResponse({
@@ -328,7 +336,10 @@ def unregister_device_token(request):
     if not token:
         return JsonResponse({"error": "token required"}, status=400)
 
-    DeviceToken.objects.filter(token=token).update(activo=False)
+    motivo = (data.get("motivo") or "Desactivado manualmente").strip()[:200]
+    DeviceToken.objects.filter(token=token).update(
+        activo=False, desactivado_motivo=motivo
+    )
     return JsonResponse({"ok": True})
 
 

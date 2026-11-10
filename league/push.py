@@ -141,7 +141,10 @@ def send_push_notification(tokens, title, body, data=None):
         if invalid:
             try:
                 from .models import DeviceToken
-                DeviceToken.objects.filter(token__in=invalid).update(activo=False)
+                DeviceToken.objects.filter(token__in=invalid).update(
+                    activo=False,
+                    desactivado_motivo="Firebase: token inválido o app desinstalada",
+                )
                 detalle += f", {len(invalid)} token(s) inválidos desactivados"
             except Exception:
                 pass
@@ -217,7 +220,10 @@ def _enviar_webpush(devices, title, body, data=None):
 
     if invalid:
         try:
-            DeviceToken.objects.filter(pk__in=invalid).update(activo=False)
+            DeviceToken.objects.filter(pk__in=invalid).update(
+                activo=False,
+                desactivado_motivo="Suscripción web vencida o cancelada",
+            )
         except Exception:
             pass
 
@@ -266,7 +272,13 @@ def _enviar_push_mixto(qs, title, body, data, tipo, partido_id=None, categoria="
     from .models import DeviceToken
 
     total_activos = DeviceToken.objects.filter(activo=True).count()
-    fcm_tokens = list(qs.filter(webpush_endpoint="").values_list("token", flat=True))
+    fcm_tokens = list(
+        qs.filter(webpush_endpoint="")
+        .exclude(plataforma__in=("web", "pwa"))
+        .exclude(token__startswith="web-")
+        .exclude(token__startswith="cap-")
+        .values_list("token", flat=True)
+    )
     pwa = list(qs.exclude(webpush_endpoint=""))
     guests = qs.filter(es_invitado=True).count()
 

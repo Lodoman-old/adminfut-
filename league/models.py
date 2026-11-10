@@ -2744,6 +2744,10 @@ class DeviceToken(models.Model):
         help_text="UUID generado por el cliente para identificar el dispositivo")
     plataforma = models.CharField(max_length=10, choices=PLATFORMS, default="android")
     activo = models.BooleanField(default=True)
+    desactivado_motivo = models.CharField(
+        max_length=200, blank=True, default="", verbose_name="Motivo de desactivación",
+        help_text="Por qué el sistema o un administrador desactivó este dispositivo",
+    )
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
     es_invitado = models.BooleanField(default=False, verbose_name="Es invitado",

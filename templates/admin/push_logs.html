@@ -327,10 +327,13 @@
                   <td>{% for cat in t.categorias.all %}<span class="badge bg-secondary me-1">{{ cat.nombre }}</span>{% empty %}<span class="text-muted">(todas)</span>{% endfor %}</td>
                   <td>{{ t.actualizado|date:"Y-m-d H:i" }}</td>
                   <td>
-                    {% if t.activo %}
+                    {% if t.activo and t.sin_push %}
+                      <span class="badge bg-warning text-dark" title="Registrado sin notificaciones push activadas">Sin push</span>
+                    {% elif t.activo %}
                       <span class="badge bg-success">Activo</span>
                     {% else %}
                       <span class="badge bg-secondary">Inactivo</span>
+                      {% if t.desactivado_motivo %}<div class="small text-muted" title="{{ t.desactivado_motivo }}">{{ t.desactivado_motivo|truncatechars:42 }}</div>{% endif %}
                     {% endif %}
                   </td>
                   <td>
@@ -339,7 +342,7 @@
                         🔴 Desactivar
                       </button>
                     {% else %}
-                      <button class="btn btn-sm btn-danger" onclick="toggleDevice('{{ t.token }}', true, this)" title="Borrar definitivamente">
+                      <button class="btn btn-sm btn-danger" onclick="deleteDevice('{{ t.token }}', this)" title="Borrar definitivamente">
                         🗑 Borrar
                       </button>
                     {% endif %}
@@ -777,7 +780,7 @@ function toggleDevice(token, activate, btn) {
     fetch('/api/unregister-device/', {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({token: token})
+        body: JSON.stringify({token: token, motivo: 'Desactivado manualmente desde el panel'})
     }).then(r => r.json()).then(d => {
         if (d.ok) {
             if (activate) {
@@ -795,7 +798,7 @@ function toggleDevice(token, activate, btn) {
                 btn.onclick = () => deleteDevice(token, btn);
                 btn.title = 'Borrar definitivamente';
                 btn.closest('tr').classList.add('table-secondary');
-                btn.closest('tr').querySelector('td:nth-last-child(2)').innerHTML = '<span class="badge bg-secondary">Inactivo</span>';
+                btn.closest('tr').querySelector('td:nth-last-child(2)').innerHTML = '<span class="badge bg-secondary">Inactivo</span><div class="small text-muted">Desactivado manualmente</div>';
             }
             btn.disabled = false;
         } else {

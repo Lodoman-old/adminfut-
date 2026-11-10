@@ -193,7 +193,7 @@ class MovimientoEquipoAdmin(admin.ModelAdmin):
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(admin.ModelAdmin):
-    list_display = ["token_short", "device_id_short", "nombre", "email", "es_invitado", "usuario", "plataforma", "activo", "creado", "delete_button"]
+    list_display = ["token_short", "device_id_short", "nombre", "email", "es_invitado", "usuario", "plataforma", "activo", "desactivado_motivo", "creado", "delete_button"]
     list_filter = ["plataforma", "activo", "es_invitado"]
     search_fields = ["token", "device_id", "usuario__username", "nombre", "email"]
     filter_horizontal = ["categorias"]

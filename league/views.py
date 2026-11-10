@@ -1066,6 +1066,15 @@ def admin_push_logs(request):
         tokens = DeviceToken.objects.select_related("usuario").prefetch_related("categorias").order_by("-creado")[:200]
     else:
         tokens = DeviceToken.objects.filter(activo=True).select_related("usuario").prefetch_related("categorias").order_by("-creado")[:100]
+    tokens = list(tokens)
+    for t in tokens:
+        tok = (t.token or "").lower()
+        # Registros web creados sin permiso de notificaciones: no tienen canal push.
+        t.sin_push = (not t.webpush_endpoint) and (
+            t.plataforma in ("web", "pwa")
+            or tok.startswith("web-")
+            or tok.startswith("cap-")
+        )
     dispositivos_activos = DeviceToken.objects.filter(activo=True).count()
     suscriptores_email = SuscripcionEmail.objects.filter(activo=True).count()
 
