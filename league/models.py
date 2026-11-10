@@ -3014,6 +3014,7 @@ class SolicitudBloqueada(models.Model):
         ("ua", "Agente bloqueado"),
         ("ruta", "Ruta bloqueada"),
         ("limite", "Límite de peticiones"),
+        ("login", "Login fallido"),
     ]
     fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
     ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")

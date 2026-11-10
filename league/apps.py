@@ -7,6 +7,8 @@ class LeagueConfig(AppConfig):
     name = 'league'
 
     def ready(self):
+        from . import signals  # noqa: F401  (registra logins fallidos)
+
         try:
             from .models import ConfiguracionLiga
             config = ConfiguracionLiga.objects.filter(pk=1).values(

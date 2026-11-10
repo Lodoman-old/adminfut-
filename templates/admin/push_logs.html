@@ -615,7 +615,8 @@
               <div class="card p-3 mb-3">
                 <h6 class="text-primary"><i class="bi bi-box-arrow-in-right"></i> Página de login</h6>
                 <p class="mb-1">Accesos a <code>/accounts/login/</code> en 24 h: <strong>{{ login_24h }}</strong> desde <strong>{{ login_ips_24h }}</strong> IPs.</p>
-                <small class="text-muted">Cuenta solo GET (ver la página). Si aparecen POSTs sospechosos, revisa los logs del servidor.</small>
+                <p class="mb-1">Intentos fallidos registrados en 24 h: <strong class="{% if login_fallidos_24h %}text-danger{% endif %}">{{ login_fallidos_24h }}</strong></p>
+                <small class="text-muted">GET = ver la página. Los POST con contraseña incorrecta se guardan como “Login fallido”; a los 8 fallos en 15 minutos la IP queda bloqueada 30 minutos.</small>
               </div>
 
               <div class="card p-3 mb-3">

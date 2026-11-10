@@ -1274,7 +1274,8 @@ def admin_push_logs(request):
 
     bloqueos_24h = SolicitudBloqueada.objects.filter(fecha__gte=desde_trafico)
     bloqueos_total = bloqueos_24h.count()
-    bloqueos_riesgo = bloqueos_24h.filter(motivo__in=["limite", "ua"]).count()
+    login_fallidos_24h = bloqueos_24h.filter(motivo="login").count()
+    bloqueos_riesgo = bloqueos_24h.filter(motivo__in=["limite", "ua", "login"]).count()
     bloqueos_ua = list(
         bloqueos_24h.values("user_agent").annotate(n=Count("id")).order_by("-n")[:8]
     )
@@ -1293,7 +1294,7 @@ def admin_push_logs(request):
     bloqueos_7d_total = bloqueos_7d.count()
     bloqueos_30d_total = bloqueos_30d.count()
     bloqueos_motivos = []
-    for _clave in ("ua", "ruta", "limite"):
+    for _clave in ("ua", "ruta", "limite", "login"):
         bloqueos_motivos.append({
             "label": _motivos_labels.get(_clave, _clave),
             "n24": bloqueos_24h.filter(motivo=_clave).count(),
@@ -1389,6 +1390,7 @@ def admin_push_logs(request):
         "ips_pocas_24h": ips_pocas_24h,
         "login_24h": login_24h,
         "login_ips_24h": login_ips_24h,
+        "login_fallidos_24h": login_fallidos_24h,
         "bloqueos_total": bloqueos_total,
         "bloqueos_riesgo": bloqueos_riesgo,
         "bloqueos_7d_total": bloqueos_7d_total,

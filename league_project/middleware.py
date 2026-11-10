@@ -55,7 +55,8 @@ class BloqueoScrapersMiddleware:
 
     UA_BLOQUEADOS = re.compile(
         r'(ligajr|public-data-sync|public-cedula-audit|data-sync|'
-        r'wordpress|wp-admin|wp-login|xmlrpc)',
+        r'wordpress|wp-admin|wp-login|xmlrpc|'
+        r'assetnote|nuclei|zgrab|masscan|sqlmap|nikto|dirbuster|gobuster|nmap)',
         re.I,
     )
     UA_EXACTOS = frozenset({'node', 'node.js', 'undici', 'axios'})
@@ -145,7 +146,14 @@ class BloqueoScrapersMiddleware:
         if request.path.startswith(self.RUTAS_EXENTAS):
             return self.get_response(request)
         ip = self._ip(request)
-        if self._baneada(ip) or self._esta_bloqueada(ip):
+        if self._baneada(ip):
+            return HttpResponse(
+                'Acceso bloqueado temporalmente por demasiados intentos. '
+                'Espera unos minutos e intenta de nuevo.',
+                status=429,
+                content_type='text/plain; charset=utf-8',
+            )
+        if self._esta_bloqueada(ip):
             return HttpResponse(
                 'Acceso no permitido.',
                 status=403,
@@ -182,7 +190,7 @@ class RateLimitMiddleware:
     VENTANA = 60  # segundos
     LIMITE_GLOBAL = 120
     REGLAS = (
-        ('/accounts/login/', 20, 'login'),
+        ('/accounts/login/', 10, 'login'),
         ('/reportes/', 40, 'reportes'),
         ('/cedula-arbitral/', 40, 'cedula'),
         ('/jugador/', 60, 'jugador'),
