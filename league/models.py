@@ -2904,12 +2904,33 @@ class Anuncio(models.Model):
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy_str)
         )
 
+    def enlace_con_utm(self, medium="banner"):
+        """Enlace del anunciante con UTMs para que él vea el tráfico en su analítica."""
+        if not self.enlace:
+            return ""
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+        partes = urlsplit(self.enlace)
+        query = dict(parse_qsl(partes.query, keep_blank_values=True))
+        query.setdefault("utm_source", "adminfut")
+        query.setdefault("utm_medium", medium or "banner")
+        query.setdefault("utm_campaign", f"anuncio-{self.pk}")
+        return urlunsplit(
+            (partes.scheme, partes.netloc, partes.path, urlencode(query), partes.fragment)
+        )
+
 
 class AnuncioClick(models.Model):
     """Registro de cada clic a un anuncio (para métricas por día)."""
+    ORIGENES = [
+        ("sitio", "Sitio"),
+        ("compartido", "Enlace compartido"),
+        ("app", "App"),
+    ]
     anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name="registros_click")
     ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
     sesion = models.CharField(max_length=64, blank=True, default="", verbose_name="Sesión")
+    origen = models.CharField(max_length=12, choices=ORIGENES, default="sitio", verbose_name="Origen")
     fecha = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha")
 
     class Meta:
@@ -2929,6 +2950,12 @@ class AnuncioImpresion(models.Model):
     anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name="impresiones_unicas")
     fecha = models.DateField(db_index=True, verbose_name="Fecha")
     clave = models.CharField(max_length=64, db_index=True, default="", verbose_name="Clave visitante")
+    origen = models.CharField(
+        max_length=12,
+        choices=[("sitio", "Sitio"), ("compartido", "Enlace compartido"), ("app", "App")],
+        default="sitio",
+        verbose_name="Origen",
+    )
     creado = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
 
     class Meta:
@@ -2947,6 +2974,8 @@ class AnuncioDia(models.Model):
     fecha = models.DateField(db_index=True, verbose_name="Fecha")
     impresiones = models.PositiveIntegerField(default=0, verbose_name="Impresiones")
     clics = models.PositiveIntegerField(default=0, verbose_name="Clics")
+    impresiones_compartidas = models.PositiveIntegerField(default=0, verbose_name="Impresiones desde enlaces compartidos")
+    clics_compartidos = models.PositiveIntegerField(default=0, verbose_name="Clics desde enlaces compartidos")
 
     class Meta:
         verbose_name = "Métrica diaria de anuncio"

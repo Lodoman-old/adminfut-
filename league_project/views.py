@@ -374,7 +374,7 @@ def home(request):
         "ingresos_data": ingresos_data,
         "equipo_descansa": equipo_descansa,
         "suspensiones_hoy": suspensiones_hoy,
-        "anuncios": Anuncio.activos(),
+        "anuncios": Anuncio.activos().order_by("impresiones", "orden", "-creado"),
         "top_equipos_goles": _con_urls(_build_top_equipos()),
     })
 

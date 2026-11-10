@@ -72,6 +72,13 @@
     <div class="kpi"><div class="n">{{ ctr_unicas|floatformat:1 }}%</div><div class="l">CTR sobre alcance</div></div>
   </div>
 
+  {% if imp_compartidas_mes or clics_compartidos_mes %}
+  <p class="muted" style="font-size:.85rem;margin:.2rem 0 0;">
+    <strong>Enlaces compartidos (WhatsApp/Facebook):</strong>
+    {{ imp_compartidas_mes }} impresiones · {{ unicas_compartidas_mes }} personas alcanzadas · {{ clics_compartidos_mes }} clics.
+  </p>
+  {% endif %}
+
   <h2>Detalle por día</h2>
   {% if dias %}
   <table>

@@ -53,7 +53,7 @@
 
       {% if anuncio.enlace %}
       <div class="text-center">
-        <a href="{{ anuncio.enlace }}" target="_blank" rel="noopener" class="btn btn-success btn-lg">
+        <a href="{{ enlace_salida|default:anuncio.enlace }}" target="_blank" rel="noopener" class="btn btn-success btn-lg">
           <i class="bi bi-box-arrow-up-right"></i> Visitar sitio / Ver más
         </a>
       </div>

@@ -69,6 +69,23 @@
         .pie { text-align: center; font-size: 12px; margin-top: 18px; }
         .pie a { color: #6e766e; text-decoration: none; }
         .pie a:hover { color: #225428; }
+        .sponsor {
+            margin-top: 16px; background: #fff; border: 1px solid #dee4de;
+            border-radius: 14px; padding: 10px 12px 12px; text-align: center;
+            box-shadow: 0 4px 14px rgba(34, 84, 40, .06);
+        }
+        .sponsor-label {
+            font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+            color: #8a928a; font-weight: 700; margin-bottom: 7px;
+        }
+        .sponsor a { display: block; text-decoration: none; color: #1c201c; }
+        .sponsor img {
+            display: block; max-width: 100%; max-height: 96px; margin: 0 auto;
+            object-fit: contain; border-radius: 8px;
+        }
+        .sponsor-box { border-radius: 10px; padding: 12px; color: #fff; }
+        .sponsor-box strong { display: block; font-size: 15px; }
+        .sponsor-box span { display: block; font-size: 12px; opacity: .85; margin-top: 3px; }
     </style>
 </head>
 <body>
@@ -86,7 +103,33 @@
         </div>
     </div>
 
+    {% for a in anuncios %}
+    <div class="sponsor" data-anuncio-id="{{ a.id }}">
+        <div class="sponsor-label">Patrocinado por</div>
+        <a href="{% url 'detalle_anuncio' a.id %}?origen=compartido">
+            {% if a.imagen %}
+            <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}">
+            {% else %}
+            <div class="sponsor-box" style="{% if a.color_fondo %}background: {{ a.color_fondo }};{% else %}background: #225428;{% endif %}">
+                <strong>{{ a.titulo }}</strong>
+                {% if a.descripcion %}<span>{{ a.descripcion|truncatechars:90 }}</span>{% endif %}
+            </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+
     <p class="pie"><a href="{{ volver_url }}">juventinorosasliga.com</a></p>
 </div>
+{% if anuncios %}
+<script>
+(function () {
+    var el = document.querySelector('.sponsor[data-anuncio-id]');
+    if (!el) { return; }
+    fetch('/publicidad/' + el.getAttribute('data-anuncio-id') + '/impresion/?origen=compartido',
+          { credentials: 'same-origin' }).catch(function () {});
+})();
+</script>
+{% endif %}
 </body>
 </html>

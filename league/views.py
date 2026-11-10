@@ -932,12 +932,26 @@ def finalizar_temporada(request, pk):
     })
 
 
-def _anuncio_dia_bump(anuncio_id, campo):
-    """Incrementa el contador diario del anuncio (campo: 'impresiones' o 'clics')."""
+def _origen_anuncio(request):
+    """Origen válido para métricas: sitio (default), compartido o app."""
+    origen = (request.GET.get("origen") or "sitio").strip().lower()
+    return origen if origen in ("sitio", "compartido", "app") else "sitio"
+
+
+def _anuncio_dia_bump(anuncio_id, campo, origen="sitio"):
+    """Incrementa el contador diario del anuncio (campo: 'impresiones' o 'clics').
+
+    Si el origen es un enlace compartido también suma el contador específico
+    para poder reportar ese canal al anunciante.
+    """
     try:
         hoy = timezone.localdate()
         obj, _ = AnuncioDia.objects.get_or_create(anuncio_id=anuncio_id, fecha=hoy)
-        AnuncioDia.objects.filter(pk=obj.pk).update(**{campo: models.F(campo) + 1})
+        cambios = {campo: models.F(campo) + 1}
+        if origen == "compartido":
+            extra = "impresiones_compartidas" if campo == "impresiones" else "clics_compartidos"
+            cambios[extra] = models.F(extra) + 1
+        AnuncioDia.objects.filter(pk=obj.pk).update(**cambios)
     except Exception:
         pass
 
@@ -945,21 +959,27 @@ def _anuncio_dia_bump(anuncio_id, campo):
 def detalle_anuncio(request, anuncio_id):
     """Página pública: muestra el anuncio en grande y registra el clic."""
     anuncio = get_object_or_404(Anuncio, pk=anuncio_id, activo=True)
+    origen = _origen_anuncio(request)
     # Registrar el clic (banner -> detalle), salvo IPs excluidas de métricas
     ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
     if not ConfiguracionLiga.es_ip_excluida(ip):
         anuncio.clics = (anuncio.clics or 0) + 1
         anuncio.save(update_fields=["clics"])
-        _anuncio_dia_bump(anuncio_id, "clics")
+        _anuncio_dia_bump(anuncio_id, "clics", origen)
         try:
             AnuncioClick.objects.create(
                 anuncio=anuncio,
                 ip=ip or None,
                 sesion=(request.session.session_key or '')[:64],
+                origen=origen,
             )
         except Exception:
             pass
-    return render(request, "publicidad/detalle.html", {"anuncio": anuncio})
+    return render(request, "publicidad/detalle.html", {
+        "anuncio": anuncio,
+        "origen": origen,
+        "enlace_salida": anuncio.enlace_con_utm(origen),
+    })
 
 
 def impresion_anuncio(request, anuncio_id):
@@ -968,6 +988,7 @@ def impresion_anuncio(request, anuncio_id):
     from django.http import JsonResponse
     if request.method != "GET":
         return JsonResponse({"ok": False}, status=405)
+    origen = _origen_anuncio(request)
     ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
     if ConfiguracionLiga.es_ip_excluida(ip):
         return JsonResponse({"ok": True, "excluida": True})
@@ -976,12 +997,13 @@ def impresion_anuncio(request, anuncio_id):
             impresiones=models.F("impresiones") + 1
         )
         if nup == 1:
-            _anuncio_dia_bump(anuncio_id, "impresiones")
+            _anuncio_dia_bump(anuncio_id, "impresiones", origen)
             # Impresión única (1 por anuncio + día + visitante) para reportar alcance
             clave = (request.session.session_key or ip or "anon")[:64]
             try:
                 AnuncioImpresion.objects.get_or_create(
                     anuncio_id=anuncio_id, fecha=timezone.localdate(), clave=clave,
+                    defaults={"origen": origen},
                 )
             except Exception:
                 pass
@@ -1014,7 +1036,12 @@ def reporte_anuncio(request, anuncio_id):
     dias = list(AnuncioDia.objects.filter(anuncio=anuncio, fecha__gte=desde, fecha__lt=hasta).order_by("fecha"))
     imp_mes = sum(d.impresiones for d in dias)
     clics_mes = sum(d.clics for d in dias)
+    imp_compartidas_mes = sum(d.impresiones_compartidas for d in dias)
+    clics_compartidos_mes = sum(d.clics_compartidos for d in dias)
     unicas_mes = AnuncioImpresion.objects.filter(anuncio=anuncio, fecha__gte=desde, fecha__lt=hasta).count()
+    unicas_compartidas_mes = AnuncioImpresion.objects.filter(
+        anuncio=anuncio, origen="compartido", fecha__gte=desde, fecha__lt=hasta
+    ).count()
     ctr_mes = (clics_mes / imp_mes * 100) if imp_mes else 0
     ctr_unicas = (clics_mes / unicas_mes * 100) if unicas_mes else 0
     dias_max = max([d.impresiones for d in dias] + [1])
@@ -1043,6 +1070,8 @@ def reporte_anuncio(request, anuncio_id):
         "prox_mes": "%04d-%02d" % (prox.year, prox.month),
         "dias": dias, "dias_max": dias_max,
         "imp_mes": imp_mes, "clics_mes": clics_mes, "unicas_mes": unicas_mes,
+        "imp_compartidas_mes": imp_compartidas_mes, "clics_compartidos_mes": clics_compartidos_mes,
+        "unicas_compartidas_mes": unicas_compartidas_mes,
         "ctr_mes": ctr_mes, "ctr_unicas": ctr_unicas,
         "acum_imp": acum_imp, "acum_clics": acum_clics, "acum_unicas": acum_unicas, "acum_ctr": acum_ctr,
         "visitas_mes": visitas_mes, "paginas_mes": paginas_mes,
@@ -1126,6 +1155,19 @@ def admin_push_logs(request):
         a.clics_mes = AnuncioClick.objects.filter(anuncio=a, fecha__gte=hace_30dias).count()
         a.unicas_total = AnuncioImpresion.objects.filter(anuncio=a).count()
         a.unicas_mes = AnuncioImpresion.objects.filter(anuncio=a, fecha__gte=hace_30dias_date).count()
+
+    # Alertas de vigencia: vencidos o por vencer en los próximos 7 días.
+    hoy_ads = timezone.localdate()
+    anuncios_alerta = []
+    for a in anuncios:
+        if not a.activo or not a.fecha_fin:
+            continue
+        a.dias_restantes = (a.fecha_fin - hoy_ads).days
+        if a.dias_restantes <= 7:
+            anuncios_alerta.append(a)
+    anuncios_alerta.sort(key=lambda x: x.dias_restantes)
+    anuncios_vencidos = [a for a in anuncios_alerta if a.dias_restantes < 0]
+    anuncios_por_vencer = [a for a in anuncios_alerta if a.dias_restantes >= 0]
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
@@ -1366,6 +1408,9 @@ def admin_push_logs(request):
         "moviles_pct": moviles_pct,
         "web_pct": web_pct,
         "anuncios": anuncios,
+        "anuncios_alerta": anuncios_alerta,
+        "anuncios_vencidos": anuncios_vencidos,
+        "anuncios_por_vencer": anuncios_por_vencer,
         "serie_diaria": serie_diaria,
         "serie_max": serie_max,
         "recientes": recientes,
@@ -1820,6 +1865,19 @@ def _url_absoluta(request, ruta):
     return f"{proto}://{host}{ruta}"
 
 
+def _anuncios_para_compartir():
+    """Anuncio activo para la página pública de compartir.
+
+    Se elige el de menos impresiones para repartir la exposición entre
+    campañas; la página lo cuenta como origen "compartido".
+    """
+    from django.db.models import F
+
+    return list(
+        Anuncio.activos().order_by(F("impresiones").asc(), "orden", "-creado")[:1]
+    )
+
+
 def compartir_jornada(request, jornada_id):
     """Página pública para compartir resultados: WhatsApp/Facebook muestran
     la imagen y el texto de la jornada en la vista previa del enlace."""
@@ -1864,6 +1922,7 @@ def compartir_jornada(request, jornada_id):
         "volver_url": "/",
         "whatsapp_url": "https://wa.me/?text=" + quote(texto + " " + url_publica),
         "facebook_url": "https://www.facebook.com/sharer/sharer.php?u=" + quote(url_publica),
+        "anuncios": _anuncios_para_compartir(),
     })
 
 
@@ -6681,6 +6740,7 @@ def compartir_rol(request, ids=None):
         "volver_url": "/",
         "whatsapp_url": "https://wa.me/?text=" + quote(texto + " " + url_publica),
         "facebook_url": "https://www.facebook.com/sharer/sharer.php?u=" + quote(url_publica),
+        "anuncios": _anuncios_para_compartir(),
     })
 
 
