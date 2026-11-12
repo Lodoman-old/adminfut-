@@ -62,13 +62,10 @@
     if (btn) {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
-            try {
-                window.open('https://juventinorosasliga.com/apk/descargar/', '_system');
-            } catch (err) {
-                if (nota) {
-                    nota.innerHTML = 'Abre este enlace en Chrome:<br><code>juventinorosasliga.com/apk/descargar/</code>';
-                }
-            }
+            // El punto final hace que Capacitor lo trate como host externo
+            // (no está en allowNavigation) y lo abra en Chrome, donde sí
+            // se descarga el APK.
+            window.location.href = 'https://juventinorosasliga.com./apk/descargar/';
         });
     }
 })();
