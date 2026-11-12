@@ -1105,6 +1105,8 @@ def admin_push_logs(request):
             or tok.startswith("cap-")
         )
     dispositivos_activos = DeviceToken.objects.filter(activo=True).count()
+    android_activos = DeviceToken.objects.filter(activo=True, plataforma="android", webpush_endpoint="").count()
+    pwa_activos = DeviceToken.objects.filter(activo=True).exclude(webpush_endpoint="").count()
     suscriptores_email = SuscripcionEmail.objects.filter(activo=True).count()
 
     ahora = timezone.localtime()
@@ -1168,6 +1170,7 @@ def admin_push_logs(request):
     anuncios_alerta.sort(key=lambda x: x.dias_restantes)
     anuncios_vencidos = [a for a in anuncios_alerta if a.dias_restantes < 0]
     anuncios_por_vencer = [a for a in anuncios_alerta if a.dias_restantes >= 0]
+    anuncios_publicables = [a for a in anuncios if a.activo and a.vigente()]
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
@@ -1411,6 +1414,10 @@ def admin_push_logs(request):
         "anuncios_alerta": anuncios_alerta,
         "anuncios_vencidos": anuncios_vencidos,
         "anuncios_por_vencer": anuncios_por_vencer,
+        "anuncios_publicables": anuncios_publicables,
+        "android_activos": android_activos,
+        "pwa_activos": pwa_activos,
+        "config_liga": ConfiguracionLiga.obtener(),
         "serie_diaria": serie_diaria,
         "serie_max": serie_max,
         "recientes": recientes,
@@ -1499,6 +1506,89 @@ def admin_ip_bloqueada(request):
     from django.core.cache import cache
     cache.delete("ips_bloqueadas")
     return redirect("admin_push_logs")
+
+
+@admin.site.admin_view
+@require_POST
+def admin_push_campana(request):
+    """Envía una notificación manual: actualización de la app o publicidad."""
+    from .models import Anuncio, DeviceToken
+    from .push import _enviar_push_mixto
+
+    tipo = (request.POST.get("tipo") or "actualizacion").strip()
+    audiencia = (request.POST.get("audiencia") or "android").strip()
+    titulo = (request.POST.get("titulo") or "").strip()[:120]
+    cuerpo = (request.POST.get("cuerpo") or "").strip()[:500]
+    destino = reverse("admin_push_logs") + "?tab=enviar"
+
+    imagen = icono = None
+    extra = ""
+    anuncio = None
+
+    if tipo == "publicidad":
+        anuncio_id = request.POST.get("anuncio_id")
+        anuncio = Anuncio.objects.filter(pk=anuncio_id, activo=True).first()
+        if not anuncio:
+            messages.error(request, "Selecciona un anuncio activo para enviar publicidad.")
+            return redirect(destino)
+        cfg = ConfiguracionLiga.obtener()
+        liga = ((cfg.nombre_liga if cfg else "") or "La liga").strip()
+        titulo = titulo or liga
+        cuerpo = cuerpo or (
+            f"La {liga} es patrocinada por {anuncio.titulo}.\n"
+            "Toca para ver la promoción."
+        )
+        img_grande = anuncio.imagen or anuncio.imagen_cuadrada
+        img_cuadrada = anuncio.imagen_cuadrada or anuncio.imagen
+        if img_grande:
+            imagen = request.build_absolute_uri(img_grande.url)
+            if imagen.startswith("http://"):
+                imagen = "https://" + imagen[7:]
+        if img_cuadrada:
+            icono = request.build_absolute_uri(img_cuadrada.url)
+            if icono.startswith("http://"):
+                icono = "https://" + icono[7:]
+        data = {
+            "type": "publicidad",
+            "ad_id": str(anuncio.id),
+            "url": f"/publicidad/{anuncio.id}/?origen=app",
+        }
+        tipo_log = "PUBLICIDAD"
+        extra = f"Anuncio={anuncio.id} ({anuncio.titulo[:40]})"
+    elif tipo == "actualizacion":
+        titulo = titulo or "Actualiza tu app"
+        cuerpo = cuerpo or (
+            "Nueva versión 1.2 disponible.\n"
+            "Descárgala en juventinorosasliga.com/apk/descargar/"
+        )
+        data = {"type": "actualizacion", "url": "/actualizar/", "version": "1.2"}
+        tipo_log = "ACTUALIZACION"
+    else:
+        messages.error(request, "Tipo de envío no válido.")
+        return redirect(destino)
+
+    qs = DeviceToken.objects.filter(activo=True)
+    if audiencia == "android":
+        qs = qs.filter(plataforma="android", webpush_endpoint="")
+    elif audiencia == "admin":
+        qs = qs.filter(usuario=request.user)
+    qs = qs.distinct()
+
+    if not qs.exists():
+        messages.error(request, "No hay dispositivos activos para esa audiencia.")
+        return redirect(destino)
+
+    resultado = _enviar_push_mixto(
+        qs, titulo, cuerpo, data, tipo_log,
+        imagen=imagen, icono=icono, extra=extra,
+    )
+    ok = (resultado or {}).get("success", 0)
+    fallos = (resultado or {}).get("failure", 0)
+    messages.success(
+        request,
+        f"Notificación enviada: {ok} entregadas, {fallos} fallos.",
+    )
+    return redirect(destino)
 
 
 @login_required

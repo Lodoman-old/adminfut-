@@ -55,6 +55,7 @@
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="publicidad-tab" data-bs-toggle="tab" data-bs-target="#publicidad" type="button">Publicidad <span class="badge bg-info">{{ anuncios|length }}</span>{% if anuncios_alerta %} <span class="badge bg-danger" title="Anuncios vencidos o por vencer">{{ anuncios_alerta|length }}</span>{% endif %}</button>
+          <button class="nav-link" id="enviar-tab" data-bs-toggle="tab" data-bs-target="#enviar" type="button"><i class="bi bi-send"></i> Enviar</button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="descargas-tab" data-bs-toggle="tab" data-bs-target="#descargas" type="button">Descargas <span class="badge bg-info">{{ descargas_total }}</span></button>
@@ -468,6 +469,74 @@
                 {% endfor %}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="enviar">
+          <div class="card p-3">
+            <h6 class="text-primary"><i class="bi bi-send"></i> Enviar notificación</h6>
+            <p class="text-muted small mb-3">
+              Envía una actualización de la app o una publicidad. En publicidad se usa la imagen del anuncio
+              y, al tocar la notificación, se abre su página.
+            </p>
+
+            <form method="post" action="{% url 'admin_push_campana' %}" onsubmit="return confirmarEnvio(this)">
+              {% csrf_token %}
+              <div class="row g-3">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small fw-semibold mb-1">Tipo de envío</label>
+                  <select name="tipo" id="campTipo" class="form-select form-select-sm" onchange="campTipoCambio()">
+                    <option value="actualizacion">Actualización de la app</option>
+                    <option value="publicidad">Publicidad / patrocinio</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small fw-semibold mb-1">Audiencia</label>
+                  <select name="audiencia" id="campAudiencia" class="form-select form-select-sm">
+                    <option value="android">Solo Android ({{ android_activos }})</option>
+                    <option value="todos">Todos: Android + PWA ({{ dispositivos_activos }})</option>
+                    <option value="admin">Solo yo (prueba)</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-4" id="campAnuncioWrap" style="display:none">
+                  <label class="form-label small fw-semibold mb-1">Anuncio</label>
+                  <select name="anuncio_id" id="campAnuncio" class="form-select form-select-sm" onchange="campAnuncioCambio()">
+                    <option value="">Selecciona un anuncio…</option>
+                    {% for a in anuncios_publicables %}
+                    <option value="{{ a.id }}" data-titulo="{{ a.titulo|escapejs }}" data-imagen="{% if a.imagen %}{{ a.imagen.url }}{% elif a.imagen_cuadrada %}{{ a.imagen_cuadrada.url }}{% endif %}">{{ a.titulo }}</option>
+                    {% empty %}
+                    <option value="">No hay anuncios activos</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-semibold mb-1">Título (negritas)</label>
+                  <input name="titulo" id="campTitulo" class="form-control form-control-sm" maxlength="120" value="Actualiza tu app">
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-semibold mb-1">Texto</label>
+                  <textarea name="cuerpo" id="campCuerpo" class="form-control form-control-sm" rows="3" maxlength="500">Nueva versión 1.2 disponible.
+Descárgala en juventinorosasliga.com/apk/descargar/</textarea>
+                </div>
+
+                <div class="col-12" id="campPreviewWrap" style="display:none">
+                  <label class="form-label small fw-semibold mb-1">Imagen de la notificación</label><br>
+                  <img id="campPreview" src="" alt="Vista previa" style="max-height:90px;max-width:100%;border-radius:8px;border:1px solid #dee4de;">
+                </div>
+
+                <div class="col-12">
+                  <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send"></i> Enviar notificación</button>
+                  <span class="text-muted small ms-2">La publicidad se envía con su propia imagen y abre su página al tocarla.</span>
+                </div>
+              </div>
+            </form>
+
+            <hr class="my-3">
+            <p class="small text-muted mb-0">
+              <i class="bi bi-info-circle"></i> El icono pequeño de la barra de estado sigue siendo la silueta de la liga;
+              la imagen grande (al expandir la notificación) es la del anuncio.
+            </p>
           </div>
         </div>
 
@@ -925,5 +994,61 @@ function toggleInactive(cb) {
     }
     window.location.href = url.toString();
 }
+
+// --- Pestaña Enviar (campañas) ---
+var LIGA = '{{ config_liga.nombre_liga|escapejs }}' || 'la liga';
+
+function campTipoCambio() {
+    var pub = document.getElementById('campTipo').value === 'publicidad';
+    document.getElementById('campAnuncioWrap').style.display = pub ? '' : 'none';
+    document.getElementById('campAudiencia').value = pub ? 'todos' : 'android';
+    var titulo = document.getElementById('campTitulo');
+    var cuerpo = document.getElementById('campCuerpo');
+    var prev = document.getElementById('campPreview');
+    if (pub) {
+        titulo.value = LIGA;
+        cuerpo.value = 'La ' + LIGA + ' es patrocinada por …\nToca para ver la promoción.';
+        var sel = document.getElementById('campAnuncio');
+        if (sel && sel.value) {
+            campAnuncioCambio();
+        } else {
+            prev.src = '';
+            document.getElementById('campPreviewWrap').style.display = 'none';
+        }
+    } else {
+        titulo.value = 'Actualiza tu app';
+        cuerpo.value = 'Nueva versión 1.2 disponible.\nDescárgala en juventinorosasliga.com/apk/descargar/';
+        prev.src = '';
+        document.getElementById('campPreviewWrap').style.display = 'none';
+    }
+}
+
+function campAnuncioCambio() {
+    var sel = document.getElementById('campAnuncio');
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) { return; }
+    document.getElementById('campTitulo').value = LIGA;
+    document.getElementById('campCuerpo').value = 'La ' + LIGA + ' es patrocinada por ' + (opt.dataset.titulo || '') + '.\nToca para ver la promoción.';
+    var img = opt.dataset.imagen || '';
+    document.getElementById('campPreview').src = img;
+    document.getElementById('campPreviewWrap').style.display = img ? '' : 'none';
+}
+
+function confirmarEnvio(form) {
+    var tipo = document.getElementById('campTipo').value;
+    var aud = document.getElementById('campAudiencia');
+    var etiqueta = aud.options[aud.selectedIndex].text;
+    var que = tipo === 'publicidad' ? 'la publicidad' : 'la actualización';
+    return confirm('¿Enviar ' + que + ' a ' + etiqueta + '?');
+}
+
+// Abrir la pestaña indicada por ?tab=enviar
+(function () {
+    var params = new URLSearchParams(window.location.search);
+    var tab = params.get('tab');
+    if (!tab || !window.bootstrap) { return; }
+    var boton = document.querySelector('[data-bs-target="#' + tab + '"]');
+    if (boton) { new bootstrap.Tab(boton).show(); }
+})();
 </script>
 {% endblock %}

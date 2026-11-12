@@ -6,6 +6,7 @@ from . import views
 from league.views import (
     admin_push_logs,
     admin_ip_bloqueada,
+    admin_push_campana,
     cedulas_capturas,
     cedula_captura_foto,
     cedula_captura_leer,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("push-logs/", admin_push_logs, name="admin_push_logs"),
     path("push-logs/ips/", admin_ip_bloqueada, name="admin_ip_bloqueada"),
+    path("push-logs/enviar/", admin_push_campana, name="admin_push_campana"),
     path("push-logs/cedulas/", cedulas_capturas, name="cedulas_capturas"),
     path("push-logs/cedulas/limpiar/", cedula_captura_limpiar, name="cedula_captura_limpiar"),
     path("push-logs/cedulas/<int:pk>/foto/", cedula_captura_foto, name="cedula_captura_foto"),

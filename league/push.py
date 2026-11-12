@@ -129,7 +129,7 @@ def _es_transitorio(code):
     return code in ("UNAVAILABLE", "INTERNAL", "QUOTA_EXCEEDED", "UNKNOWN")
 
 
-def send_push_notification(tokens, title, body, data=None):
+def send_push_notification(tokens, title, body, data=None, imagen=None):
     if not tokens:
         _add_log({"tipo": "SEND", "detalle": "Sin tokens para enviar", "success": 0, "failure": 0})
         return
@@ -142,7 +142,7 @@ def send_push_notification(tokens, title, body, data=None):
     if isinstance(tokens, str):
         tokens = [tokens]
 
-    imagen = _url_notificacion("banner")
+    imagen = imagen or _url_notificacion("banner")
     android = messaging.AndroidConfig(
         priority="high",
         notification=messaging.AndroidNotification(
@@ -212,7 +212,7 @@ def send_push_notification(tokens, title, body, data=None):
         return None
 
 
-def _enviar_webpush(devices, title, body, data=None):
+def _enviar_webpush(devices, title, body, data=None, imagen=None, icono=None):
     """Envía una notificación Web Push (PWA) a los DeviceToken dados.
 
     Cada device debe tener webpush_endpoint/p256dh/auth. Los endpoints que el
@@ -234,8 +234,8 @@ def _enviar_webpush(devices, title, body, data=None):
     payload = json.dumps({
         "title": title,
         "body": body,
-        "icon": _url_notificacion("icono"),
-        "image": _url_notificacion("banner"),
+        "icon": icono or _url_notificacion("icono"),
+        "image": imagen or _url_notificacion("banner"),
         "badge": _url_notificacion("badge"),
         "data": data or {},
     }, ensure_ascii=False)
@@ -326,7 +326,7 @@ def _vapid_claims_sub():
     return "mailto:{}".format(email)
 
 
-def _enviar_push_mixto(qs, title, body, data, tipo, partido_id=None, categoria=""):
+def _enviar_push_mixto(qs, title, body, data, tipo, partido_id=None, categoria="", imagen=None, icono=None, extra=""):
     """Envía a tokens FCM y suscripciones Web Push (PWA) de un queryset y registra un único log."""
     from .models import DeviceToken
 
@@ -344,28 +344,33 @@ def _enviar_push_mixto(qs, title, body, data, tipo, partido_id=None, categoria="
     ok_fcm = fail_fcm = 0
     ok_pwa = fail_pwa = 0
     if fcm_tokens:
-        r = send_push_notification(fcm_tokens, title, body, data)
+        r = send_push_notification(fcm_tokens, title, body, data, imagen=imagen)
         if r:
             ok_fcm = r.get("success", 0)
             fail_fcm = r.get("failure", 0)
     if pwa:
-        r = _enviar_webpush(pwa, title, body, data)
+        r = _enviar_webpush(pwa, title, body, data, imagen=imagen, icono=icono)
         ok_pwa = r.get("success", 0)
         fail_pwa = r.get("failure", 0)
+
+    detalle = "Activos={}, FCM={}, PWA={}, invitados={}".format(
+        total_activos, len(fcm_tokens), len(pwa), guests
+    )
+    if extra:
+        detalle += ", " + extra
 
     _add_log({
         "tipo": tipo,
         "partido_id": partido_id,
         "categoria": str(categoria) if categoria else "",
-        "detalle": "Activos={}, FCM={}, PWA={}, invitados={}".format(
-            total_activos, len(fcm_tokens), len(pwa), guests
-        ),
+        "detalle": detalle,
         "total_activos": total_activos,
         "tokens_encontrados": len(fcm_tokens) + len(pwa),
         "guests_incluidos": guests,
         "success": ok_fcm + ok_pwa,
         "failure": fail_fcm + fail_pwa,
     })
+    return {"success": ok_fcm + ok_pwa, "failure": fail_fcm + fail_pwa}
 
 
 def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo="suspension"):
