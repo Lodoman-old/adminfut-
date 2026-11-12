@@ -1083,7 +1083,7 @@ def reporte_anuncio(request, anuncio_id):
 @admin.site.admin_view
 def admin_push_logs(request):
     from .push import get_push_logs
-    from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail, IPBloqueada
+    from .models import DeviceToken, Visita, Descarga, AnuncioImpresion, SuscripcionEmail, IPBloqueada, CampanaPublicidad
     from datetime import timedelta
     from django.db.models import Count, Case, When, F, Value, CharField, Max
     from django.db.models.functions import TruncDate, Cast, TruncMinute
@@ -1171,6 +1171,9 @@ def admin_push_logs(request):
     anuncios_vencidos = [a for a in anuncios_alerta if a.dias_restantes < 0]
     anuncios_por_vencer = [a for a in anuncios_alerta if a.dias_restantes >= 0]
     anuncios_publicables = [a for a in anuncios if a.activo and a.vigente()]
+    campanas = list(
+        CampanaPublicidad.objects.select_related("anuncio").order_by("-creada")[:50]
+    )
 
     desde_serie = inicio_hoy - timedelta(days=13)
     por_dia = {}
@@ -1415,6 +1418,7 @@ def admin_push_logs(request):
         "anuncios_vencidos": anuncios_vencidos,
         "anuncios_por_vencer": anuncios_por_vencer,
         "anuncios_publicables": anuncios_publicables,
+        "campanas": campanas,
         "android_activos": android_activos,
         "pwa_activos": pwa_activos,
         "config_liga": ConfiguracionLiga.obtener(),
@@ -1588,6 +1592,104 @@ def admin_push_campana(request):
         request,
         f"Notificación enviada: {ok} entregadas, {fallos} fallos.",
     )
+    return redirect(destino)
+
+
+@admin.site.admin_view
+@require_POST
+def admin_campana_crear(request):
+    """Programa una campaña de publicidad recurrente para un anuncio."""
+    import datetime as _dt
+
+    from .campanas import primer_envio
+    from .models import Anuncio, CampanaPublicidad
+
+    destino = reverse("admin_push_logs") + "?tab=enviar"
+    anuncio = Anuncio.objects.filter(
+        pk=request.POST.get("anuncio_id"), activo=True
+    ).first()
+    if not anuncio:
+        messages.error(request, "Selecciona un anuncio activo.")
+        return redirect(destino)
+
+    try:
+        cada = int(request.POST.get("cada_dias") or 15)
+    except (TypeError, ValueError):
+        cada = 15
+    cada = max(1, min(cada, 90))
+
+    try:
+        hora = _dt.time.fromisoformat((request.POST.get("hora") or "10:00").strip())
+    except (TypeError, ValueError):
+        hora = _dt.time(10, 0)
+
+    audiencia = (request.POST.get("audiencia") or "todos").strip()
+    if audiencia not in ("todos", "android", "pwa"):
+        audiencia = "todos"
+
+    campana = CampanaPublicidad.objects.create(
+        anuncio=anuncio,
+        cada_dias=cada,
+        hora=hora,
+        audiencia=audiencia,
+        titulo=(request.POST.get("titulo") or "").strip()[:120],
+        cuerpo=(request.POST.get("cuerpo") or "").strip()[:500],
+    )
+    campana.proximo_envio = primer_envio(campana)
+    campana.save(update_fields=["proximo_envio"])
+    messages.success(
+        request,
+        f"Campaña programada para “{anuncio.titulo}”: cada {cada} días a las "
+        f"{hora.strftime('%H:%M')}. Primer envío: "
+        f"{timezone.localtime(campana.proximo_envio).strftime('%d/%m/%Y %H:%M')}.",
+    )
+    return redirect(destino)
+
+
+@admin.site.admin_view
+@require_POST
+def admin_campana_accion(request, pk):
+    """Enviar ahora, pausar/activar o eliminar una campaña."""
+    from .campanas import enviar_campana, proxima_fecha
+    from .models import CampanaPublicidad
+
+    destino = reverse("admin_push_logs") + "?tab=enviar"
+    campana = get_object_or_404(CampanaPublicidad, pk=pk)
+    accion = (request.POST.get("accion") or "").strip()
+
+    if accion == "eliminar":
+        titulo = campana.anuncio.titulo
+        campana.delete()
+        messages.success(request, f"Campaña de “{titulo}” eliminada.")
+    elif accion == "toggle":
+        campana.activa = not campana.activa
+        campana.save(update_fields=["activa", "actualizada"])
+        messages.success(
+            request,
+            f"Campaña {'activada' if campana.activa else 'pausada'}.",
+        )
+    elif accion == "enviar":
+        resultado = enviar_campana(campana)
+        if not resultado or resultado.get("omitida"):
+            motivo = (resultado or {}).get("omitida") or "no se pudo enviar"
+            messages.warning(request, f"No se envió: {motivo}.")
+        else:
+            ahora = timezone.now()
+            campana.ultimo_envio = ahora
+            campana.proximo_envio = proxima_fecha(campana, ahora)
+            campana.save(update_fields=[
+                "ultimo_envio", "proximo_envio", "actualizada",
+            ])
+            messages.success(
+                request,
+                "Campaña enviada: {} ok, {} fallos. Próximo envío: {}.".format(
+                    resultado.get("success", 0),
+                    resultado.get("failure", 0),
+                    timezone.localtime(campana.proximo_envio).strftime("%d/%m/%Y %H:%M"),
+                ),
+            )
+    else:
+        messages.error(request, "Acción no válida.")
     return redirect(destino)
 
 

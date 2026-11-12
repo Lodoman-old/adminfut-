@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.core.cache import cache
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga, IPBloqueada
+from .models import Categoria, Equipo, Jugador, JugadorEquipo, Campo, Temporada, Partido, Gol, Jornada, PeriodoAltas, Tarjeta, SuspensionJugador, MovimientoEquipo, CampoIndisponibilidad, ConfiguracionLiga, DeviceToken, PushLog, JugadorHerencia, Anuncio, AnuncioClick, AnuncioImpresion, AnuncioDia, PronosticoQuiniela, Descarga, IPBloqueada, CampanaPublicidad
 
 
 @admin.register(ConfiguracionLiga)
@@ -293,6 +293,14 @@ class DescargaAdmin(admin.ModelAdmin):
     has_add_permission = lambda self, request: False
     has_change_permission = lambda self, request, obj=None: False
     has_delete_permission = lambda self, request, obj=None: False
+
+
+@admin.register(CampanaPublicidad)
+class CampanaPublicidadAdmin(admin.ModelAdmin):
+    list_display = ["anuncio", "activa", "cada_dias", "hora", "audiencia", "proximo_envio", "ultimo_envio"]
+    list_filter = ["activa", "audiencia"]
+    list_editable = ["activa", "cada_dias", "hora"]
+    date_hierarchy = "creada"
 
 
 @admin.register(IPBloqueada)

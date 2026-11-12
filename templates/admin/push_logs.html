@@ -538,6 +538,86 @@ Descárgala en juventinorosasliga.com/apk/descargar/</textarea>
               la imagen grande (al expandir la notificación) es la del anuncio.
             </p>
           </div>
+
+          <div class="card p-3 mt-3">
+            <h6 class="text-success"><i class="bi bi-calendar-check"></i> Campañas publicitarias programadas</h6>
+            <p class="small text-muted mb-3">
+              Programa la publicidad cada cierto número de días mientras el anuncio esté vigente.
+              Por ejemplo, <strong>cada 15 días = 2 veces al mes</strong>.
+            </p>
+
+            {% if anuncios_publicables %}
+            <form method="post" action="{% url 'admin_campana_crear' %}" class="row g-2 align-items-end mb-3" onsubmit="return confirm('¿Programar esta campaña?')">
+              {% csrf_token %}
+              <div class="col-12 col-md-4">
+                <label class="form-label small fw-semibold mb-1">Anuncio</label>
+                <select name="anuncio_id" class="form-select form-select-sm" required>
+                  <option value="">Selecciona un anuncio…</option>
+                  {% for a in anuncios_publicables %}
+                  <option value="{{ a.id }}">{{ a.titulo }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold mb-1">Cada N días</label>
+                <input type="number" name="cada_dias" class="form-control form-control-sm" value="15" min="1" max="90" required>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold mb-1">Hora</label>
+                <input type="time" name="hora" class="form-control form-control-sm" value="10:00" required>
+              </div>
+              <div class="col-8 col-md-2">
+                <label class="form-label small fw-semibold mb-1">Audiencia</label>
+                <select name="audiencia" class="form-select form-select-sm">
+                  <option value="todos" selected>Android + PWA</option>
+                  <option value="android">Solo Android</option>
+                  <option value="pwa">Solo PWA</option>
+                </select>
+              </div>
+              <div class="col-4 col-md-2">
+                <button class="btn btn-success btn-sm w-100" type="submit"><i class="bi bi-calendar-plus"></i> Programar</button>
+              </div>
+              <div class="col-12 col-md-6">
+                <input name="titulo" class="form-control form-control-sm" maxlength="120" placeholder="Título (opcional; por defecto el de la liga)">
+              </div>
+              <div class="col-12 col-md-6">
+                <textarea name="cuerpo" class="form-control form-control-sm" rows="1" maxlength="500" placeholder="Texto (opcional; por defecto “La liga es patrocinada por …”)"></textarea>
+              </div>
+            </form>
+            {% else %}
+            <div class="alert alert-info py-2 mb-0">Activa un anuncio para programar campañas.</div>
+            {% endif %}
+
+            {% if campanas %}
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle mb-0" style="font-size:.82rem">
+                <thead class="table-dark">
+                  <tr><th>Anuncio</th><th>Cada</th><th>Próximo</th><th>Último</th><th>Audiencia</th><th>Estado</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {% for c in campanas %}
+                  <tr>
+                    <td>{{ c.anuncio.titulo }}</td>
+                    <td>{{ c.cada_dias }} días</td>
+                    <td>{% if c.proximo_envio %}{{ c.proximo_envio|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+                    <td>{% if c.ultimo_envio %}{{ c.ultimo_envio|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+                    <td>{{ c.get_audiencia_display }}</td>
+                    <td>
+                      {% if c.activa %}<span class="badge bg-primary">Activa</span>{% else %}<span class="badge bg-secondary">Pausada</span>{% endif %}
+                      {% if not c.anuncio.activo or not c.anuncio.vigente %}<span class="badge bg-warning text-dark">Anuncio vencido</span>{% endif %}
+                    </td>
+                    <td class="text-end text-nowrap">
+                      <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="accion" value="enviar"><button class="btn btn-outline-success btn-sm py-0" title="Enviar ahora">Enviar ahora</button></form>
+                      <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="accion" value="toggle"><button class="btn btn-outline-secondary btn-sm py-0">{% if c.activa %}Pausar{% else %}Activar{% endif %}</button></form>
+                      <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar esta campaña?')">{% csrf_token %}<input type="hidden" name="accion" value="eliminar"><button class="btn btn-outline-danger btn-sm py-0">Eliminar</button></form>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </div>
         </div>
 
         <div class="tab-pane fade" id="descargas">

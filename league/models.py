@@ -1,5 +1,6 @@
 import os
 import uuid
+import datetime
 from django.db import models, ProgrammingError
 from django.db.models import Manager
 from django.utils import timezone
@@ -2985,6 +2986,49 @@ class AnuncioDia(models.Model):
 
     def __str__(self):
         return f"{self.anuncio} · {self.fecha:%d/%m/%Y}"
+
+
+class CampanaPublicidad(models.Model):
+    """Envío programado de la publicidad de un anuncio.
+
+    Mientras el anuncio esté activo y vigente, se envía cada ``cada_dias``
+    días a la hora indicada. El comando ``enviar_campanas_publicidad`` se
+    encarga de los envíos automáticos.
+    """
+    AUDIENCIAS = [
+        ("todos", "Android + PWA"),
+        ("android", "Solo Android"),
+        ("pwa", "Solo PWA"),
+    ]
+    anuncio = models.ForeignKey(
+        Anuncio, on_delete=models.CASCADE, related_name="campanas",
+        verbose_name="Anuncio",
+    )
+    activa = models.BooleanField(default=True, verbose_name="Activa")
+    cada_dias = models.PositiveIntegerField(
+        default=15,
+        validators=[MinValueValidator(1), MaxValueValidator(90)],
+        verbose_name="Cada N días",
+        help_text="15 = dos veces al mes; 7 = semanal; 30 = mensual",
+    )
+    hora = models.TimeField(default=datetime.time(10, 0), verbose_name="Hora de envío")
+    audiencia = models.CharField(
+        max_length=10, choices=AUDIENCIAS, default="todos", verbose_name="Audiencia",
+    )
+    titulo = models.CharField(max_length=120, blank=True, default="", verbose_name="Título (opcional)")
+    cuerpo = models.TextField(blank=True, default="", verbose_name="Texto (opcional)")
+    proximo_envio = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Próximo envío")
+    ultimo_envio = models.DateTimeField(null=True, blank=True, verbose_name="Último envío")
+    creada = models.DateTimeField(auto_now_add=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Campaña de publicidad"
+        verbose_name_plural = "Campañas de publicidad"
+        ordering = ["-creada"]
+
+    def __str__(self):
+        return f"{self.anuncio} · cada {self.cada_dias} días"
 
 
 class Descarga(models.Model):
