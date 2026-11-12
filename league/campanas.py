@@ -13,16 +13,14 @@ def url_absoluta(url):
         return "https://" + url[7:]
     if url.startswith("https://"):
         return url
-    return settings.SITE_URL.rstrip("/") + url
+    return settings.SITE_URL.rstrip("/") + urldef imagenes_anuncio(anuncio):
+    """(banner 2:1, icono cuadrado) optimizados para la notificación."""
+    from django.urls import reverse
 
-
-def imagenes_anuncio(anuncio):
-    """(imagen grande, icono cuadrado) del anuncio."""
-    grande = anuncio.imagen or anuncio.imagen_cuadrada
-    cuadrada = anuncio.imagen_cuadrada or anuncio.imagen
+    base = settings.SITE_URL.rstrip("/")
     return (
-        url_absoluta(grande.url) if grande else None,
-        url_absoluta(cuadrada.url) if cuadrada else None,
+        base + reverse("notificacion_anuncio", args=[anuncio.id, "banner"]),
+        base + reverse("notificacion_anuncio", args=[anuncio.id, "icono"]),
     )
 
 

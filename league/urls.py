@@ -155,6 +155,7 @@ urlpatterns = [
     path("manifest.webmanifest", views.manifest_webmanifest, name="manifest_webmanifest"),
     path("pwa-icon/<str:nombre>", views.pwa_icon, name="pwa_icon"),
     path("notificaciones/<str:formato>.png", views.notificacion_imagen, name="notificacion_imagen"),
+    path("notificaciones/anuncio/<int:pk>/<str:formato>.jpg", views.notificacion_anuncio, name="notificacion_anuncio"),
     path("actualizar/", views.actualizar_app, name="actualizar_app"),
 
     # Quiniela

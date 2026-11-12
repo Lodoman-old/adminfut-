@@ -1519,6 +1519,7 @@ def admin_ip_bloqueada(request):
 @require_POST
 def admin_push_campana(request):
     """Envía una notificación manual: actualización de la app o publicidad."""
+    from .campanas import imagenes_anuncio
     from .models import Anuncio, DeviceToken
     from .push import _enviar_push_mixto
 
@@ -1548,16 +1549,7 @@ def admin_push_campana(request):
             f"La {liga} es patrocinada por {anuncio.titulo}.\n"
             "Toca para ver la promoción."
         )
-        img_grande = anuncio.imagen or anuncio.imagen_cuadrada
-        img_cuadrada = anuncio.imagen_cuadrada or anuncio.imagen
-        if img_grande:
-            imagen = request.build_absolute_uri(img_grande.url)
-            if imagen.startswith("http://"):
-                imagen = "https://" + imagen[7:]
-        if img_cuadrada:
-            icono = request.build_absolute_uri(img_cuadrada.url)
-            if icono.startswith("http://"):
-                icono = "https://" + icono[7:]
+        imagen, icono = imagenes_anuncio(anuncio)
         data = {
             "type": "publicidad",
             "ad_id": str(anuncio.id),
@@ -2514,6 +2506,29 @@ def notificacion_imagen(request, formato):
     respuesta = HttpResponse(data, content_type="image/png")
     respuesta["Cache-Control"] = "public, max-age=86400"
     respuesta["Content-Disposition"] = f'inline; filename="{formato}.png"'
+    return respuesta
+
+
+def notificacion_anuncio(request, pk, formato):
+    """Imagen 2:1 optimizada para la notificación de un anuncio."""
+    from django.core.cache import cache
+
+    from .models import Anuncio
+    from .notification_image import generar_anuncio
+
+    if formato not in ("banner", "icono"):
+        raise Http404("Imagen no disponible")
+    anuncio = get_object_or_404(Anuncio, pk=pk)
+    actualizado = int(anuncio.actualizado.timestamp()) if anuncio.actualizado else 0
+    clave = f"notif_ad_{pk}_{formato}_{actualizado}"
+    data = cache.get(clave)
+    if not data:
+        data = generar_anuncio(anuncio, formato)
+        if not data:
+            raise Http404("No se pudo generar la imagen")
+        cache.set(clave, data, 60 * 60 * 24)
+    respuesta = HttpResponse(data, content_type="image/jpeg")
+    respuesta["Cache-Control"] = "public, max-age=86400"
     return respuesta
 
 

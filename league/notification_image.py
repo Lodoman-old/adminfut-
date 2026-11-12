@@ -12,10 +12,11 @@ Se dibujan sobre el verde de la liga para que el logo transparente se vea
 limpio y con márgenes adecuados (nunca recortado).
 """
 import io
+import textwrap
 from pathlib import Path
 
 from django.conf import settings
-from PIL import Image, ImageDraw
+from PIL import Image, ImageColor, ImageDraw
 
 VERDE_ARRIBA = (255, 255, 255)
 VERDE_ABAJO = (231, 242, 232)
@@ -122,3 +123,90 @@ def generar(formato):
     if formato == "badge":
         return generar_badge()
     return None
+
+
+def _imagen_anuncio(anuncio):
+    """Imagen subida del anuncio (franja/banner; si no hay, la cuadrada)."""
+    campo = anuncio.imagen or anuncio.imagen_cuadrada
+    if not campo:
+        return None
+    try:
+        campo.open("rb")
+        try:
+            img = Image.open(campo)
+            img.load()
+        finally:
+            campo.close()
+        return img.convert("RGBA")
+    except Exception:
+        return None
+
+
+def _fondo_anuncio(anuncio, w, h):
+    color = (anuncio.color_fondo or "").strip()
+    if color:
+        try:
+            rgb = ImageColor.getrgb(color)
+            return Image.new("RGBA", (w, h), rgb + (255,))
+        except ValueError:
+            pass
+    return _fondo(w, h)
+
+
+def _texto_anuncio(canvas, anuncio):
+    """Tarjeta de respaldo cuando el anuncio no tiene imagen."""
+    from .social_image import _font
+
+    fill = (255, 255, 255)
+    color = (anuncio.color_fondo or "").strip()
+    if color:
+        try:
+            r, g, b = ImageColor.getrgb(color)[:3]
+            if 0.299 * r + 0.587 * g + 0.114 * b > 140:
+                fill = (25, 40, 25)
+        except ValueError:
+            pass
+    draw = ImageDraw.Draw(canvas)
+    titulo = (anuncio.titulo or "").strip()
+    while titulo and draw.textlength(titulo, font=_font(64, bold=True)) > canvas.width * 0.82:
+        titulo = titulo[:-1]
+    draw.text(
+        (canvas.width // 2, canvas.height // 2 - 10),
+        titulo, font=_font(64, bold=True), fill=fill, anchor="mm",
+    )
+    if anuncio.descripcion:
+        lineas = textwrap.wrap(anuncio.descripcion, width=46)[:2]
+        draw.multiline_text(
+            (canvas.width // 2, canvas.height // 2 + 62),
+            "\n".join(lineas), font=_font(30), fill=fill,
+            anchor="ma", align="center", spacing=8,
+        )
+
+
+def _jpeg(canvas, calidad=88):
+    buf = io.BytesIO()
+    canvas.convert("RGB").save(buf, format="JPEG", quality=calidad, optimize=True)
+    return buf.getvalue()
+
+
+def generar_anuncio(anuncio, formato="banner"):
+    """Imagen 2:1 (o icono cuadrado) optimizada para la notificación del anuncio."""
+    if formato == "banner":
+        w, h = 1024, 512
+    elif formato == "icono":
+        w, h = 512, 512
+    else:
+        return None
+
+    canvas = _fondo_anuncio(anuncio, w, h)
+    img = _imagen_anuncio(anuncio)
+    if img is None:
+        _texto_anuncio(canvas, anuncio)
+        return _jpeg(canvas)
+
+    margen = 0.06 if formato == "banner" else 0.08
+    img.thumbnail((int(w * (1 - 2 * margen)), int(h * (1 - 2 * margen))), Image.LANCZOS)
+    x = (w - img.width) // 2
+    y = (h - img.height) // 2
+    canvas.alpha_composite(img, (x, y))
+    return _jpeg(canvas)
