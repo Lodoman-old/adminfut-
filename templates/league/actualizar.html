@@ -43,12 +43,35 @@
         <li>Icono de la liga en la barra de estado.</li>
         <li>Mejoras y correcciones generales.</li>
     </ul>
-    <a class="btn" href="/apk/descargar/">Descargar APK (7.2 MB)</a>
-    <p class="nota">
+    <a id="btnDescargar" class="btn" href="/apk/descargar/">Descargar APK (7.2 MB)</a>
+    <p class="nota" id="notaDescarga">
         Si el botón no descarga dentro de la app, abre este enlace en Chrome:<br>
         <code>juventinorosasliga.com/apk/descargar/</code>
     </p>
     <a class="volver" href="/">Volver al inicio</a>
 </div>
+<script>
+(function () {
+    var nativo = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (!nativo) { return; }
+    var btn = document.getElementById('btnDescargar');
+    var nota = document.getElementById('notaDescarga');
+    if (nota) {
+        nota.innerHTML = 'Se abrirá Chrome para descargar e instalar la actualización.';
+    }
+    if (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            try {
+                window.open('https://juventinorosasliga.com/apk/descargar/', '_system');
+            } catch (err) {
+                if (nota) {
+                    nota.innerHTML = 'Abre este enlace en Chrome:<br><code>juventinorosasliga.com/apk/descargar/</code>';
+                }
+            }
+        });
+    }
+})();
+</script>
 </body>
 </html>
