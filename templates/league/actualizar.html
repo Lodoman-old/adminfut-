@@ -62,10 +62,9 @@
     if (btn) {
         btn.addEventListener('click', function (e) {
             e.preventDefault();
-            // El punto final hace que Capacitor lo trate como host externo
-            // (no está en allowNavigation) y lo abra en Chrome, donde sí
-            // se descarga el APK.
-            window.location.href = 'https://juventinorosasliga.com./apk/descargar/';
+            // Host externo (GitHub): Capacitor lo abre en Chrome y ahí se
+            // descarga el APK sin que lo intercepte el service worker del sitio.
+            window.location.href = 'https://raw.githubusercontent.com/Lodoman-old/adminfut-/main/static/apk/AdminFut.apk?v=1.2';
         });
     }
 })();
