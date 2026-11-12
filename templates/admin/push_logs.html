@@ -55,13 +55,15 @@
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="publicidad-tab" data-bs-toggle="tab" data-bs-target="#publicidad" type="button">Publicidad <span class="badge bg-info">{{ anuncios|length }}</span>{% if anuncios_alerta %} <span class="badge bg-danger" title="Anuncios vencidos o por vencer">{{ anuncios_alerta|length }}</span>{% endif %}</button>
-          <button class="nav-link" id="enviar-tab" data-bs-toggle="tab" data-bs-target="#enviar" type="button"><i class="bi bi-send"></i> Enviar</button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="descargas-tab" data-bs-toggle="tab" data-bs-target="#descargas" type="button">Descargas <span class="badge bg-info">{{ descargas_total }}</span></button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="trafico-tab" data-bs-toggle="tab" data-bs-target="#trafico" type="button">Tráfico {% if nivel_alerta == "alta" %}<span class="badge bg-danger">!</span>{% elif nivel_alerta == "media" %}<span class="badge bg-warning text-dark">!</span>{% endif %}</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="enviar-tab" data-bs-toggle="tab" data-bs-target="#enviar" type="button"><i class="bi bi-send"></i> Enviar</button>
         </li>
       </ul>
 
