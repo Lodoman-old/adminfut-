@@ -122,7 +122,7 @@ def _codigo_error(resp):
 
 
 def _es_invalido(code):
-    return code in ("UNREGISTERED", "INVALID_ARGUMENT")
+    return code in ("UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND", "SENDER_ID_MISMATCH")
 
 
 def _es_transitorio(code):
