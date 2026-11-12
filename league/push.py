@@ -358,6 +358,39 @@ def notify_suspension(titulo, cuerpo, categoria=None, partido_id=None, data_tipo
     )
 
 
+def _contenido_partido_finalizado(partido):
+    """Título y cuerpo de la notificación de un partido finalizado.
+
+    El título (negrita del sistema) lleva el nombre de la liga y el cuerpo
+    empieza con la categoría, para que se lea: liga → categoría → marcador.
+    """
+    from .models import ConfiguracionLiga
+
+    categoria = None
+    try:
+        categoria = partido.jornada.temporada.categoria
+    except AttributeError:
+        pass
+
+    cfg = ConfiguracionLiga.obtener()
+    liga = ((cfg.nombre_liga if cfg else "") or "").strip()
+    cat_name = str(categoria) if categoria else ""
+    title = liga or cat_name or "Partido finalizado"
+
+    local = partido.equipo_local.nombre if partido.equipo_local else "Local"
+    visit = partido.equipo_visitante.nombre if partido.equipo_visitante else "Visitante"
+    sufijo = "Finalizado"
+    if partido.default_visitante or partido.default_team:
+        sufijo += " (Default)"
+
+    lineas = []
+    if cat_name:
+        lineas.append(cat_name)
+    lineas.append(f"{local} {partido.goles_local} vs {visit} {partido.goles_visitante}")
+    lineas.append(sufijo)
+    return title, "\n".join(lineas)
+
+
 def notify_partido_finalizado(partido):
     from .models import DeviceToken
 
@@ -388,14 +421,7 @@ def notify_partido_finalizado(partido):
         })
         return
 
-    local = partido.equipo_local.nombre if partido.equipo_local else "Local"
-    visit = partido.equipo_visitante.nombre if partido.equipo_visitante else "Visitante"
-    cat_name = str(categoria) if categoria else ""
-    title = cat_name
-    sufijo = "Finalizado"
-    if partido.default_visitante or partido.default_team:
-        sufijo += " (Default)"
-    body = f"{local} {partido.goles_local} vs {visit} {partido.goles_visitante}\n{sufijo}"
+    title, body = _contenido_partido_finalizado(partido)
     data = {
         "type": "partido_finalizado",
         "partido_id": str(partido.id),
