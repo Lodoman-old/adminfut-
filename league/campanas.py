@@ -13,7 +13,10 @@ def url_absoluta(url):
         return "https://" + url[7:]
     if url.startswith("https://"):
         return url
-    return settings.SITE_URL.rstrip("/") + urldef imagenes_anuncio(anuncio):
+    return settings.SITE_URL.rstrip("/") + url
+
+
+def imagenes_anuncio(anuncio):
     """(banner 2:1, icono cuadrado) optimizados para la notificación."""
     from django.urls import reverse
 

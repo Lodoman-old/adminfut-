@@ -549,7 +549,7 @@ Descárgala en juventinorosasliga.com/apk/descargar/</textarea>
             </p>
 
             {% if anuncios_publicables %}
-            <form method="post" action="{% url 'admin_campana_crear' %}" class="row g-2 align-items-end mb-3" onsubmit="return confirm('¿Programar esta campaña?')">
+            <form method="post" action="{% url 'admin_campana_crear' %}" class="row g-2 align-items-end mb-3" onsubmit="return confirmarConModal(this, '¿Programar esta campaña?')">
               {% csrf_token %}
               <div class="col-12 col-md-4">
                 <label class="form-label small fw-semibold mb-1">Anuncio</label>
@@ -611,7 +611,7 @@ Descárgala en juventinorosasliga.com/apk/descargar/</textarea>
                     <td class="text-end text-nowrap">
                       <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="accion" value="enviar"><button class="btn btn-outline-success btn-sm py-0" title="Enviar ahora">Enviar ahora</button></form>
                       <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="accion" value="toggle"><button class="btn btn-outline-secondary btn-sm py-0">{% if c.activa %}Pausar{% else %}Activar{% endif %}</button></form>
-                      <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar esta campaña?')">{% csrf_token %}<input type="hidden" name="accion" value="eliminar"><button class="btn btn-outline-danger btn-sm py-0">Eliminar</button></form>
+                      <form method="post" action="{% url 'admin_campana_accion' c.id %}" class="d-inline" onsubmit="return confirmarConModal(this, '¿Eliminar esta campaña?')">{% csrf_token %}<input type="hidden" name="accion" value="eliminar"><button class="btn btn-outline-danger btn-sm py-0">Eliminar</button></form>
                     </td>
                   </tr>
                   {% endfor %}
@@ -941,6 +941,25 @@ Descárgala en juventinorosasliga.com/apk/descargar/</textarea>
   </div>
 </div>
 
+<div class="modal fade" id="modalConfirmar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title"><i class="bi bi-exclamation-circle"></i> Confirmar acción</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="modalConfirmarTexto" class="mb-2"></p>
+        <p class="small text-muted mb-0">Si es una notificación, se enviará de verdad a los dispositivos seleccionados.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="ejecutarConfirmacion()">Sí, continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Toggle activo/inactivo (usa /api/unregister-device/ para desactivar)
 function toggleDevice(token, activate, btn) {
@@ -1121,7 +1140,26 @@ function confirmarEnvio(form) {
     var aud = document.getElementById('campAudiencia');
     var etiqueta = aud.options[aud.selectedIndex].text;
     var que = tipo === 'publicidad' ? 'la publicidad' : 'la actualización';
-    return confirm('¿Enviar ' + que + ' a ' + etiqueta + '?');
+    return confirmarConModal(form, '¿Enviar ' + que + ' a ' + etiqueta + '?');
+}
+
+// Confirmación con modal de Bootstrap (sin alerts nativos del navegador)
+var _formPendiente = null;
+function confirmarConModal(form, mensaje) {
+    if (!form.reportValidity()) { return false; }
+    _formPendiente = form;
+    document.getElementById('modalConfirmarTexto').textContent = mensaje;
+    var el = document.getElementById('modalConfirmar');
+    bootstrap.Modal.getOrCreateInstance(el).show();
+    return false;
+}
+function ejecutarConfirmacion() {
+    var form = _formPendiente;
+    _formPendiente = null;
+    var el = document.getElementById('modalConfirmar');
+    var modal = bootstrap.Modal.getInstance(el);
+    if (modal) { modal.hide(); }
+    if (form) { form.submit(); }
 }
 
 // Abrir la pestaña indicada por ?tab=enviar
