@@ -2312,6 +2312,17 @@ def notificacion_imagen(request, formato):
     return respuesta
 
 
+def actualizar_app(request):
+    """Página pública que invita a descargar la última versión de la APK."""
+    from .models import ConfiguracionLiga
+
+    cfg = ConfiguracionLiga.obtener()
+    return render(request, "league/actualizar.html", {
+        "nombre_liga": (cfg.nombre_liga if cfg else "") or "Liga",
+        "logo_url": cfg.logo.url if cfg and cfg.logo else "",
+    })
+
+
 @login_required
 def test_database_connection(request):
     if not request.user.is_superuser:

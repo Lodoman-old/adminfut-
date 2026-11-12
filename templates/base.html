@@ -541,6 +541,14 @@
                         body: JSON.stringify({ token: token.value, plataforma: 'android', device_id: window.__deviceId })
                     });
                 });
+                // Al tocar una notificación, abrir la pantalla indicada en data.url
+                Capacitor.Plugins.PushNotifications.addListener('pushNotificationActionPerformed', function(action) {
+                    var data = (action && action.notification && action.notification.data) || {};
+                    var url = data.url || (data.type === 'actualizacion' ? '/actualizar/' : '');
+                    if (url && url.charAt(0) === '/') {
+                        window.location.href = url;
+                    }
+                });
                 return;
             }
             if (attempts < 20) setTimeout(checkPush, 200);

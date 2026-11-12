@@ -302,6 +302,7 @@ RUTAS_PUBLICAS = {
     '/tabla-castigados/',
     '/reglamento/descargar/',
     '/apk/descargar/',
+    '/actualizar/',  # página pública para actualizar la app
     '/suscripcion/',
     '/reportes/registro/',  # reporte de registro: visible para cualquiera (logueado o no)
     '/reportes/altas/',  # reporte público de altas de jugadores

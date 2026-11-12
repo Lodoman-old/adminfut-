@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Actualiza AdminFut</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; padding: 20px 14px 40px;
+            background: linear-gradient(160deg, #1a3a15 0%, #2d6b2e 55%, #1a3a15 100%);
+            color: #1c201c; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            display: flex; align-items: flex-start; justify-content: center;
+        }
+        .card {
+            width: 100%; max-width: 460px; background: #fff; border-radius: 18px;
+            padding: 24px 20px; box-shadow: 0 12px 34px rgba(0,0,0,.35);
+        }
+        .logo { display: block; max-width: 220px; max-height: 110px; margin: 0 auto 14px; object-fit: contain; }
+        .liga { text-align: center; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #6b736b; margin-bottom: 14px; }
+        h1 { font-size: 22px; margin: 0 0 6px; text-align: center; color: #1a3a15; }
+        .version { text-align: center; color: #2d6b2e; font-weight: 700; margin-bottom: 16px; }
+        ul { margin: 0 0 18px; padding-left: 20px; color: #333; font-size: 14px; line-height: 1.6; }
+        .btn {
+            display: block; text-align: center; text-decoration: none;
+            background: #2d6b2e; color: #fff; font-weight: 700; font-size: 16px;
+            padding: 14px 16px; border-radius: 12px;
+        }
+        .btn:hover { background: #1a3a15; color: #fff; }
+        .nota { margin: 14px 0 0; font-size: 12px; color: #6b736b; line-height: 1.5; text-align: center; }
+        .nota code { background: #eef5ee; padding: 2px 5px; border-radius: 4px; color: #1a3a15; word-break: break-all; }
+        .volver { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #2d6b2e; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt="{{ nombre_liga }}">{% endif %}
+    <div class="liga">{{ nombre_liga }}</div>
+    <h1>Actualiza AdminFut</h1>
+    <div class="version">Versión 1.2 disponible</div>
+    <ul>
+        <li>Logo de la liga en las notificaciones push.</li>
+        <li>Icono de la liga en la barra de estado.</li>
+        <li>Mejoras y correcciones generales.</li>
+    </ul>
+    <a class="btn" href="/apk/descargar/">Descargar APK (7.2 MB)</a>
+    <p class="nota">
+        Si el botón no descarga dentro de la app, abre este enlace en Chrome:<br>
+        <code>juventinorosasliga.com/apk/descargar/</code>
+    </p>
+    <a class="volver" href="/">Volver al inicio</a>
+</div>
+</body>
+</html>
