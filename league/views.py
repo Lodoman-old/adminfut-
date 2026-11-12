@@ -1170,7 +1170,10 @@ def admin_push_logs(request):
     anuncios_alerta.sort(key=lambda x: x.dias_restantes)
     anuncios_vencidos = [a for a in anuncios_alerta if a.dias_restantes < 0]
     anuncios_por_vencer = [a for a in anuncios_alerta if a.dias_restantes >= 0]
-    anuncios_publicables = [a for a in anuncios if a.activo and a.vigente()]
+    anuncios_publicables = [
+        a for a in anuncios
+        if a.activo and (not a.fecha_fin or a.fecha_fin >= hoy_ads)
+    ]
     campanas = list(
         CampanaPublicidad.objects.select_related("anuncio").order_by("-creada")[:50]
     )
@@ -1535,6 +1538,9 @@ def admin_push_campana(request):
         if not anuncio:
             messages.error(request, "Selecciona un anuncio activo para enviar publicidad.")
             return redirect(destino)
+        if not anuncio.vigente():
+            messages.error(request, "Ese anuncio aún no empieza o ya venció.")
+            return redirect(destino)
         cfg = ConfiguracionLiga.obtener()
         liga = ((cfg.nombre_liga if cfg else "") or "La liga").strip()
         titulo = titulo or liga
@@ -1610,6 +1616,13 @@ def admin_campana_crear(request):
     ).first()
     if not anuncio:
         messages.error(request, "Selecciona un anuncio activo.")
+        return redirect(destino)
+
+    if CampanaPublicidad.objects.filter(anuncio=anuncio, activa=True).exists():
+        messages.warning(
+            request,
+            f"Ya hay una campaña activa para “{anuncio.titulo}”. Páusala o elimínala antes de crear otra.",
+        )
         return redirect(destino)
 
     try:
