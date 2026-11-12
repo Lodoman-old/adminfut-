@@ -61,8 +61,9 @@ self.addEventListener('push', function (event) {
   var title = payload.title || 'AdminFut';
   var options = {
     body: payload.body || '',
-    icon: '/pwa-icon/icon-192.png',
-    badge: '/pwa-icon/badge-96.png',
+    icon: payload.icon || '/notificaciones/icono.png',
+    badge: payload.badge || '/pwa-icon/badge-96.png',
+    image: payload.image || '/notificaciones/banner.png',
     data: payload.data || {},
     vibrate: [100, 50, 100]
   };

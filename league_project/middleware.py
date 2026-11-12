@@ -198,7 +198,7 @@ class RateLimitMiddleware:
     )
     EXENTOS = (
         '/api/', '/health/', '/static/', '/media/', '/sw.js',
-        '/pwa-icon/', '/manifest.webmanifest',
+        '/pwa-icon/', '/manifest.webmanifest', '/notificaciones/',
     )
 
     def __init__(self, get_response):
@@ -338,6 +338,7 @@ PREFIJOS_PUBLICOS = (
     '/admin/',
     '/api/offline/',  # autenticación propia con Bearer token
     '/pwa-icon/',
+    '/notificaciones/',  # imágenes de marca de las notificaciones push
     '/publicidad/',  # página pública de detalle de anuncios
     '/equipo/',  # ficha pública de equipo
     '/jugador/',  # ficha pública de jugador
@@ -495,7 +496,7 @@ class ContadorVisitasMiddleware:
     navegando antes de esa hora, se considera parte de la misma visita.
     """
     NOS_CONTAR = ('/admin/', '/media/', '/static/', '/api/', '/health/',
-                  '/sw.js', '/manifest.webmanifest', '/pwa-icon/')
+                  '/sw.js', '/manifest.webmanifest', '/pwa-icon/', '/notificaciones/')
     BOTS = re.compile(
         r'(bot|spider|crawl|slurp|bingpreview|facebookexternalhit|whatsapp|'
         r'curl|wget|python-requests|python-urllib|go-http-client|ahrefs|mj12|'

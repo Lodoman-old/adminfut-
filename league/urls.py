@@ -154,6 +154,7 @@ urlpatterns = [
     path("sw.js", views.service_worker, name="sw_js"),
     path("manifest.webmanifest", views.manifest_webmanifest, name="manifest_webmanifest"),
     path("pwa-icon/<str:nombre>", views.pwa_icon, name="pwa_icon"),
+    path("notificaciones/<str:formato>.png", views.notificacion_imagen, name="notificacion_imagen"),
 
     # Quiniela
     path("quiniela/", views.quiniela, name="quiniela"),

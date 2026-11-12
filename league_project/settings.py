@@ -10,6 +10,9 @@ DEBUG = (os.environ.get('DEBUG', 'False') == 'True') or (os.environ.get('DJANGO_
 
 ALLOWED_HOSTS = (os.environ.get('ALLOWED_HOSTS', '') or os.environ.get('DJANGO_ALLOWED_HOSTS', '*')).split(',')
 
+# URL pública del sitio (para imágenes y enlaces en notificaciones push).
+SITE_URL = (os.environ.get('SITE_URL') or 'https://juventinorosasliga.com').rstrip('/')
+
 # Detrás del proxy de Coolify (Traefik): respetar el esquema original para
 # generar URLs absolutas https (Open Graph, enlaces de compartir, etc.).
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

@@ -2285,6 +2285,33 @@ def pwa_icon(request, nombre):
     return HttpResponse(path.read_bytes(), content_type="image/png")
 
 
+FORMATOS_NOTIFICACION = ("banner", "icono", "badge")
+
+
+def notificacion_imagen(request, formato):
+    """Imagen de marca para las notificaciones (pública y cacheada).
+
+    Google/Chrome y los dispositivos la descargan sin sesión, por eso vive
+    fuera de las rutas privadas. Se regenera cada 24 h por si cambia el logo.
+    """
+    from django.core.cache import cache
+
+    if formato not in FORMATOS_NOTIFICACION:
+        raise Http404("Imagen no disponible")
+    clave = f"notif_img_{formato}_v1"
+    data = cache.get(clave)
+    if not data:
+        from .notification_image import generar
+        data = generar(formato)
+        if not data:
+            raise Http404("No hay logo configurado")
+        cache.set(clave, data, 60 * 60 * 24)
+    respuesta = HttpResponse(data, content_type="image/png")
+    respuesta["Cache-Control"] = "public, max-age=86400"
+    respuesta["Content-Disposition"] = f'inline; filename="{formato}.png"'
+    return respuesta
+
+
 @login_required
 def test_database_connection(request):
     if not request.user.is_superuser:

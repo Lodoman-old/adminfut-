@@ -99,6 +99,12 @@ def _try_init():
         return False
 
 
+def _url_notificacion(nombre):
+    """URL pública y absoluta de una imagen de notificación."""
+    base = getattr(settings, "SITE_URL", "") or "https://juventinorosasliga.com"
+    return "{}/notificaciones/{}.png".format(base.rstrip("/"), nombre)
+
+
 def send_push_notification(tokens, title, body, data=None):
     if not tokens:
         _add_log({"tipo": "SEND", "detalle": "Sin tokens para enviar", "success": 0, "failure": 0})
@@ -112,10 +118,20 @@ def send_push_notification(tokens, title, body, data=None):
     if isinstance(tokens, str):
         tokens = [tokens]
 
+    imagen = _url_notificacion("banner")
+    android = messaging.AndroidConfig(
+        priority="high",
+        notification=messaging.AndroidNotification(
+            image=imagen,
+            color="#1a3a15",
+        ),
+    )
+
     message = messaging.MulticastMessage(
-        notification=messaging.Notification(title=title, body=body),
+        notification=messaging.Notification(title=title, body=body, image=imagen),
         data=data or {},
         tokens=tokens,
+        android=android,
     )
 
     try:
@@ -178,6 +194,9 @@ def _enviar_webpush(devices, title, body, data=None):
     payload = json.dumps({
         "title": title,
         "body": body,
+        "icon": _url_notificacion("icono"),
+        "image": _url_notificacion("banner"),
+        "badge": _url_notificacion("badge"),
         "data": data or {},
     }, ensure_ascii=False)
 
