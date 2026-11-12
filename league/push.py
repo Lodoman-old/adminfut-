@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import logging
+import time
 from datetime import datetime
 from django.conf import settings
 from django.db import models
@@ -105,6 +106,29 @@ def _url_notificacion(nombre):
     return "{}/notificaciones/{}.png".format(base.rstrip("/"), nombre)
 
 
+def _codigo_error(resp):
+    """Código de error de Firebase normalizado a texto (UNREGISTERED, ...)."""
+    try:
+        code = getattr(resp.exception, "code", None)
+        if code is None:
+            return ""
+        code = getattr(code, "value", code)
+        code = str(code).upper()
+        if code.startswith("ERRORCODE."):
+            code = code.split(".", 1)[1]
+        return code
+    except Exception:
+        return ""
+
+
+def _es_invalido(code):
+    return code in ("UNREGISTERED", "INVALID_ARGUMENT")
+
+
+def _es_transitorio(code):
+    return code in ("UNAVAILABLE", "INTERNAL", "QUOTA_EXCEEDED", "UNKNOWN")
+
+
 def send_push_notification(tokens, title, body, data=None):
     if not tokens:
         _add_log({"tipo": "SEND", "detalle": "Sin tokens para enviar", "success": 0, "failure": 0})
@@ -127,45 +151,61 @@ def send_push_notification(tokens, title, body, data=None):
         ),
     )
 
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(title=title, body=body, image=imagen),
-        data=data or {},
-        tokens=tokens,
-        android=android,
-    )
+    def _mensaje(lista):
+        return messaging.MulticastMessage(
+            notification=messaging.Notification(title=title, body=body, image=imagen),
+            data=data or {},
+            tokens=lista,
+            android=android,
+        )
 
     try:
-        response = messaging.send_each_for_multicast(message)
-        try:
-            codigos_invalidos = set(filter(None, [
-                getattr(messaging.ErrorCode, "UNREGISTERED", None),
-                getattr(messaging.ErrorCode, "INVALID_ARGUMENT", None),
-            ]))
-        except AttributeError:
-            codigos_invalidos = set()
-        invalid = []
+        response = messaging.send_each_for_multicast(_mensaje(tokens))
+        exitos = response.success_count
+        invalidos = []
+        reintentar = []
+        codigos = {}
         for resp, tok in zip(response.responses, tokens):
-            if not resp.success:
-                code = getattr(resp.exception, "code", None)
-                es_invalido = (
-                    code in codigos_invalidos
-                    or (isinstance(code, str) and code.upper() in ("UNREGISTERED", "INVALID_ARGUMENT"))
-                )
-                if es_invalido:
-                    invalid.append(tok)
-        detalle = f"Push enviado: {response.success_count} ok, {response.failure_count} fail"
-        if invalid:
+            if resp.success:
+                continue
+            code = _codigo_error(resp)
+            codigos[code or "ERROR"] = codigos.get(code or "ERROR", 0) + 1
+            if _es_invalido(code):
+                invalidos.append(tok)
+            elif _es_transitorio(code):
+                reintentar.append(tok)
+
+        detalle = f"Push enviado: {exitos} ok, {response.failure_count} fail"
+
+        # Un reintento para errores temporales de Firebase.
+        if reintentar:
+            time.sleep(1)
+            response2 = messaging.send_each_for_multicast(_mensaje(reintentar))
+            exitos += response2.success_count
+            detalle += f", reintento {len(reintentar)}: {response2.success_count} ok"
+            for resp, tok in zip(response2.responses, reintentar):
+                if resp.success:
+                    continue
+                code = _codigo_error(resp)
+                codigos[code or "ERROR"] = codigos.get(code or "ERROR", 0) + 1
+                if _es_invalido(code):
+                    invalidos.append(tok)
+
+        fallos = len(tokens) - exitos
+        if codigos:
+            detalle += " (" + ", ".join(f"{k}:{v}" for k, v in sorted(codigos.items())) + ")"
+        if invalidos:
             try:
                 from .models import DeviceToken
-                DeviceToken.objects.filter(token__in=invalid).update(
+                DeviceToken.objects.filter(token__in=invalidos).update(
                     activo=False,
                     desactivado_motivo="Firebase: token inválido o app desinstalada",
                 )
-                detalle += f", {len(invalid)} token(s) inválidos desactivados"
+                detalle += f", {len(invalidos)} token(s) inválidos desactivados"
             except Exception:
                 pass
-        _add_log({"tipo": "SEND", "detalle": detalle, "success": response.success_count, "failure": response.failure_count})
-        return {"success": response.success_count, "failure": response.failure_count}
+        _add_log({"tipo": "SEND", "detalle": detalle, "success": exitos, "failure": fallos})
+        return {"success": exitos, "failure": fallos}
     except Exception as e:
         logger.error("Push send failed: %s", e)
         _add_log({"tipo": "SEND", "detalle": f"Error al enviar push: {e}", "success": 0, "failure": 0, "error": str(e)})
