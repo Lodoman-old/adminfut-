@@ -168,11 +168,19 @@ def _texto_anuncio(canvas, anuncio):
             pass
     draw = ImageDraw.Draw(canvas)
     titulo = (anuncio.titulo or "").strip()
-    while titulo and draw.textlength(titulo, font=_font(64, bold=True)) > canvas.width * 0.82:
-        titulo = titulo[:-1]
+    fuente = None
+    for tamano in (64, 56, 48, 40, 34):
+        fuente = _font(tamano, bold=True)
+        if draw.textlength(titulo, font=fuente) <= canvas.width * 0.86:
+            break
+    else:
+        fuente = _font(34, bold=True)
+        while titulo and draw.textlength(titulo, font=fuente) > canvas.width * 0.86:
+            titulo = titulo[:-1]
+        titulo = titulo.rstrip(" -–—") + "…"
     draw.text(
         (canvas.width // 2, canvas.height // 2 - 10),
-        titulo, font=_font(64, bold=True), fill=fill, anchor="mm",
+        titulo, font=fuente, fill=fill, anchor="mm",
     )
     if anuncio.descripcion:
         lineas = textwrap.wrap(anuncio.descripcion, width=46)[:2]

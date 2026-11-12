@@ -2520,7 +2520,7 @@ def notificacion_anuncio(request, pk, formato):
         raise Http404("Imagen no disponible")
     anuncio = get_object_or_404(Anuncio, pk=pk)
     actualizado = int(anuncio.actualizado.timestamp()) if anuncio.actualizado else 0
-    clave = f"notif_ad_{pk}_{formato}_{actualizado}"
+    clave = f"notif_ad_{pk}_{formato}_v2_{actualizado}"
     data = cache.get(clave)
     if not data:
         data = generar_anuncio(anuncio, formato)
