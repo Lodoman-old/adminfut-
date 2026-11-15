@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% block title %}{{ anuncio.titulo }} - Publicidad{% endblock %}
 {% block extra_head %}
 <style>
@@ -29,11 +30,11 @@
 
       {% if anuncio.imagen_cuadrada %}
       <div class="text-center mb-4">
-        <img src="{{ anuncio.imagen_cuadrada.url }}" class="ad-square-img" alt="{{ anuncio.titulo }}">
+        <img src="{{ anuncio.imagen_cuadrada.url|cloudinary_opt:'w_900,c_limit,f_auto,q_auto' }}" class="ad-square-img" alt="{{ anuncio.titulo }}">
       </div>
       {% elif anuncio.imagen %}
       <div class="mb-4">
-        <img src="{{ anuncio.imagen.url }}" class="ad-square-img" alt="{{ anuncio.titulo }}">
+        <img src="{{ anuncio.imagen.url|cloudinary_opt:'w_1200,c_limit,f_auto,q_auto' }}" class="ad-square-img" alt="{{ anuncio.titulo }}">
       </div>
       {% endif %}
 

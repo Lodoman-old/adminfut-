@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% load static %}
 {% block title %}{{ jugador.nombre }} {{ jugador.apellido }} - Ficha de Jugador{% endblock %}
 {% block extra_head %}
@@ -67,7 +68,7 @@
           <div class="list-row">
             <div class="list-row-left">
               {% if item.equipo.logo %}
-                <img src="{{ item.equipo.logo.url }}" alt="" class="list-row-logo">
+                <img src="{{ item.equipo.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" alt="" class="list-row-logo">
               {% else %}
                 <div class="list-row-logo d-flex align-items-center justify-content-center"><i class="bi bi-shield"></i></div>
               {% endif %}
@@ -96,7 +97,7 @@
           <div class="list-row">
             <div class="list-row-left">
               {% if item.equipo.logo %}
-                <img src="{{ item.equipo.logo.url }}" alt="" class="list-row-logo">
+                <img src="{{ item.equipo.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" alt="" class="list-row-logo">
               {% else %}
                 <div class="list-row-logo d-flex align-items-center justify-content-center"><i class="bi bi-shield"></i></div>
               {% endif %}

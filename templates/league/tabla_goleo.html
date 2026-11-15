@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% load static %}
 {% block title %}Tabla de Goleo - AdminFut{% endblock %}
 {% block extra_head %}
@@ -131,7 +132,7 @@
               <div style="position:absolute;top:5px;right:10px;font-size:0.8rem;background:rgba(255,215,0,0.2);padding:2px 8px;border-radius:10px;">
                   #{{ forloop.counter }}
               </div>
-              {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if g.jugador__foto_url %}
               <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
@@ -160,7 +161,7 @@
               <div style="position:absolute;top:5px;right:10px;font-size:0.8rem;background:rgba(255,215,0,0.2);padding:2px 8px;border-radius:10px;">
                   #{{ forloop.counter }}
               </div>
-              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               <div class="fw-bold" style="font-size:0.85rem">{{ e.equipo__nombre }}</div>
               <small class="text-white-50">{{ e.total_goles }} goles en temporada</small>
               <div><span class="badge bg-success text-white mt-2 fs-5">{{ e.total_goles }} GOLES</span></div>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% block title %}Castigados - AdminFut{% endblock %}
 {% block extra_head %}
 <style>
@@ -109,7 +110,7 @@
     {% for c in castigados %}
     <div class="col-md-4 col-lg-3 col-sm-6 mb-3">
         <div class="player-card-small">
-            {% if c.equipo.logo %}<img src="{{ c.equipo.logo.url }}" class="team-logo-bg" alt="">{% else %}<div class="team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+            {% if c.equipo.logo %}<img src="{{ c.equipo.logo.url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% else %}<div class="team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
             {% if c.jugador.foto %}
             <img src="{{ c.jugador.foto.url }}" class="player-avatar" alt="">
             {% else %}

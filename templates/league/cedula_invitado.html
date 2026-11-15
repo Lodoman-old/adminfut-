@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% block title %}Cédula Arbitral - {{ partido }}{% endblock %}
 {% block content %}
 <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -29,7 +30,7 @@
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
                     {% if partido.equipo_local.logo %}
-                    <img src="{{ partido.equipo_local.logo.url }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
+                    <img src="{{ partido.equipo_local.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
                     {% else %}
                     <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center">
                         <i class="bi bi-shield" style="font-size:1rem"></i>
@@ -80,7 +81,7 @@
             <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
                     {% if partido.equipo_visitante.logo %}
-                    <img src="{{ partido.equipo_visitante.logo.url }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
+                    <img src="{{ partido.equipo_visitante.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="rounded-circle" style="width:36px;height:36px;object-fit:contain;background:rgba(255,255,255,0.2)">
                     {% else %}
                     <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center">
                         <i class="bi bi-shield" style="font-size:1rem"></i>

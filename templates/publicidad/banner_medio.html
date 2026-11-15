@@ -1,10 +1,11 @@
+{% load league_extras %}
 {% for a in anuncios %}
 {% if a.tamano == "MEDIO" %}
 <div class="card banner-anuncio banner-medio mb-3 shadow-sm border-primary" data-anuncio-id="{{ a.id }}">
   <a href="{% url 'detalle_anuncio' a.id %}" class="text-decoration-none d-block">
     {% if a.imagen %}
     <div class="banner-franja">
-      <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}" class="banner-franja-img">
+      <img src="{{ a.imagen.url|cloudinary_opt:'w_900,c_limit,f_auto,q_auto' }}" alt="{{ a.titulo }}" class="banner-franja-img">
       <span class="badge bg-light text-dark banner-franja-badge"><i class="bi bi-megaphone"></i> Publicidad</span>
       {% if a.enlace %}<span class="btn btn-light btn-sm btn-anuncio banner-franja-btn"><i class="bi bi-box-arrow-up-right"></i> Ver más</span>{% endif %}
     </div>

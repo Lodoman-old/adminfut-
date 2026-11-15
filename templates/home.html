@@ -408,7 +408,7 @@ body {
   <div class="hero-top">
     <div class="hero-brand">
       {% if config and config.logo %}
-      <img id="logoLiga" class="hero-logo" src="{{ config.logo.url }}" alt="{{ config.nombre_liga }}">
+      <img id="logoLiga" class="hero-logo" src="{{ config.logo.url|cloudinary_opt:'w_400,c_limit,f_auto,q_auto' }}" alt="{{ config.nombre_liga }}">
       {% endif %}
       <div class="hero-titles">
         {% if config.segunda_linea %}
@@ -500,7 +500,7 @@ body {
         <div class="match-row">
           <div class="match-team-col">
             <a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none d-block">
-              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
               <strong>{{ p.equipo_local.nombre }}</strong>
             </a>
           </div>
@@ -521,7 +521,7 @@ body {
           </div>
           <div class="match-team-col">
             <a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none d-block">
-              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
               <strong>{{ p.equipo_visitante.nombre }}</strong>
             </a>
           </div>
@@ -555,7 +555,7 @@ body {
           {% for e in top_equipos_goles %}
           <div class="col-6 col-md-4 mb-3">
             <div class="player-card compact">
-              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url }}" class="match-team-logo d-block mx-auto mb-1" alt="">
+              {% if e.equipo__logo_url %}<img src="{{ e.equipo__logo_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo d-block mx-auto mb-1" alt="">
               {% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
               <div class="fw-bold" style="font-size:0.85rem">{{ e.equipo__nombre }}</div>
               <div><span class="badge bg-warning text-dark mt-2 fs-5">{{ e.total }}<br><small>GOLES</small></span></div>
@@ -594,7 +594,7 @@ body {
               <div class="col-md-6 col-lg-4 mb-2">
                 <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
-                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
                   <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
@@ -624,7 +624,7 @@ body {
               <div class="col-md-6 col-lg-4 mb-2">
                 <div class="player-card">
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
-                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+                  {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
                   <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
@@ -667,7 +667,7 @@ body {
         <div class="match-row" style="border-left-color:var(--pitch-light)">
           {% with agregado=p.agregado_info %}
           <div class="match-team-col{% if agregado and agregado.avanza_local == True %} avanzado{% endif %}">
-            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
             <strong><a href="{% url 'equipo_ficha' p.equipo_local.id %}" class="text-reset text-decoration-none">{{ p.equipo_local.nombre }}</a></strong>
           </div>
           <div class="match-center-col">
@@ -687,7 +687,7 @@ body {
             {% endif %}
           </div>
           <div class="match-team-col{% if agregado and agregado.avanza_local == False %} avanzado{% endif %}">
-            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
+            {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo d-block mx-auto mb-1" alt="">{% else %}<div class="match-team-placeholder mx-auto mb-1"><i class="bi bi-shield"></i></div>{% endif %}
             <strong><a href="{% url 'equipo_ficha' p.equipo_visitante.id %}" class="text-reset text-decoration-none">{{ p.equipo_visitante.nombre }}</a></strong>
           </div>
           {% endwith %}
@@ -714,7 +714,7 @@ body {
           <div class="col-md-4 mb-2">
             <div class="player-card compact" style="background: linear-gradient(135deg, #3d2a1a, #5a3d2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
-              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
               <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
@@ -749,7 +749,7 @@ body {
           <div class="col-md-4 mb-2">
             <div class="player-card compact" style="background: linear-gradient(135deg, #2a1a1a, #5a2a2a);">
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
-              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
               <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
               {% else %}
@@ -783,7 +783,7 @@ body {
           {% for t in castigados %}
           <div class="col-6 col-md-4 mb-2">
             <div class="player-card compact" style="background: linear-gradient(135deg, #1a1a1a, #3a2a2a);">
-              {% if t.equipo.logo %}<img src="{{ t.equipo.logo.url }}" class="team-logo-bg" alt="">{% endif %}
+              {% if t.equipo.logo %}<img src="{{ t.equipo.logo.url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador.foto %}
               <img src="{{ t.jugador.foto.url }}" class="player-avatar" alt="">
               {% else %}

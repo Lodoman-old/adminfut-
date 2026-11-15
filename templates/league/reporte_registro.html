@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% load static %}
 {% block title %}Registro de jugadores - {{ liga.nombre|default:"AdminFut" }}{% endblock %}
 {% block content %}
@@ -36,7 +37,7 @@
 {% if equipo %}
 <div class="card mb-3">
     <div class="card-body d-flex align-items-center gap-3">
-        {% if equipo.logo %}<img src="{{ equipo.logo.url }}" alt="{{ equipo.nombre }}" style="width:52px;height:52px;object-fit:contain">{% else %}<i class="bi bi-shield" style="font-size:2.2rem;color:#6c757d"></i>{% endif %}
+        {% if equipo.logo %}<img src="{{ equipo.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" alt="{{ equipo.nombre }}" style="width:52px;height:52px;object-fit:contain">{% else %}<i class="bi bi-shield" style="font-size:2.2rem;color:#6c757d"></i>{% endif %}
         <div>
             <h5 class="mb-0">{{ equipo.nombre }}</h5>
             <small class="text-muted">{{ equipo.categoria.nombre }}</small>

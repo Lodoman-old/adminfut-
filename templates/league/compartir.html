@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load league_extras %}
 <html lang="es">
 <head>
     <meta charset="utf-8">
@@ -108,7 +109,7 @@
         <div class="sponsor-label">Patrocinado por</div>
         <a href="{% url 'detalle_anuncio' a.id %}?origen=compartido">
             {% if a.imagen %}
-            <img src="{{ a.imagen.url }}" alt="{{ a.titulo }}">
+            <img src="{{ a.imagen.url|cloudinary_opt:'w_800,c_limit,f_auto,q_auto' }}" alt="{{ a.titulo }}">
             {% else %}
             <div class="sponsor-box" style="{% if a.color_fondo %}background: {{ a.color_fondo }};{% else %}background: #225428;{% endif %}">
                 <strong>{{ a.titulo }}</strong>

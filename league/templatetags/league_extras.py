@@ -1,11 +1,29 @@
 from django import template
 
+import re
+
 register = template.Library()
 
 MAPA_ALERTAS = {
     "error": "danger",
     "debug": "secondary",
 }
+
+
+@register.filter
+def cloudinary_opt(url, transform="f_auto,q_auto"):
+    """Inserta una transformación de Cloudinary en la URL.
+
+    Si la URL no es de Cloudinary (por ejemplo /media/...), se devuelve igual.
+    Si ya trae una transformación, no se apila otra.
+    """
+    if not url or "res.cloudinary.com" not in str(url) or "/upload/" not in str(url):
+        return url
+    base, rest = str(url).split("/upload/", 1)
+    primera = rest.split("/", 1)[0]
+    if re.match(r"^v\d+", primera):
+        return f"{base}/upload/{transform}/{rest}"
+    return url
 
 
 @register.filter

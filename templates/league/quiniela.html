@@ -43,7 +43,7 @@
     <div class="card-body">
       <div class="row align-items-center text-center g-2">
         <div class="col-4">
-          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
           <strong class="small">{{ p.equipo_local.nombre }}</strong>
         </div>
         <div class="col-4">
@@ -76,7 +76,7 @@
           {% endif %}
         </div>
         <div class="col-4">
-          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
           <strong class="small">{{ p.equipo_visitante.nombre }}</strong>
         </div>
       </div>
@@ -96,7 +96,7 @@
     <div class="card-body">
       <div class="row align-items-center text-center g-2">
         <div class="col-4">
-          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
           <strong class="small">{{ p.equipo_local.nombre }}</strong>
         </div>
         <div class="col-4">
@@ -115,7 +115,7 @@
           {% if p.estado == "FIN" %}<span class="badge bg-success fs-6 mt-1">FIN</span>{% else %}<span class="badge bg-secondary fs-6 mt-1">{{ p.estado }}</span>{% endif %}
         </div>
         <div class="col-4">
-          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
+          {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="mx-auto d-block mb-1" style="width:42px;height:42px;object-fit:contain;" alt="">{% else %}<div class="mx-auto mb-1" style="width:42px;height:42px;"><i class="bi bi-shield" style="font-size:1.6rem;"></i></div>{% endif %}
           <strong class="small">{{ p.equipo_visitante.nombre }}</strong>
         </div>
       </div>

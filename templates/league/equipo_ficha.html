@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load league_extras %}
 {% load static %}
 {% block title %}{{ equipo.nombre }} - {{ categoria.nombre }}{% endblock %}
 {% block extra_head %}
@@ -247,7 +248,7 @@
 <div class="team-hero">
   <div class="team-hero-inner">
     {% if equipo.logo %}
-      <img src="{{ equipo.logo.url }}" alt="{{ equipo.nombre }}" class="team-hero-logo">
+      <img src="{{ equipo.logo.url|cloudinary_opt:'w_500,c_limit,f_auto,q_auto' }}" alt="{{ equipo.nombre }}" class="team-hero-logo">
     {% else %}
       <div class="team-hero-logo-placeholder">
         <i class="bi bi-shield-fill"></i>
@@ -432,7 +433,7 @@
           {% for p in ultimos %}
           <div class="match-row">
             <div class="match-team">
-              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
               <div class="match-team-name">{{ p.equipo_local.nombre }}</div>
             </div>
             <div class="match-score">
@@ -441,7 +442,7 @@
             </div>
             <div class="match-team right">
               <div class="match-team-name">{{ p.equipo_visitante.nombre }}</div>
-              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
             </div>
           </div>
           {% endfor %}
@@ -461,7 +462,7 @@
           {% for p in proximos %}
           <div class="match-row">
             <div class="match-team">
-              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_local.logo %}<img src="{{ p.equipo_local.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
               <div class="match-team-name">{{ p.equipo_local.nombre }}</div>
             </div>
             <div class="match-score">
@@ -471,7 +472,7 @@
             </div>
             <div class="match-team right">
               <div class="match-team-name">{{ p.equipo_visitante.nombre }}</div>
-              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
+              {% if p.equipo_visitante.logo %}<img src="{{ p.equipo_visitante.logo.url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="match-team-logo" alt="">{% else %}<div class="match-team-logo-placeholder"><i class="bi bi-shield"></i></div>{% endif %}
             </div>
           </div>
           {% endfor %}

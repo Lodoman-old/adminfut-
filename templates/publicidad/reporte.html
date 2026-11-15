@@ -1,3 +1,4 @@
+{% load league_extras %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -38,7 +39,7 @@
 <body>
 <div class="hoja">
   <div class="top">
-    {% if config.logo %}<img src="{{ config.logo.url }}" alt="">{% endif %}
+    {% if config.logo %}<img src="{{ config.logo.url|cloudinary_opt:'w_400,c_limit,f_auto,q_auto' }}" alt="">{% endif %}
     <div>
       <h1>{{ config.nombre_liga }}</h1>
       <div class="muted">Reporte de publicidad · {{ mes_nombre|capfirst }} {{ anio }}</div>
