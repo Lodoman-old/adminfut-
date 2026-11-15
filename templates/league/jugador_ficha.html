@@ -29,7 +29,7 @@
 <div class="player-hero">
   <div class="player-hero-inner">
     {% if jugador.foto %}
-      <img src="{{ jugador.foto.url }}" alt="{{ jugador.nombre }} {{ jugador.apellido }}" class="player-hero-avatar">
+      <img src="{{ jugador.foto.url|cloudinary_opt:'w_500,c_limit,f_auto,q_auto' }}" alt="{{ jugador.nombre }} {{ jugador.apellido }}" class="player-hero-avatar">
     {% else %}
       <div class="player-hero-avatar-placeholder">
         <i class="bi bi-person-fill"></i>

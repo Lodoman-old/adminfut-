@@ -785,7 +785,7 @@ body {
             <div class="player-card compact" style="background: linear-gradient(135deg, #1a1a1a, #3a2a2a);">
               {% if t.equipo.logo %}<img src="{{ t.equipo.logo.url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador.foto %}
-              <img src="{{ t.jugador.foto.url }}" class="player-avatar" alt="">
+              <img src="{{ t.jugador.foto.url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
