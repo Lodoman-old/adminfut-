@@ -333,7 +333,7 @@
           <div class="player-row">
             <a href="{% url 'jugador_ficha' j.obj.id %}">
             {% if j.foto_url %}
-              <img src="{{ j.foto_url }}" alt="{{ j.obj.nombre }} {{ j.obj.apellido }}" class="player-row-avatar">
+              <img src="{{ j.foto_url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" alt="{{ j.obj.nombre }} {{ j.obj.apellido }}" class="player-row-avatar">
             {% else %}
               <div class="player-row-avatar-placeholder">
                 <i class="bi bi-person-fill"></i>
@@ -368,7 +368,7 @@
           <div class="list-stat">
             <div class="list-stat-left">
               {% if g.foto_url %}
-                <img src="{{ g.foto_url }}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="{{ g.foto_url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
               {% else %}
                 <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f1f3f5;color:#adb5bd;">
                   <i class="bi bi-person-fill"></i>
@@ -397,7 +397,7 @@
           <div class="list-stat">
             <div class="list-stat-left">
               {% if t.foto_url %}
-                <img src="{{ t.foto_url }}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="{{ t.foto_url|cloudinary_opt:'w_120,c_limit,f_auto,q_auto' }}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
               {% else %}
                 <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f1f3f5;color:#adb5bd;">
                   <i class="bi bi-person-fill"></i>

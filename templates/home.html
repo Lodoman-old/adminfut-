@@ -596,7 +596,7 @@ body {
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
-                  <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  <img src="{{ g.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
                   <div class="player-avatar-placeholder">
                     <i class="bi bi-person-fill"></i>
@@ -626,7 +626,7 @@ body {
                   <div class="team-bg">{{ g.equipo__nombre|first }}</div>
                   {% if g.equipo__logo_url %}<img src="{{ g.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
                   {% if g.jugador__foto_url %}
-                  <img src="{{ g.jugador__foto_url }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
+                  <img src="{{ g.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="{{ g.jugador__nombre }}">
                   {% else %}
                   <div class="player-avatar-placeholder">
                     <i class="bi bi-person-fill"></i>
@@ -716,7 +716,7 @@ body {
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
-              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
+              <img src="{{ t.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
@@ -751,7 +751,7 @@ body {
               <div class="team-bg">{{ t.equipo__nombre|first }}</div>
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
-              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
+              <img src="{{ t.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}

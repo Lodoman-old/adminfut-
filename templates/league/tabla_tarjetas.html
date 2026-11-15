@@ -108,7 +108,7 @@
             <div class="player-card-small" style="background:linear-gradient(135deg,#3d2a1a,#5a3d2a)">
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
-              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
+              <img src="{{ t.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
@@ -136,7 +136,7 @@
             <div class="player-card-small" style="background:linear-gradient(135deg,#2a1a1a,#5a2a2a)">
               {% if t.equipo__logo_url %}<img src="{{ t.equipo__logo_url|cloudinary_opt:'w_300,c_limit,f_auto,q_auto' }}" class="team-logo-bg" alt="">{% endif %}
               {% if t.jugador__foto_url %}
-              <img src="{{ t.jugador__foto_url }}" class="player-avatar" alt="">
+              <img src="{{ t.jugador__foto_url|cloudinary_opt:'w_160,c_limit,f_auto,q_auto' }}" class="player-avatar" alt="">
               {% else %}
               <div class="player-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
               {% endif %}
