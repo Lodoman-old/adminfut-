@@ -5,7 +5,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center">
         <div>
             <h3 class="mb-0"><i class="bi bi-person-plus"></i> Altas de jugadores</h3>
-            <small class="text-secondary">Fecha de alta, equipo y quién la registró.</small>
+            <small class="text-secondary">Fecha de alta en el equipo, alta en su equipo principal, equipo y quién la registró.</small>
         </div>
         <button type="button" class="btn btn-outline-dark btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
     </div>
@@ -69,6 +69,7 @@
                 <thead class="table-dark">
                     <tr>
                         <th>Fecha alta</th>
+                        <th>Alta equipo principal</th>
                         <th>Jugador</th>
                         <th>Equipo</th>
                         <th>Categoría</th>
@@ -81,6 +82,12 @@
                     {% for r in altas %}
                     <tr class="{% if r.estado_periodo == 'fuera' %}table-danger{% endif %}">
                         <td>{{ r.fecha_alta|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if r.principal_fecha %}
+                            {{ r.principal_fecha|date:"d/m/Y" }}
+                            {% if not r.es_principal %}<div class="small text-secondary">{{ r.principal_equipo.nombre }} · {{ r.principal_equipo.categoria.nombre }}</div>{% endif %}
+                            {% else %}—{% endif %}
+                        </td>
                         <td><strong>{{ r.jugador.nombre }} {{ r.jugador.apellido }}</strong>{% if not r.activo %} <span class="badge bg-secondary">inactivo</span>{% endif %}</td>
                         <td>{{ r.equipo.nombre }}</td>
                         <td>{{ r.equipo.categoria.nombre }}</td>
@@ -98,7 +105,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="text-center text-muted py-4">No hay altas en el rango seleccionado.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">No hay altas en el rango seleccionado.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -108,6 +115,8 @@
 
 <p class="small text-white mt-2">
     “Fuera” significa que la fecha de alta no cae dentro de ningún periodo de altas configurado para la temporada de esa categoría.
+    “Alta equipo principal” muestra cuándo se dio de alta al jugador en su equipo principal (debajo, el equipo y su categoría);
+    si el jugador está en ese equipo como principal, se repite la misma fecha.
     Las altas anteriores a este cambio muestran “—” en “Alta por” porque el sistema no guardaba ese dato.
 </p>
 {% endif %}

@@ -74,10 +74,10 @@
               {% endif %}
               <div>
                 <div class="fw-semibold"><a href="{% url 'equipo_ficha' item.equipo.id %}" class="text-decoration-none text-dark">{{ item.equipo.nombre }}</a></div>
-                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta: {{ item.fecha_alta }}{% endif %}{% if item.es_principal %} · Principal{% endif %}</div>
+                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta en este equipo: {{ item.fecha_alta|date:"d/m/Y" }}{% endif %} · {% if item.es_principal %}Equipo principal{% else %}Equipo secundario{% endif %}</div>
               </div>
             </div>
-            <span class="badge bg-success">ACTIVO</span>
+            {% if item.es_principal %}<span class="badge bg-success">PRINCIPAL</span>{% else %}<span class="badge bg-info text-dark">SECUNDARIO</span>{% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -103,7 +103,7 @@
               {% endif %}
               <div>
                 <div class="fw-semibold"><a href="{% url 'equipo_ficha' item.equipo.id %}" class="text-decoration-none text-dark">{{ item.equipo.nombre }}</a></div>
-                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta: {{ item.fecha_alta }}{% endif %}</div>
+                <div class="text-muted small">{% if item.categoria %}{{ item.categoria.nombre }}{% endif %}{% if item.fecha_alta %} · Alta en este equipo: {{ item.fecha_alta|date:"d/m/Y" }}{% endif %} · {% if item.es_principal %}Equipo principal{% else %}Equipo secundario{% endif %}</div>
               </div>
             </div>
             <span class="badge bg-secondary">HISTORIAL</span>

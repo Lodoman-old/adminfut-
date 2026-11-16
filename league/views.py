@@ -7183,6 +7183,29 @@ def reporte_altas_jugadores(request):
             r.alta_por = ""
         altas.append(r)
 
+    # Alta en el equipo principal de cada jugador, para comparar principal vs
+    # secundario en la misma fila. Se toma el registro principal activo más
+    # antiguo; si ya no hay activo, el más reciente que haya quedado.
+    ids_jugadores = {r.jugador_id for r in altas}
+    principales = {}
+    if ids_jugadores:
+        for reg in (
+            JugadorEquipo.objects.filter(
+                jugador_id__in=ids_jugadores, es_principal=True
+            )
+            .select_related("equipo", "equipo__categoria")
+            .order_by("-activo", "fecha_alta", "id")
+        ):
+            principales.setdefault(reg.jugador_id, reg)
+    for r in altas:
+        if r.es_principal:
+            r.principal_equipo = r.equipo
+            r.principal_fecha = r.fecha_alta
+        else:
+            p = principales.get(r.jugador_id)
+            r.principal_equipo = p.equipo if p else None
+            r.principal_fecha = p.fecha_alta if p else None
+
     fuera = sum(1 for r in altas if r.estado_periodo == "fuera")
     sin_periodo = sum(1 for r in altas if r.estado_periodo == "sin_periodo")
 
@@ -8216,6 +8239,9 @@ def jugador_ficha(request, pk):
             })
         except Exception:
             pass
+
+    # Mostrar primero el equipo principal (y luego los secundarios)
+    equipos_actuales.sort(key=lambda i: 0 if i['es_principal'] else 1)
 
     # Goles
     goles_qs = Gol.objects.filter(jugador=jugador).select_related('partido', 'partido__temporada', 'partido__jornada', 'equipo').order_by('-partido__fecha_hora', '-id')
