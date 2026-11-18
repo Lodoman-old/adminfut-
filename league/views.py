@@ -6698,9 +6698,10 @@ def _seccion_rol(jornada, nombre_liga, logo_liga, incluir_todos=False):
         Equipo.objects.filter(categoria=cat, activo=True).values_list("id", flat=True)
     )
     descansan_ids = todos_ids - ids_juegan
+    es_liguilla = Partido.objects.filter(jornada=jornada, es_liguilla=True).exists()
     descansan = (
         list(Equipo.objects.filter(id__in=descansan_ids).order_by("nombre").values_list("nombre", flat=True))
-        if descansan_ids else []
+        if (descansan_ids and not es_liguilla) else []
     )
 
     partidos_data = []

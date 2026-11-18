@@ -127,7 +127,14 @@ def home(request):
                 .values_list("id", flat=True)
             )
             descansan_ids = todos_ids - ids_juegan
-            equipo_descansa = Equipo.objects.filter(id__in=descansan_ids) if descansan_ids else None
+            # En liguilla no hay descansos: los eliminados ya no compiten.
+            es_jornada_liguilla = Partido.objects.filter(
+                temporada=temp_activa, jornada=jornada_activa, es_liguilla=True
+            ).exists()
+            equipo_descansa = (
+                Equipo.objects.filter(id__in=descansan_ids)
+                if (descansan_ids and not es_jornada_liguilla) else None
+            )
         else:
             proximos_liga = []
             equipo_descansa = None

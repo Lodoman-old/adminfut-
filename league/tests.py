@@ -72,6 +72,32 @@ class FixtureDescansoTest(TestCase):
             self.assertEqual([e.id for e in descansan], [e.id for e in self.equipos if e.id not in jugaron])
             self.assertEqual(len(descansan), 1)
 
+    def test_liguilla_no_reporta_descansos(self):
+        """En liguilla los equipos eliminados no deben salir como 'descansan'."""
+        t = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp Liguilla",
+            fecha_inicio=self.fecha_inicio, tipo_competencia="LIGUILLA",
+        )
+        j = Jornada.objects.create(temporada=t, numero=1, nombre="Semifinales")
+        Partido.objects.create(
+            temporada=t, jornada=j,
+            equipo_local=self.equipos[0], equipo_visitante=self.equipos[1],
+            fecha_hora=timezone.now(), es_liguilla=True,
+        )
+        self.assertEqual(t.equipos_descansan(j), [])
+
+        # Una jornada de temporada regular sigue reportando descansos
+        j_reg = Jornada.objects.create(temporada=t, numero=2, nombre="Jornada 2")
+        Partido.objects.create(
+            temporada=t, jornada=j_reg,
+            equipo_local=self.equipos[0], equipo_visitante=self.equipos[1],
+            fecha_hora=timezone.now(), es_liguilla=False,
+        )
+        self.assertEqual(
+            sorted(e.id for e in t.equipos_descansan(j_reg)),
+            sorted(e.id for e in self.equipos[2:]),
+        )
+
     def test_generar_rol_desde_jornada_inicial_genera_todo(self):
         from unittest import mock
 

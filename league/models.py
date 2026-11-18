@@ -462,13 +462,21 @@ class Temporada(models.Model):
 
     def equipos_descansan(self, jornada):
         """Equipos habilitados de la temporada que descansan en la jornada
-        (no tienen ningún partido asignado en ella, sin importar su estado)."""
+        (no tienen ningún partido asignado en ella, sin importar su estado).
+
+        En jornadas de liguilla no se reportan descansos: los equipos
+        eliminados ya quedaron fuera de la competencia y los que siguen
+        vivos juegan la ronda.
+        """
         from .models import Partido
+        partidos = Partido.objects.filter(jornada=jornada)
+        if partidos.filter(es_liguilla=True).exists():
+            return []
         ids_jugaron = set(
-            Partido.objects.filter(jornada=jornada).values_list("equipo_local_id", flat=True)
+            partidos.values_list("equipo_local_id", flat=True)
         )
         ids_jugaron.update(
-            Partido.objects.filter(jornada=jornada).values_list("equipo_visitante_id", flat=True)
+            partidos.values_list("equipo_visitante_id", flat=True)
         )
         return [eq for eq in self.equipos_habilitados() if eq.id not in ids_jugaron]
 
