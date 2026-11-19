@@ -74,6 +74,10 @@
   {% if ingreso.equipo %}
   <div class="info-line"><span>Equipo:</span><span>{{ ingreso.equipo.nombre }}</span></div>
   {% endif %}
+  {% if venta_horario %}
+  <div class="info-line"><span>Vigencia horario:</span><span>{{ venta_horario.vigencia_desde|date:"d/m/Y" }} al {{ venta_horario.vigencia_hasta|date:"d/m/Y" }}</span></div>
+  <div class="info-line"><span>Horario:</span><span>{% if venta_horario.horario %}{{ venta_horario.horario }}{% else %}Por elegir en el equipo{% endif %}</span></div>
+  {% endif %}
   {% if ingreso.jugador %}
   <div class="info-line"><span>Jugador:</span><span>{{ ingreso.jugador.nombre }} {{ ingreso.jugador.apellido }}</span></div>
   {% endif %}

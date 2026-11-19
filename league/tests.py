@@ -185,6 +185,24 @@ class VentaHorarioTest(TestCase):
         self.assertEqual(hf.venta_id, venta.id)
         self.assertEqual(venta.horario, "10:00")
 
+    def test_form_equipo_muestra_venta_futura_para_elegir_hora(self):
+        """Aunque la vigencia aún no empiece, el equipo debe poder elegir la hora."""
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        user = U.objects.create_superuser(
+            username="staff_horario", password="x", email="h@example.com",
+        )
+        venta = self._venta(
+            horario="", desde=date(2028, 1, 1), hasta=date(2029, 1, 1),
+        )
+        c = Client()
+        c.force_login(user)
+        r = c.get(f"/equipos/{self.equipos[0].pk}/editar/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode("utf-8")
+        self.assertIn("Horario pagado", html)
+        self.assertIn(f'name="venta_{venta.id}"', html)
+
     def test_traslape_detectado(self):
         v1 = self._venta(desde=date(2027, 1, 1), hasta=date(2027, 12, 31))
         self.assertTrue(v1.se_traslapa(date(2027, 6, 1), date(2027, 8, 1)))
@@ -209,6 +227,50 @@ class PosHorarioVigenciaTest(TestCase):
         })
         self.assertFalse(form.is_valid())
         self.assertIn("vigencia_desde", form.errors)
+
+    def test_pos_crea_venta_de_horario(self):
+        from finance.models import ConceptoIngreso, Caja
+        from league.models import Categoria, Equipo, VentaHorario
+        from datetime import date
+
+        cat = Categoria.objects.create(nombre="POS Cat", horarios=["08:00"])
+        eq = Equipo.objects.create(nombre="POS Equipo", categoria=cat, activo=True)
+        concepto, _ = ConceptoIngreso.objects.get_or_create(
+            nombre="Horario Fijo",
+            defaults={"tipo": "INGRESO", "monto_defecto": 300, "requiere_equipo": True},
+        )
+        Caja.objects.create(estado="ABIERTA", monto_inicial=0)
+
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        user = U.objects.create_superuser(
+            username="staff_pos2", password="x", email="pos2@example.com",
+        )
+        c = Client()
+        c.force_login(user)
+        r = c.post("/finanzas/ingresos/pos/", {
+            "concepto": str(concepto.id),
+            "cantidad": "1",
+            "monto": "300",
+            "fecha": date.today().isoformat(),
+            "equipo": str(eq.id),
+            "vigencia_desde": "2027-01-01",
+            "vigencia_hasta": "2028-01-01",
+        })
+        self.assertEqual(r.status_code, 302)
+        venta = VentaHorario.objects.get(equipo=eq)
+        self.assertEqual(venta.vigencia_desde, date(2027, 1, 1))
+        self.assertEqual(venta.vigencia_hasta, date(2028, 1, 1))
+        self.assertEqual(venta.horario, "")
+
+        # El ticket generado debe mostrar la vigencia del horario
+        r2 = c.get(r["Location"])
+        self.assertEqual(r2.status_code, 200)
+        html = r2.content.decode("utf-8")
+        self.assertIn("Vigencia horario", html)
+        self.assertIn("01/01/2027", html)
+        self.assertIn("01/01/2028", html)
+        self.assertIn("Horario Fijo", html)
 
     def test_pos_responde_sin_error(self):
         from django.contrib.auth import get_user_model

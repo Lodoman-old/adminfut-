@@ -174,7 +174,8 @@ class EquipoUpdateView(UpdateView):
         ctx["temporadas_hf"] = data
         ctx["ventas_horario"] = ventas_equipo
         hoy = __import__("datetime").date.today()
-        ctx["horarios_vendidos"] = [v for v in ventas_equipo if v.cubre(hoy)]
+        ctx["hoy"] = hoy
+        ctx["horarios_vendidos"] = [v for v in ventas_equipo if v.vigencia_hasta >= hoy]
         ctx["venta_desde_sugerida"] = f"{hoy.year + 1}-01-01"
         ctx["venta_hasta_sugerida"] = f"{hoy.year + 2}-01-01"
         horarios_cat = []
@@ -319,8 +320,11 @@ class EquipoUpdateView(UpdateView):
             if not horario:
                 continue
             venta = VentaHorario.objects.filter(pk=int(key[6:]), equipo=equipo).first()
-            if not venta or not venta.cubre(hoy):
-                messages.error(self.request, "Esa venta de horario no está vigente.")
+            if not venta or venta.vigencia_hasta < hoy:
+                messages.error(
+                    self.request,
+                    "Esa venta de horario no está vigente (ya venció).",
+                )
                 continue
             venta.horario = normalizar_hora(horario)
             venta.save(update_fields=["horario"])

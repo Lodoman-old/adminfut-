@@ -142,14 +142,23 @@ def ingreso_pos(request):
 
             # Venta de horario: se crea la venta con su vigencia; la hora se
             # elige después desde el equipo.
-            if (
-                ingreso.concepto
-                and "horario fijo" in (ingreso.concepto.nombre or "").lower()
-                and ingreso.equipo
-            ):
+            nombre_concepto = (ingreso.concepto.nombre if ingreso.concepto else "") or ""
+            if "horario fijo" in nombre_concepto.lower():
                 desde = form.cleaned_data.get("vigencia_desde")
                 hasta = form.cleaned_data.get("vigencia_hasta")
-                if desde and hasta:
+                if not ingreso.equipo:
+                    messages.warning(
+                        request,
+                        "El pago se registró, pero NO se creó la venta de horario: "
+                        "falta seleccionar el equipo.",
+                    )
+                elif not (desde and hasta):
+                    messages.warning(
+                        request,
+                        "El pago se registró, pero NO se creó la venta de horario: "
+                        "faltan las fechas de vigencia.",
+                    )
+                else:
                     from league.models import VentaHorario, aplicar_ventas_horario
                     VentaHorario.objects.create(
                         equipo=ingreso.equipo,
@@ -162,6 +171,18 @@ def ingreso_pos(request):
                     # la vigencia, se adopta automáticamente.
                     for t in Temporada.objects.filter(categoria=ingreso.equipo.categoria):
                         aplicar_ventas_horario(t)
+                    messages.success(
+                        request,
+                        f"Venta de horario registrada para {ingreso.equipo.nombre}: "
+                        f"vigencia del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}. "
+                        f"La hora se elige en el equipo.",
+                    )
+            elif "horario" in nombre_concepto.lower() and ingreso.equipo:
+                messages.warning(
+                    request,
+                    f"El concepto “{nombre_concepto}” no genera venta de horario. "
+                    f"Usa el concepto “Horario Fijo” para registrar la vigencia.",
+                )
 
             # Verificar si es pago de multa de edad y levantar suspensión
             concepto_multa_nombre = "Multa por incumplimiento de edad"
@@ -220,6 +241,9 @@ def ingreso_pos(request):
         "ultimos": ultimos,
         "config": config,
         "ticket_ingreso": ticket_ingreso,
+        "ticket_venta": (
+            ticket_ingreso.ventas_horario.first() if ticket_ingreso else None
+        ),
         "tipo_filtro": tipo_filtro,
         "cascade_data_json": json.dumps(cascade_data),
         "todos_equipos_json": json.dumps(todos_equipos),
@@ -230,9 +254,11 @@ def ingreso_pos(request):
 def ingreso_ticket(request, pk):
     ingreso = get_object_or_404(Ingreso.objects.select_related("concepto", "equipo", "registrado_por"), pk=pk)
     config = ConfiguracionLiga.obtener()
+    from league.models import VentaHorario
     return render(request, "finance/ingreso_ticket.html", {
         "ingreso": ingreso,
         "config": config,
+        "venta_horario": VentaHorario.objects.filter(ingreso=ingreso).first(),
     })
 
 
