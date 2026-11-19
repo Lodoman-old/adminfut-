@@ -74,6 +74,17 @@
 
   <form method="post" id="posForm" novalidate>
     {% csrf_token %}
+    {% if form.errors %}
+    <div class="alert alert-danger">
+      <strong><i class="bi bi-exclamation-triangle"></i> No se pudo registrar la venta:</strong>
+      <ul class="mb-0">
+        {% for field in form %}
+          {% for e in field.errors %}<li>{{ field.label }}: {{ e }}</li>{% endfor %}
+        {% endfor %}
+        {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     <input type="hidden" name="cantidad" id="id_cantidad_hidden" value="1">
     <!-- Shared real form fields (rendered once, hidden) -->
     <div style="display:none" aria-hidden="true">
@@ -158,14 +169,14 @@
                     <label class="form-label">Jugador</label>
                     {{ form.jugador }}
                   </div>
-                  <div class="col-md-3" id="vigenciaDesdeField" style="display:none">
-                    <label class="form-label">Vigencia horario desde <span class="text-danger">*</span></label>
+                  <div class="col-md-3" id="vigenciaDesdeField">
+                    <label class="form-label">Vigencia horario desde</label>
                     {{ form.vigencia_desde }}
                     {% if form.vigencia_desde.errors %}<div class="text-danger small">{{ form.vigencia_desde.errors|join:", " }}</div>{% endif %}
                     <div class="form-text">Solo para “Horario Fijo”.</div>
                   </div>
-                  <div class="col-md-3" id="vigenciaHastaField" style="display:none">
-                    <label class="form-label">Vigencia horario hasta <span class="text-danger">*</span></label>
+                  <div class="col-md-3" id="vigenciaHastaField">
+                    <label class="form-label">Vigencia horario hasta</label>
                     {{ form.vigencia_hasta }}
                     {% if form.vigencia_hasta.errors %}<div class="text-danger small">{{ form.vigencia_hasta.errors|join:", " }}</div>{% endif %}
                   </div>
@@ -627,11 +638,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var data = conceptData[conceptoId];
     if (!data) return;
     var isEgreso = data.tipo === 'EGRESO';
-    var esHorario = (data.nombre || '').toLowerCase().indexOf('horario fijo') !== -1;
-    var vdField = document.getElementById('vigenciaDesdeField');
-    var vhField = document.getElementById('vigenciaHastaField');
-    if (vdField) vdField.style.display = (!isEgreso && esHorario) ? 'block' : 'none';
-    if (vhField) vhField.style.display = (!isEgreso && esHorario) ? 'block' : 'none';
     if (jugadorField) jugadorField.style.display = (!isEgreso && data.jugador) ? 'block' : 'none';
     if (jugadorFieldEgreso) jugadorFieldEgreso.style.display = isEgreso ? 'block' : 'none';
     if (categoriaField) {

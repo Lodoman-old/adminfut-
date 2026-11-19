@@ -170,6 +170,7 @@ class EquipoUpdateView(UpdateView):
                 "pagado": pagado,
                 "horario": horario_fijo.horario if horario_fijo else "",
                 "hf_pk": horario_fijo.pk if horario_fijo else None,
+                "comprado": bool(horario_fijo and horario_fijo.venta_id),
             })
         ctx["temporadas_hf"] = data
         ctx["ventas_horario"] = ventas_equipo

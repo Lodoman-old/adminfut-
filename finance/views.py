@@ -78,7 +78,34 @@ class IngresoCreateView(CreateView):
         caja_abierta = Caja.objects.filter(estado="ABIERTA").first()
         if caja_abierta:
             form.instance.caja = caja_abierta
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        ingreso = self.object
+        nombre = (ingreso.concepto.nombre if ingreso.concepto else "") or ""
+        if "horario fijo" in nombre.lower() and ingreso.equipo:
+            desde = form.cleaned_data.get("vigencia_desde")
+            hasta = form.cleaned_data.get("vigencia_hasta")
+            if desde and hasta:
+                from league.models import VentaHorario, aplicar_ventas_horario
+                VentaHorario.objects.create(
+                    equipo=ingreso.equipo,
+                    vigencia_desde=desde,
+                    vigencia_hasta=hasta,
+                    ingreso=ingreso,
+                    horario="",
+                )
+                for t in Temporada.objects.filter(categoria=ingreso.equipo.categoria):
+                    aplicar_ventas_horario(t)
+                messages.success(
+                    self.request,
+                    f"Venta de horario registrada para {ingreso.equipo.nombre}: "
+                    f"vigencia del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}.",
+                )
+        elif "horario" in nombre.lower() and ingreso.equipo:
+            messages.warning(
+                self.request,
+                f"El concepto “{nombre}” no genera venta de horario. Usa “Horario Fijo”.",
+            )
+        return response
 
 
 class IngresoUpdateView(UpdateView):
@@ -206,6 +233,15 @@ def ingreso_pos(request):
                     )
 
             return redirect(f"{reverse('ingreso_pos')}?ticket={ingreso.pk}")
+        else:
+            detalle = []
+            for campo, lista in form.errors.items():
+                etiqueta = form.fields[campo].label if campo in form.fields else campo
+                detalle.append(f"{etiqueta}: {lista[0]}")
+            messages.error(
+                request,
+                "No se registró la venta. " + " · ".join(detalle[:3]),
+            )
     else:
         form = IngresoPOSForm()
         form.fields["pos_categoria"].queryset = categorias

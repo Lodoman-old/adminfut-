@@ -62,6 +62,16 @@ class ConceptoIngresoForm(forms.ModelForm):
 
 
 class IngresoForm(forms.ModelForm):
+    vigencia_desde = forms.DateField(
+        required=False, label="Vigencia horario desde",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        help_text="Solo para el concepto “Horario Fijo”.",
+    )
+    vigencia_hasta = forms.DateField(
+        required=False, label="Vigencia horario hasta",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
     class Meta:
         model = Ingreso
         fields = ["concepto", "cantidad", "monto", "fecha", "equipo", "jugador", "descripcion", "pagado_a"]
@@ -75,6 +85,39 @@ class IngresoForm(forms.ModelForm):
             "descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
             "pagado_a": forms.TextInput(attrs={"class": "form-control", "placeholder": "Proveedor o persona"}),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        concepto = cleaned.get("concepto")
+        es_horario = bool(
+            concepto and "horario fijo" in (concepto.nombre or "").lower()
+        )
+        if es_horario:
+            desde = cleaned.get("vigencia_desde")
+            hasta = cleaned.get("vigencia_hasta")
+            equipo = cleaned.get("equipo")
+            if not desde or not hasta:
+                self.add_error(
+                    "vigencia_desde",
+                    "Indica la vigencia del horario (desde y hasta).",
+                )
+            elif hasta < desde:
+                self.add_error(
+                    "vigencia_hasta",
+                    "La vigencia 'hasta' no puede ser anterior a 'desde'.",
+                )
+            elif equipo:
+                from league.models import VentaHorario
+                for v in VentaHorario.objects.filter(equipo=equipo):
+                    if v.se_traslapa(desde, hasta):
+                        self.add_error(
+                            "vigencia_desde",
+                            f"Ya hay una venta de horario vigente del "
+                            f"{v.vigencia_desde:%d/%m/%Y} al {v.vigencia_hasta:%d/%m/%Y} "
+                            f"que se traslapa con esas fechas.",
+                        )
+                        break
+        return cleaned
 
 
 class IngresoPOSForm(forms.ModelForm):

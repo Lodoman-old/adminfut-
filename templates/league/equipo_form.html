@@ -74,7 +74,7 @@
                                                 {% if item.horario %}
                                                 <span class="fw-bold">{{ item.horario }}</span>
                                                 <input type="hidden" name="hf_{{ item.temporada.id }}" value="{{ item.horario }}">
-                                                <small class="text-muted d-block"><i class="bi bi-lock"></i> Horario fijo ya asignado, no se puede editar</small>
+                                                <small class="text-muted d-block"><i class="bi bi-check-circle text-success"></i> {% if item.comprado %}Horario comprado y asignado{% else %}Horario ya asignado{% endif %}</small>
                                                 {% elif item.pagado %}
                                                 {% with disp=disponibilidad_horarios|dict_key:item.temporada.id %}
                                                 <select name="hf_{{ item.temporada.id }}" class="form-select" style="width:auto">
@@ -113,12 +113,12 @@
                     {% if horarios_vendidos %}
                     <div class="card mt-4 border-success">
                         <div class="card-header bg-success text-white">
-                            <h6 class="mb-0"><i class="bi bi-cash-coin"></i> Horario pagado — elige la hora</h6>
+                            <h6 class="mb-0"><i class="bi bi-clock"></i> Escoge tu horario fijo (ya está pagado)</h6>
                         </div>
                         <div class="card-body">
                             <p class="text-muted small mb-3">
                                 Este horario ya está pagado en el punto de venta. Elige la hora y se aplicará
-                                a las temporadas que inicien dentro de la vigencia, aunque todavía no estén creadas o iniciadas.
+                                a las temporadas que correspondan a la vigencia.
                             </p>
                             <div class="table-responsive">
                                 <table class="table table-sm table-bordered align-middle mb-0">
@@ -128,22 +128,23 @@
                                     <tbody>
                                         {% for v in horarios_vendidos %}
                                         <tr>
+                                            <td>{{ v.vigencia_desde|date:"d/m/Y" }} – {{ v.vigencia_hasta|date:"d/m/Y" }}</td>
                                             <td>
-                                                {{ v.vigencia_desde|date:"d/m/Y" }} – {{ v.vigencia_hasta|date:"d/m/Y" }}
-                                                {% if v.vigencia_desde > hoy %}<br><span class="badge bg-warning text-dark">Aún no inicia</span>{% endif %}
-                                                {% if not v.horario %}<br><span class="badge bg-info text-dark">Falta elegir hora</span>{% endif %}
-                                            </td>
-                                            <td>
-                                                <select name="venta_{{ v.id }}" class="form-select form-select-sm" style="max-width:170px">
-                                                    <option value="">--- Elegir hora ---</option>
+                                                {% if v.horario %}
+                                                <span class="fw-bold">{{ v.horario }}</span>
+                                                <span class="badge bg-success ms-1">Asignado</span>
+                                                {% else %}
+                                                <select name="venta_{{ v.id }}" class="form-select form-select-sm" style="max-width:190px">
+                                                    <option value="">— Escoger horario fijo —</option>
                                                     {% for h in categoria_horarios %}
-                                                    <option value="{{ h }}" {% if v.horario == h %}selected{% endif %}>{{ h }}</option>
+                                                    <option value="{{ h }}">{{ h }}</option>
                                                     {% endfor %}
                                                 </select>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 {% if v.aplicadas %}{{ v.aplicadas|join:", " }}
-                                                {% else %}<span class="text-muted">Pendiente de temporada</span>{% endif %}
+                                                {% else %}<span class="text-muted">Se aplicará al crear la temporada</span>{% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}

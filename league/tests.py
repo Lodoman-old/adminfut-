@@ -200,7 +200,7 @@ class VentaHorarioTest(TestCase):
         r = c.get(f"/equipos/{self.equipos[0].pk}/editar/")
         self.assertEqual(r.status_code, 200)
         html = r.content.decode("utf-8")
-        self.assertIn("Horario pagado", html)
+        self.assertIn("Escoge tu horario fijo", html)
         self.assertIn(f'name="venta_{venta.id}"', html)
 
     def test_traslape_detectado(self):
@@ -271,6 +271,64 @@ class PosHorarioVigenciaTest(TestCase):
         self.assertIn("01/01/2027", html)
         self.assertIn("01/01/2028", html)
         self.assertIn("Horario Fijo", html)
+
+    def test_pos_sin_vigencia_avisa_en_la_pantalla(self):
+        from finance.models import ConceptoIngreso, Caja
+        from league.models import Categoria, Equipo, VentaHorario
+        from datetime import date
+
+        cat = Categoria.objects.create(nombre="POS Cat 2", horarios=["08:00"])
+        eq = Equipo.objects.create(nombre="POS Equipo 2", categoria=cat, activo=True)
+        concepto, _ = ConceptoIngreso.objects.get_or_create(
+            nombre="Horario Fijo",
+            defaults={"tipo": "INGRESO", "monto_defecto": 300, "requiere_equipo": True},
+        )
+        Caja.objects.create(estado="ABIERTA", monto_inicial=0)
+
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        user = U.objects.create_superuser(
+            username="staff_pos3", password="x", email="pos3@example.com",
+        )
+        c = Client()
+        c.force_login(user)
+        r = c.post("/finanzas/ingresos/pos/", {
+            "concepto": str(concepto.id), "cantidad": "1", "monto": "300",
+            "fecha": date.today().isoformat(), "equipo": str(eq.id),
+        })
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode("utf-8")
+        self.assertIn("No se pudo registrar la venta", html)
+        self.assertFalse(VentaHorario.objects.filter(equipo=eq).exists())
+
+    def test_nuevo_movimiento_tambien_crea_venta(self):
+        """Si el pago se captura en 'Nuevo movimiento' también debe crear la venta."""
+        from finance.models import ConceptoIngreso, Caja
+        from league.models import Categoria, Equipo, VentaHorario
+        from datetime import date
+
+        cat = Categoria.objects.create(nombre="POS Cat 3", horarios=["08:00"])
+        eq = Equipo.objects.create(nombre="POS Equipo 3", categoria=cat, activo=True)
+        concepto, _ = ConceptoIngreso.objects.get_or_create(
+            nombre="Horario Fijo",
+            defaults={"tipo": "INGRESO", "monto_defecto": 300, "requiere_equipo": True},
+        )
+        Caja.objects.create(estado="ABIERTA", monto_inicial=0)
+
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        user = U.objects.create_superuser(
+            username="staff_pos4", password="x", email="pos4@example.com",
+        )
+        c = Client()
+        c.force_login(user)
+        r = c.post("/finanzas/ingresos/nuevo/", {
+            "concepto": str(concepto.id), "cantidad": "1", "monto": "300",
+            "fecha": date.today().isoformat(), "equipo": str(eq.id),
+            "vigencia_desde": "2027-01-01", "vigencia_hasta": "2028-01-01",
+        })
+        self.assertIn(r.status_code, (200, 302))
+        self.assertTrue(VentaHorario.objects.filter(equipo=eq).exists())
 
     def test_pos_responde_sin_error(self):
         from django.contrib.auth import get_user_model
