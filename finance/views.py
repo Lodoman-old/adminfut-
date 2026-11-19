@@ -150,7 +150,7 @@ def ingreso_pos(request):
                 desde = form.cleaned_data.get("vigencia_desde")
                 hasta = form.cleaned_data.get("vigencia_hasta")
                 if desde and hasta:
-                    from league.models import VentaHorario, Temporada, aplicar_ventas_horario
+                    from league.models import VentaHorario, aplicar_ventas_horario
                     VentaHorario.objects.create(
                         equipo=ingreso.equipo,
                         vigencia_desde=desde,

@@ -193,6 +193,36 @@ class VentaHorarioTest(TestCase):
         self.assertFalse(v1.cubre(date(2028, 5, 5)))
 
 
+class PosHorarioVigenciaTest(TestCase):
+    """El POS debe pedir la vigencia del horario y no romperse."""
+
+    def test_form_horario_exige_vigencia(self):
+        from finance.forms import IngresoPOSForm
+        from finance.models import ConceptoIngreso
+        concepto, _ = ConceptoIngreso.objects.get_or_create(
+            nombre="Horario Fijo",
+            defaults={"tipo": "INGRESO", "monto_defecto": 300},
+        )
+        form = IngresoPOSForm(data={
+            "concepto": concepto.id, "cantidad": 1, "monto": 300,
+            "fecha": "2026-11-19",
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn("vigencia_desde", form.errors)
+
+    def test_pos_responde_sin_error(self):
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        user = U.objects.create_superuser(
+            username="staff_pos", password="x", email="pos@example.com",
+        )
+        c = Client()
+        c.force_login(user)
+        r = c.get("/finanzas/ingresos/pos/")
+        # Sin caja abierta redirige; con caja renderiza. Lo importante es que no truene.
+        self.assertIn(r.status_code, (200, 302))
+
+
 class FixtureDescansoTest(TestCase):
     def setUp(self):
         self.cat = Categoria.objects.create(nombre="Libre", dias_juego=["SAB"])
