@@ -4,9 +4,8 @@ set -e
 # Apply pending migrations
 python manage.py migrate --noinput 2>&1 || echo "migrate failed (non-fatal)"
 
-# Seed roles/permisos (publicidad, etc.) and example ads (idempotent)
+# Seed roles/permisos (publicidad, etc.) (idempotent)
 python manage.py seed 2>&1 || echo "seed failed (non-fatal)"
-python manage.py seed_anuncios 2>&1 || echo "seed_anuncios failed (non-fatal)"
 
 python manage.py collectstatic --noinput 2>&1 || echo "collectstatic failed (non-fatal)"
 
