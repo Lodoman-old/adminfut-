@@ -356,6 +356,10 @@ class HorarioFijoEquipo(models.Model):
         Equipo, on_delete=models.CASCADE, related_name="horarios_fijos"
     )
     horario = models.CharField(max_length=5, verbose_name="Horario (HH:MM)")
+    venta = models.ForeignKey(
+        "VentaHorario", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="aplicaciones", verbose_name="Venta de horario",
+    )
 
     class Meta:
         verbose_name = "Horario Fijo de Equipo"
@@ -364,6 +368,77 @@ class HorarioFijoEquipo(models.Model):
 
     def __str__(self):
         return f"{self.equipo.nombre} - {self.horario} ({self.temporada.nombre})"
+
+
+class VentaHorario(models.Model):
+    """Horario vendido a un equipo con una vigencia propia.
+
+    No depende de que exista o esté activa una temporada: al crear una
+    temporada cuya fecha de inicio caiga dentro de la vigencia, el horario se
+    aplica automáticamente como HorarioFijoEquipo.
+    """
+    equipo = models.ForeignKey(
+        Equipo, on_delete=models.CASCADE, related_name="ventas_horario"
+    )
+    horario = models.CharField(max_length=5, verbose_name="Horario (HH:MM)")
+    vigencia_desde = models.DateField(verbose_name="Vigente desde")
+    vigencia_hasta = models.DateField(verbose_name="Vigente hasta")
+    ingreso = models.ForeignKey(
+        "finance.Ingreso", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="ventas_horario", verbose_name="Ingreso del cobro",
+    )
+    notas = models.CharField(max_length=200, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Venta de horario"
+        verbose_name_plural = "Ventas de horario"
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.equipo.nombre} - {self.horario} ({self.vigencia_desde} a {self.vigencia_hasta})"
+
+    def cubre(self, fecha):
+        return bool(fecha and self.vigencia_desde <= fecha <= self.vigencia_hasta)
+
+    def se_traslapa(self, desde, hasta):
+        if not desde:
+            return False
+        hasta = hasta or desde
+        return self.vigencia_desde <= hasta and desde <= self.vigencia_hasta
+
+
+def aplicar_ventas_horario(temporada):
+    """Aplica a `temporada` las ventas de horario vigentes a su fecha de inicio.
+
+    Idempotente: no toca equipos que ya tengan horario fijo en esa temporada.
+    Devuelve la lista de ventas aplicadas.
+    """
+    aplicadas = []
+    if not temporada or not temporada.fecha_inicio:
+        return aplicadas
+    ventas = (
+        VentaHorario.objects.filter(
+            equipo__categoria=temporada.categoria,
+            vigencia_desde__lte=temporada.fecha_inicio,
+            vigencia_hasta__gte=temporada.fecha_inicio,
+        )
+        .select_related("equipo")
+        .order_by("-creado", "-id")
+    )
+    for v in ventas:
+        if HorarioFijoEquipo.objects.filter(
+            temporada=temporada, equipo_id=v.equipo_id
+        ).exists():
+            continue
+        HorarioFijoEquipo.objects.create(
+            temporada=temporada,
+            equipo_id=v.equipo_id,
+            horario=normalizar_hora(v.horario),
+            venta=v,
+        )
+        aplicadas.append(v)
+    return aplicadas
 
 
 class Temporada(models.Model):
@@ -457,11 +532,19 @@ class Temporada(models.Model):
         return f"{self.nombre} - {self.categoria.nombre}"
 
     def save(self, *args, **kwargs):
+        nuevo = self._state.adding
         if not self.fecha_fin:
             estimada = self.calcular_fecha_fin_estimada()
             if estimada != self.fecha_inicio:
                 self.fecha_fin = estimada
         super().save(*args, **kwargs)
+        if nuevo:
+            # Al crear la temporada se aplican las ventas de horario vigentes
+            # (aunque la temporada aún no esté iniciada).
+            try:
+                aplicar_ventas_horario(self)
+            except Exception:
+                pass
 
     def actualizar_fecha_fin(self):
         """Ajusta fecha_fin al último partido de la temporada (jornada o liguilla)"""
@@ -796,6 +879,11 @@ class Temporada(models.Model):
         """
         import datetime
         from .models import HorarioFijoEquipo
+        # Ventas de horario vigentes para esta temporada
+        try:
+            aplicar_ventas_horario(self)
+        except Exception:
+            pass
         # Limpiar jornadas y partidos previos para evitar duplicados
         Partido.objects.filter(temporada=self).delete()
         Jornada.objects.filter(temporada=self).delete()
@@ -972,6 +1060,10 @@ class Temporada(models.Model):
         horarios = self.categoria.horarios or []
         if not horarios:
             horarios = ["12:00"]
+        try:
+            aplicar_ventas_horario(self)
+        except Exception:
+            pass
         horarios_fijos = {
             hf.equipo_id: hf.horario
             for hf in HorarioFijoEquipo.objects.filter(temporada=self)

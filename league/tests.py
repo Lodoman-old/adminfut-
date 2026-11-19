@@ -8,9 +8,10 @@ from unittest.mock import patch
 
 from django.test import TestCase, Client
 from django.utils import timezone
+from django.db.models import Q
 from django.core.management import call_command
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro, JugadorPartido, HorarioFijoEquipo, normalizar_hora
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro, JugadorPartido, HorarioFijoEquipo, normalizar_hora, VentaHorario, aplicar_ventas_horario
 from .cedula_service import procesar_cedula
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
 from .views import _hora_por_defecto_partido
@@ -73,6 +74,81 @@ class HorarioCapacidadTest(TestCase):
             # Todos con cancha asignada
             for p in partidos:
                 self.assertIsNotNone(p.campo)
+
+
+class VentaHorarioTest(TestCase):
+    """Ventas de horario con vigencia propia, independientes de la temporada."""
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(
+            nombre="Ventas", dias_juego=["DOM"], horarios=["08:00", "10:00"],
+        )
+        Campo.objects.create(nombre="Cancha V", activo=True, es_rancheria=False)
+        self.equipos = [
+            Equipo.objects.create(nombre=f"Venta {i}", categoria=self.cat, activo=True)
+            for i in range(3)
+        ]
+
+    def _venta(self, equipo=None, horario="8:00", desde=date(2027, 1, 1), hasta=date(2028, 1, 1)):
+        return VentaHorario.objects.create(
+            equipo=equipo or self.equipos[0], horario=horario,
+            vigencia_desde=desde, vigencia_hasta=hasta,
+        )
+
+    def test_se_aplica_al_crear_temporada_dentro_de_vigencia(self):
+        venta = self._venta()
+        t = Temporada.objects.create(
+            nombre="T2027", categoria=self.cat, fecha_inicio=date(2027, 1, 10),
+        )
+        hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
+        self.assertEqual(hf.horario, "08:00")
+        self.assertEqual(hf.venta_id, venta.id)
+
+    def test_no_aplica_fuera_de_vigencia(self):
+        self._venta()
+        t = Temporada.objects.create(
+            nombre="T2026", categoria=self.cat, fecha_inicio=date(2026, 1, 10),
+        )
+        self.assertFalse(HorarioFijoEquipo.objects.filter(temporada=t).exists())
+
+    def test_no_duplica_ni_pisa_horario_existente(self):
+        t = Temporada.objects.create(
+            nombre="T2028", categoria=self.cat, fecha_inicio=date(2028, 1, 10),
+        )
+        HorarioFijoEquipo.objects.create(
+            temporada=t, equipo=self.equipos[0], horario="10:00",
+        )
+        self._venta()
+        aplicar_ventas_horario(t)
+        hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
+        self.assertEqual(hf.horario, "10:00")
+        self.assertEqual(HorarioFijoEquipo.objects.filter(temporada=t, equipo=self.equipos[0]).count(), 1)
+
+    def test_se_aplica_al_generar_rol_si_la_temporada_ya_existia(self):
+        t = Temporada.objects.create(
+            nombre="T2029", categoria=self.cat, fecha_inicio=date(2029, 1, 10),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        self._venta(desde=date(2029, 1, 1), hasta=date(2029, 12, 31))
+        t.generar_rol()
+        hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
+        self.assertEqual(hf.horario, "08:00")
+        propios = Partido.objects.filter(temporada=t).filter(
+            Q(equipo_local=self.equipos[0]) | Q(equipo_visitante=self.equipos[0])
+        )
+        self.assertTrue(propios.exists())
+        for p in propios:
+            hora = timezone.localtime(p.fecha_hora).strftime("%H:%M")
+            if hora != "08:00":
+                # Si se reacomodó por falta de cancha, queda marcado
+                self.assertEqual(p.horario_solicitado, "08:00")
+
+    def test_traslape_detectado(self):
+        v1 = self._venta(desde=date(2027, 1, 1), hasta=date(2027, 12, 31))
+        self.assertTrue(v1.se_traslapa(date(2027, 6, 1), date(2027, 8, 1)))
+        self.assertFalse(v1.se_traslapa(date(2028, 1, 1), date(2028, 6, 1)))
+        self.assertTrue(v1.cubre(date(2027, 5, 5)))
+        self.assertFalse(v1.cubre(date(2028, 5, 5)))
 
 
 class FixtureDescansoTest(TestCase):

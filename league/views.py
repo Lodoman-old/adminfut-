@@ -139,10 +139,18 @@ class EquipoUpdateView(UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         equipo = self.object
-        from .models import HorarioFijoEquipo, Temporada
+        from .models import HorarioFijoEquipo, Temporada, VentaHorario, normalizar_hora
         from finance.models import Ingreso, ConceptoIngreso
         temporadas = Temporada.objects.filter(categoria=equipo.categoria).order_by("-iniciada", "nombre")
         concepto_hf = ConceptoIngreso.objects.filter(nombre__icontains="horario fijo").first()
+        ventas_equipo = list(
+            VentaHorario.objects.filter(equipo=equipo).order_by("-creado", "-id")
+        )
+        for v in ventas_equipo:
+            v.aplicadas = list(
+                HorarioFijoEquipo.objects.filter(venta=v)
+                .values_list("temporada__nombre", flat=True)
+            )
         data = []
         for t in temporadas:
             pagado = False
@@ -152,6 +160,10 @@ class EquipoUpdateView(UpdateView):
                     fecha__gte=t.fecha_inicio - __import__("datetime").timedelta(days=365),
                     fecha__lte=t.fecha_fin if t.fecha_fin else t.fecha_inicio + __import__("datetime").timedelta(days=365),
                 ).exists()
+            # Una venta de horario con vigencia que cubre la temporada también
+            # cuenta como pagada (aunque la temporada aún no exista o no esté activa).
+            if not pagado:
+                pagado = any(v.se_traslapa(t.fecha_inicio, t.fecha_fin) for v in ventas_equipo)
             horario_fijo = HorarioFijoEquipo.objects.filter(temporada=t, equipo=equipo).first()
             data.append({
                 "temporada": t,
@@ -160,7 +172,10 @@ class EquipoUpdateView(UpdateView):
                 "hf_pk": horario_fijo.pk if horario_fijo else None,
             })
         ctx["temporadas_hf"] = data
-        from .models import normalizar_hora
+        ctx["ventas_horario"] = ventas_equipo
+        hoy = __import__("datetime").date.today()
+        ctx["venta_desde_sugerida"] = f"{hoy.year + 1}-01-01"
+        ctx["venta_hasta_sugerida"] = f"{hoy.year + 2}-01-01"
         horarios_cat = []
         for h in (equipo.categoria.horarios or []):
             hn = normalizar_hora(h)
@@ -289,6 +304,69 @@ class EquipoUpdateView(UpdateView):
                     HorarioFijoEquipo.objects.filter(
                         temporada_id=temp_id, equipo=equipo
                     ).delete()
+
+        # --- Ventas de horario con vigencia propia (no dependen de la temporada) ---
+        from django.contrib import messages
+        from .models import VentaHorario, aplicar_ventas_horario
+        from datetime import date as _date
+
+        eliminar = self.request.POST.get("eliminar_venta")
+        if eliminar:
+            borradas, _ = VentaHorario.objects.filter(pk=eliminar, equipo=equipo).delete()
+            if borradas:
+                messages.success(self.request, "Venta de horario eliminada.")
+            return r
+
+        if self.request.POST.get("accion") == "vender_horario":
+            horario = (self.request.POST.get("venta_horario") or "").strip()
+            desde_txt = (self.request.POST.get("venta_desde") or "").strip()
+            hasta_txt = (self.request.POST.get("venta_hasta") or "").strip()
+            notas = (self.request.POST.get("venta_notas") or "").strip()[:200]
+            try:
+                desde = _date.fromisoformat(desde_txt)
+                hasta = _date.fromisoformat(hasta_txt)
+            except ValueError:
+                messages.error(self.request, "Indica fechas válidas para la vigencia del horario.")
+                return r
+            if not horario:
+                messages.error(self.request, "Elige el horario que se está vendiendo.")
+                return r
+            horario = normalizar_hora(horario)
+            horarios_cat = [normalizar_hora(h) for h in (equipo.categoria.horarios or [])]
+            if horarios_cat and horario not in horarios_cat:
+                messages.error(
+                    self.request,
+                    f"El horario {horario} no está configurado en la categoría {equipo.categoria.nombre}.",
+                )
+                return r
+            if hasta < desde:
+                messages.error(self.request, "La vigencia 'hasta' no puede ser anterior a 'desde'.")
+                return r
+            # No permitir ventas traslapadas para el mismo equipo
+            existentes = VentaHorario.objects.filter(equipo=equipo)
+            for v in existentes:
+                if v.se_traslapa(desde, hasta):
+                    messages.error(
+                        self.request,
+                        f"Ya hay una venta de horario ({v.horario}) vigente del "
+                        f"{v.vigencia_desde:%d/%m/%Y} al {v.vigencia_hasta:%d/%m/%Y} que se traslapa. "
+                        f"Ajusta las fechas o elimina esa venta primero."
+                    )
+                    return r
+            venta = VentaHorario.objects.create(
+                equipo=equipo, horario=horario,
+                vigencia_desde=desde, vigencia_hasta=hasta, notas=notas,
+            )
+            aplicadas = []
+            for t in Temporada.objects.filter(categoria=equipo.categoria):
+                aplicadas.extend(aplicar_ventas_horario(t))
+            msg = (
+                f"Horario {horario} vendido a {equipo.nombre} del "
+                f"{desde:%d/%m/%Y} al {hasta:%d/%m/%Y}."
+            )
+            if aplicadas:
+                msg += f" Se aplicó a {len(aplicadas)} temporada(s) existente(s)."
+            messages.success(self.request, msg)
         return r
 
 
@@ -313,8 +391,8 @@ def horarios_fijos_report(request):
     concepto_hf = ConceptoIngreso.objects.filter(nombre__icontains="horario fijo").first()
     rows = []
     for hf in qs:
-        pagado = False
-        if concepto_hf:
+        pagado = bool(hf.venta_id)
+        if not pagado and concepto_hf:
             t = hf.temporada
             pagado = Ingreso.objects.filter(
                 equipo=hf.equipo, concepto=concepto_hf,
@@ -330,12 +408,30 @@ def horarios_fijos_report(request):
         })
     categorias = Categoria.objects.filter(activo=True)
     temporadas = Temporada.objects.all().select_related("categoria").order_by("nombre")
+
+    # Ventas con vigencia (independientes de la temporada)
+    from .models import VentaHorario, HorarioFijoEquipo
+    ventas_qs = VentaHorario.objects.select_related("equipo", "equipo__categoria")
+    if cat_id:
+        ventas_qs = ventas_qs.filter(equipo__categoria_id=cat_id)
+    if temp_id:
+        temp = Temporada.objects.filter(pk=temp_id).first()
+        if temp:
+            ventas_qs = ventas_qs.filter(equipo__categoria_id=temp.categoria_id)
+    ventas = list(ventas_qs.order_by("-creado", "-id"))
+    for v in ventas:
+        v.aplicadas = list(
+            HorarioFijoEquipo.objects.filter(venta=v)
+            .values_list("temporada__nombre", flat=True)
+        )
+
     return render(request, "league/horarios_fijos_report.html", {
         "rows": rows,
         "categorias": categorias,
         "temporadas": temporadas,
         "cat_id": cat_id,
         "temp_id": temp_id,
+        "ventas": ventas,
     })
 
 
