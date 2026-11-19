@@ -380,7 +380,10 @@ class VentaHorario(models.Model):
     equipo = models.ForeignKey(
         Equipo, on_delete=models.CASCADE, related_name="ventas_horario"
     )
-    horario = models.CharField(max_length=5, verbose_name="Horario (HH:MM)")
+    horario = models.CharField(
+        max_length=5, blank=True, default="", verbose_name="Horario (HH:MM)",
+        help_text="Se elige desde el equipo una vez que la venta está pagada.",
+    )
     vigencia_desde = models.DateField(verbose_name="Vigente desde")
     vigencia_hasta = models.DateField(verbose_name="Vigente hasta")
     ingreso = models.ForeignKey(
@@ -427,14 +430,38 @@ def aplicar_ventas_horario(temporada):
         .order_by("-creado", "-id")
     )
     for v in ventas:
-        if HorarioFijoEquipo.objects.filter(
+        hora = normalizar_hora(v.horario) if v.horario else ""
+        existentes = HorarioFijoEquipo.objects.filter(
             temporada=temporada, equipo_id=v.equipo_id
-        ).exists():
+        )
+        hf = existentes.filter(venta=v).first()
+        if hf:
+            if hora and hf.horario != hora:
+                hf.horario = hora
+                hf.save(update_fields=["horario"])
+                aplicadas.append(v)
+            continue
+        hf_manual = existentes.filter(venta__isnull=True).first()
+        if hf_manual:
+            # El equipo ya tenía horario asignado a mano: se adopta (se liga a
+            # la venta) en lugar de pedir que lo capture otra vez.
+            if hora:
+                if hf_manual.horario != hora:
+                    hf_manual.horario = hora
+            else:
+                v.horario = hf_manual.horario
+                v.save(update_fields=["horario"])
+            hf_manual.venta = v
+            hf_manual.save(update_fields=["venta", "horario"])
+            aplicadas.append(v)
+            continue
+        if not hora:
+            # Venta pagada pero todavía sin hora elegida desde el equipo.
             continue
         HorarioFijoEquipo.objects.create(
             temporada=temporada,
             equipo_id=v.equipo_id,
-            horario=normalizar_hora(v.horario),
+            horario=hora,
             venta=v,
         )
         aplicadas.append(v)

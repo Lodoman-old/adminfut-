@@ -140,6 +140,29 @@ def ingreso_pos(request):
                 ingreso.caja = caja_abierta
             ingreso.save()
 
+            # Venta de horario: se crea la venta con su vigencia; la hora se
+            # elige después desde el equipo.
+            if (
+                ingreso.concepto
+                and "horario fijo" in (ingreso.concepto.nombre or "").lower()
+                and ingreso.equipo
+            ):
+                desde = form.cleaned_data.get("vigencia_desde")
+                hasta = form.cleaned_data.get("vigencia_hasta")
+                if desde and hasta:
+                    from league.models import VentaHorario, Temporada, aplicar_ventas_horario
+                    VentaHorario.objects.create(
+                        equipo=ingreso.equipo,
+                        vigencia_desde=desde,
+                        vigencia_hasta=hasta,
+                        ingreso=ingreso,
+                        horario="",
+                    )
+                    # Si el equipo ya tenía horario en alguna temporada dentro de
+                    # la vigencia, se adopta automáticamente.
+                    for t in Temporada.objects.filter(categoria=ingreso.equipo.categoria):
+                        aplicar_ventas_horario(t)
+
             # Verificar si es pago de multa de edad y levantar suspensión
             concepto_multa_nombre = "Multa por incumplimiento de edad"
             if (ingreso.concepto.nombre == concepto_multa_nombre

@@ -110,70 +110,44 @@
                     </div>
                     {% endif %}
 
-                    {% if object %}
+                    {% if horarios_vendidos %}
                     <div class="card mt-4 border-success">
                         <div class="card-header bg-success text-white">
-                            <h6 class="mb-0"><i class="bi bi-cash-coin"></i> Vender horario con vigencia</h6>
+                            <h6 class="mb-0"><i class="bi bi-cash-coin"></i> Horario pagado — elige la hora</h6>
                         </div>
                         <div class="card-body">
                             <p class="text-muted small mb-3">
-                                La venta se guarda con su propia vigencia y <strong>se aplica automáticamente</strong>
-                                a cualquier temporada de esta categoría que inicie dentro de ese rango.
-                                No hace falta que la temporada exista o esté activa.
+                                Este horario ya está pagado en el punto de venta. Elige la hora y se aplicará
+                                a las temporadas que inicien dentro de la vigencia, aunque todavía no estén creadas o iniciadas.
                             </p>
-                            {% if ventas_horario %}
-                            <div class="table-responsive mb-3">
+                            <div class="table-responsive">
                                 <table class="table table-sm table-bordered align-middle mb-0">
                                     <thead class="table-light">
-                                        <tr><th>Horario</th><th>Vigencia</th><th>Aplicada a</th><th>Notas</th><th></th></tr>
+                                        <tr><th>Vigencia</th><th>Horario</th><th>Aplicado a</th></tr>
                                     </thead>
                                     <tbody>
-                                        {% for v in ventas_horario %}
+                                        {% for v in horarios_vendidos %}
                                         <tr>
-                                            <td class="fw-bold">{{ v.horario }}</td>
                                             <td>{{ v.vigencia_desde|date:"d/m/Y" }} – {{ v.vigencia_hasta|date:"d/m/Y" }}</td>
-                                            <td>{% if v.aplicadas %}{{ v.aplicadas|join:", " }}{% else %}<span class="text-muted">Pendiente (aún no hay temporada en la vigencia)</span>{% endif %}</td>
-                                            <td>{{ v.notas|default:"—" }}</td>
-                                            <td class="text-end">
-                                                <button type="submit" name="eliminar_venta" value="{{ v.id }}" formnovalidate
-                                                        class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('¿Eliminar esta venta de horario?');"
-                                                        title="Eliminar venta"><i class="bi bi-trash"></i></button>
+                                            <td>
+                                                <select name="venta_{{ v.id }}" class="form-select form-select-sm" style="max-width:170px">
+                                                    <option value="">--- Elegir hora ---</option>
+                                                    {% for h in categoria_horarios %}
+                                                    <option value="{{ h }}" {% if v.horario == h %}selected{% endif %}>{{ h }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                {% if v.aplicadas %}{{ v.aplicadas|join:", " }}
+                                                {% else %}<span class="text-muted">Pendiente de temporada</span>{% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
-                            {% endif %}
-                            <div class="row g-2 align-items-end">
-                                <div class="col-6 col-md-3">
-                                    <label class="form-label small fw-semibold mb-0">Horario</label>
-                                    <select name="venta_horario" class="form-select form-select-sm">
-                                        <option value="">--- Horario ---</option>
-                                        {% for h in categoria_horarios %}
-                                        <option value="{{ h }}">{{ h }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="form-label small fw-semibold mb-0">Vigente desde</label>
-                                    <input type="date" name="venta_desde" class="form-control form-control-sm" value="{{ venta_desde_sugerida }}">
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="form-label small fw-semibold mb-0">Vigente hasta</label>
-                                    <input type="date" name="venta_hasta" class="form-control form-control-sm" value="{{ venta_hasta_sugerida }}">
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="form-label small fw-semibold mb-0">Notas</label>
-                                    <input type="text" name="venta_notas" class="form-control form-control-sm" maxlength="200" placeholder="Opcional">
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" name="accion" value="vender_horario" formnovalidate class="btn btn-success btn-sm">
-                                        <i class="bi bi-cash-coin"></i> Vender horario
-                                    </button>
-                                    <span class="text-muted small ms-2">No se permiten ventas con fechas traslapadas para el mismo equipo.</span>
-                                </div>
+                            <div class="form-text mt-2">
+                                El cobro y la vigencia se capturan en el punto de venta con el concepto “Horario Fijo”.
                             </div>
                         </div>
                     </div>

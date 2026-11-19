@@ -174,6 +174,7 @@ class EquipoUpdateView(UpdateView):
         ctx["temporadas_hf"] = data
         ctx["ventas_horario"] = ventas_equipo
         hoy = __import__("datetime").date.today()
+        ctx["horarios_vendidos"] = [v for v in ventas_equipo if v.cubre(hoy)]
         ctx["venta_desde_sugerida"] = f"{hoy.year + 1}-01-01"
         ctx["venta_hasta_sugerida"] = f"{hoy.year + 2}-01-01"
         horarios_cat = []
@@ -305,67 +306,30 @@ class EquipoUpdateView(UpdateView):
                         temporada_id=temp_id, equipo=equipo
                     ).delete()
 
-        # --- Ventas de horario con vigencia propia (no dependen de la temporada) ---
+        # --- Horario pagado en el POS: aquí solo se elige la hora ---
         from django.contrib import messages
         from .models import VentaHorario, aplicar_ventas_horario
         from datetime import date as _date
 
-        eliminar = self.request.POST.get("eliminar_venta")
-        if eliminar:
-            borradas, _ = VentaHorario.objects.filter(pk=eliminar, equipo=equipo).delete()
-            if borradas:
-                messages.success(self.request, "Venta de horario eliminada.")
-            return r
-
-        if self.request.POST.get("accion") == "vender_horario":
-            horario = (self.request.POST.get("venta_horario") or "").strip()
-            desde_txt = (self.request.POST.get("venta_desde") or "").strip()
-            hasta_txt = (self.request.POST.get("venta_hasta") or "").strip()
-            notas = (self.request.POST.get("venta_notas") or "").strip()[:200]
-            try:
-                desde = _date.fromisoformat(desde_txt)
-                hasta = _date.fromisoformat(hasta_txt)
-            except ValueError:
-                messages.error(self.request, "Indica fechas válidas para la vigencia del horario.")
-                return r
+        hoy = _date.today()
+        for key, val in self.request.POST.items():
+            if not (key.startswith("venta_") and key[6:].isdigit()):
+                continue
+            horario = (val or "").strip()
             if not horario:
-                messages.error(self.request, "Elige el horario que se está vendiendo.")
-                return r
-            horario = normalizar_hora(horario)
-            horarios_cat = [normalizar_hora(h) for h in (equipo.categoria.horarios or [])]
-            if horarios_cat and horario not in horarios_cat:
-                messages.error(
-                    self.request,
-                    f"El horario {horario} no está configurado en la categoría {equipo.categoria.nombre}.",
-                )
-                return r
-            if hasta < desde:
-                messages.error(self.request, "La vigencia 'hasta' no puede ser anterior a 'desde'.")
-                return r
-            # No permitir ventas traslapadas para el mismo equipo
-            existentes = VentaHorario.objects.filter(equipo=equipo)
-            for v in existentes:
-                if v.se_traslapa(desde, hasta):
-                    messages.error(
-                        self.request,
-                        f"Ya hay una venta de horario ({v.horario}) vigente del "
-                        f"{v.vigencia_desde:%d/%m/%Y} al {v.vigencia_hasta:%d/%m/%Y} que se traslapa. "
-                        f"Ajusta las fechas o elimina esa venta primero."
-                    )
-                    return r
-            venta = VentaHorario.objects.create(
-                equipo=equipo, horario=horario,
-                vigencia_desde=desde, vigencia_hasta=hasta, notas=notas,
-            )
-            aplicadas = []
+                continue
+            venta = VentaHorario.objects.filter(pk=int(key[6:]), equipo=equipo).first()
+            if not venta or not venta.cubre(hoy):
+                messages.error(self.request, "Esa venta de horario no está vigente.")
+                continue
+            venta.horario = normalizar_hora(horario)
+            venta.save(update_fields=["horario"])
+            aplicadas = 0
             for t in Temporada.objects.filter(categoria=equipo.categoria):
-                aplicadas.extend(aplicar_ventas_horario(t))
-            msg = (
-                f"Horario {horario} vendido a {equipo.nombre} del "
-                f"{desde:%d/%m/%Y} al {hasta:%d/%m/%Y}."
-            )
+                aplicadas += len(aplicar_ventas_horario(t))
+            msg = f"Horario {venta.horario} asignado a {equipo.nombre}."
             if aplicadas:
-                msg += f" Se aplicó a {len(aplicadas)} temporada(s) existente(s)."
+                msg += f" Se aplicó a {aplicadas} temporada(s)."
             messages.success(self.request, msg)
         return r
 

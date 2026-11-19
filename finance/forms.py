@@ -94,6 +94,18 @@ class IngresoPOSForm(forms.ModelForm):
         queryset=Temporada.objects.none(), required=False, label="Temporada",
         widget=forms.Select(attrs={"class": "form-select", "id": "id_pos_temporada"})
     )
+    vigencia_desde = forms.DateField(
+        required=False, label="Vigencia del horario desde",
+        widget=forms.DateInput(attrs={
+            "type": "date", "class": "form-control form-control-lg", "id": "id_vigencia_desde",
+        }),
+    )
+    vigencia_hasta = forms.DateField(
+        required=False, label="Vigencia del horario hasta",
+        widget=forms.DateInput(attrs={
+            "type": "date", "class": "form-control form-control-lg", "id": "id_vigencia_hasta",
+        }),
+    )
 
     class Meta:
         model = Ingreso
@@ -120,4 +132,32 @@ class IngresoPOSForm(forms.ModelForm):
             self.add_error("jugador", "Este concepto requiere seleccionar un jugador.")
         if concepto and concepto.requiere_categoria and not cleaned.get("temporada"):
             self.add_error("temporada", "Este concepto requiere seleccionar categoría y temporada.")
+        # Horario fijo: solo se piden las fechas de vigencia (la hora se elige en el equipo)
+        es_horario = bool(
+            concepto and "horario fijo" in (concepto.nombre or "").lower()
+        )
+        desde = cleaned.get("vigencia_desde")
+        hasta = cleaned.get("vigencia_hasta")
+        if es_horario:
+            if not desde or not hasta:
+                self.add_error(
+                    "vigencia_desde",
+                    "Indica la vigencia del horario: desde cuándo y hasta cuándo será válido.",
+                )
+            elif hasta < desde:
+                self.add_error(
+                    "vigencia_hasta",
+                    "La vigencia 'hasta' no puede ser anterior a 'desde'.",
+                )
+            elif equipo:
+                from league.models import VentaHorario
+                for v in VentaHorario.objects.filter(equipo=equipo):
+                    if v.se_traslapa(desde, hasta):
+                        self.add_error(
+                            "vigencia_desde",
+                            f"Ya hay una venta de horario vigente del "
+                            f"{v.vigencia_desde:%d/%m/%Y} al {v.vigencia_hasta:%d/%m/%Y} "
+                            f"que se traslapa con esas fechas.",
+                        )
+                        break
         return cleaned

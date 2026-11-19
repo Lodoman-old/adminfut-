@@ -89,14 +89,14 @@ class VentaHorarioTest(TestCase):
             for i in range(3)
         ]
 
-    def _venta(self, equipo=None, horario="8:00", desde=date(2027, 1, 1), hasta=date(2028, 1, 1)):
+    def _venta(self, equipo=None, horario="", desde=date(2027, 1, 1), hasta=date(2028, 1, 1)):
         return VentaHorario.objects.create(
             equipo=equipo or self.equipos[0], horario=horario,
             vigencia_desde=desde, vigencia_hasta=hasta,
         )
 
     def test_se_aplica_al_crear_temporada_dentro_de_vigencia(self):
-        venta = self._venta()
+        venta = self._venta(horario="08:00")
         t = Temporada.objects.create(
             nombre="T2027", categoria=self.cat, fecha_inicio=date(2027, 1, 10),
         )
@@ -104,8 +104,35 @@ class VentaHorarioTest(TestCase):
         self.assertEqual(hf.horario, "08:00")
         self.assertEqual(hf.venta_id, venta.id)
 
+    def test_venta_sin_horario_no_se_aplica(self):
+        """El POS solo cobra y deja la vigencia; la hora se elige en el equipo."""
+        self._venta(horario="")
+        t = Temporada.objects.create(
+            nombre="T2027b", categoria=self.cat, fecha_inicio=date(2027, 2, 1),
+        )
+        self.assertFalse(HorarioFijoEquipo.objects.filter(temporada=t).exists())
+
+    def test_asignar_horario_despues_aplica_a_temporada_existente(self):
+        venta = self._venta(horario="")
+        t = Temporada.objects.create(
+            nombre="T2027c", categoria=self.cat, fecha_inicio=date(2027, 3, 1),
+        )
+        self.assertFalse(HorarioFijoEquipo.objects.filter(temporada=t).exists())
+        venta.horario = "10:00"
+        venta.save(update_fields=["horario"])
+        aplicadas = aplicar_ventas_horario(t)
+        self.assertEqual(len(aplicadas), 1)
+        hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
+        self.assertEqual(hf.horario, "10:00")
+        # Cambiar la hora de la venta actualiza el horario ya aplicado
+        venta.horario = "08:00"
+        venta.save(update_fields=["horario"])
+        aplicar_ventas_horario(t)
+        hf.refresh_from_db()
+        self.assertEqual(hf.horario, "08:00")
+
     def test_no_aplica_fuera_de_vigencia(self):
-        self._venta()
+        self._venta(horario="08:00")
         t = Temporada.objects.create(
             nombre="T2026", categoria=self.cat, fecha_inicio=date(2026, 1, 10),
         )
@@ -118,7 +145,7 @@ class VentaHorarioTest(TestCase):
         HorarioFijoEquipo.objects.create(
             temporada=t, equipo=self.equipos[0], horario="10:00",
         )
-        self._venta()
+        self._venta(horario="08:00")
         aplicar_ventas_horario(t)
         hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
         self.assertEqual(hf.horario, "10:00")
@@ -129,7 +156,7 @@ class VentaHorarioTest(TestCase):
             nombre="T2029", categoria=self.cat, fecha_inicio=date(2029, 1, 10),
             tipo_rol="TODOS", vueltas=1,
         )
-        self._venta(desde=date(2029, 1, 1), hasta=date(2029, 12, 31))
+        self._venta(horario="08:00", desde=date(2029, 1, 1), hasta=date(2029, 12, 31))
         t.generar_rol()
         hf = HorarioFijoEquipo.objects.get(temporada=t, equipo=self.equipos[0])
         self.assertEqual(hf.horario, "08:00")
@@ -142,6 +169,21 @@ class VentaHorarioTest(TestCase):
             if hora != "08:00":
                 # Si se reacomodó por falta de cancha, queda marcado
                 self.assertEqual(p.horario_solicitado, "08:00")
+
+    def test_adopta_horario_existente_del_equipo(self):
+        """Si el equipo ya tenía horario, la venta lo adopta sin recapturarlo."""
+        t = Temporada.objects.create(
+            nombre="T2027d", categoria=self.cat, fecha_inicio=date(2027, 4, 1),
+        )
+        hf = HorarioFijoEquipo.objects.create(
+            temporada=t, equipo=self.equipos[0], horario="10:00",
+        )
+        venta = self._venta(horario="", desde=date(2027, 1, 1), hasta=date(2027, 12, 31))
+        aplicar_ventas_horario(t)
+        hf.refresh_from_db()
+        venta.refresh_from_db()
+        self.assertEqual(hf.venta_id, venta.id)
+        self.assertEqual(venta.horario, "10:00")
 
     def test_traslape_detectado(self):
         v1 = self._venta(desde=date(2027, 1, 1), hasta=date(2027, 12, 31))
