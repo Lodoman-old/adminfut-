@@ -418,6 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Store concept data for auto-fill
   var conceptData = {};
   var currentUnitPrice = 0;
+  var montoManual = false;
 
   document.querySelectorAll('.pos-concepto-btn').forEach(function(btn) {
     var id = btn.dataset.concepto;
@@ -482,7 +483,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function calcularTotal() {
     const qty = syncCantidad();
-    if (currentUnitPrice > 0) {
+    if (!montoManual && currentUnitPrice > 0) {
       const total = qty * currentUnitPrice;
       montoInput.value = total.toFixed(2);
     }
@@ -626,8 +627,8 @@ document.addEventListener('DOMContentLoaded', function() {
     montoInput.value = val;
     updateMonto();
   }
-  if (visualMonto) visualMonto.addEventListener('input', syncMontoFromVisual);
-  if (visualMontoEgreso) visualMontoEgreso.addEventListener('input', syncMontoFromVisual);
+  if (visualMonto) visualMonto.addEventListener('input', function() { montoManual = true; syncMontoFromVisual(); });
+  if (visualMontoEgreso) visualMontoEgreso.addEventListener('input', function() { montoManual = true; syncMontoFromVisual(); });
 
   montoInput.addEventListener('input', updateMonto);
   document.querySelectorAll('.cantidad-visual').forEach(function(el) {
@@ -669,10 +670,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function loadConcept(conceptoId) {
+  function loadConcept(conceptoId, resetMonto) {
     if (!conceptoId || !conceptData[conceptoId]) return;
     var data = conceptData[conceptoId];
     currentUnitPrice = data.monto;
+    // Al cambiar de concepto el monto parte del precio del concepto (0 si no tiene).
+    if (resetMonto !== false) {
+      montoManual = false;
+      montoInput.value = (data.monto > 0 ? data.monto : 0).toFixed(2);
+    }
     document.querySelectorAll('.cantidad-visual').forEach(function(el) { el.value = 1; el.dispatchEvent(new Event('input')); });
     cantidadHidden.value = 1;
     toggleCampos(conceptoId);
@@ -695,7 +701,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (visualConceptoEgreso) visualConceptoEgreso.value = conceptoVal;
     if (conceptData[conceptoVal] && conceptData[conceptoVal].requiere_categoria) {
       mostrarCascade('', true);
-      loadConcept(conceptoVal);
+      loadConcept(conceptoVal, false);
       var catVal = categoriaHidden ? categoriaHidden.value : '';
       if (catVal) {
         visualCategoria.value = catVal;
