@@ -13,6 +13,23 @@ from PIL import Image
 from .private_storage import PrivateStorage
 
 
+def normalizar_hora(valor, default="12:00"):
+    """Devuelve la hora como 'HH:MM'.
+
+    Tolera '8:00', '08:00', '8:0', con espacios, etc. Sirve para comparar
+    horarios configurados de forma consistente entre categorías.
+    """
+    try:
+        hh, mm = str(valor).strip().split(":")[:2]
+        hh, mm = int(hh), int(mm)
+        if not (0 <= hh <= 23 and 0 <= mm <= 59):
+            return default
+        return f"{hh:02d}:{mm:02d}"
+    except (ValueError, AttributeError, TypeError):
+        return default
+
+
+
 class CategoriaQuerySet(models.QuerySet):
     def _fetch_all(self):
         try:
@@ -579,6 +596,74 @@ class Temporada(models.Model):
             equipos.insert(1, equipos.pop())
         return fixture
 
+    def _ubicar_partido(self, local, visit, fecha_jornada, hora_pedida,
+                        horarios, todas_campos, ocupados_externos,
+                        nuevos_ocupados, team_uso_campo, uso_campos_jornada=None):
+        """Coloca un partido en su mejor cancha y hora.
+
+        Respeta la hora comprada en medida de lo posible: intenta primero la
+        hora pedida y, si ya no hay cancha libre (contando todas las categorías
+        y temporadas), prueba el resto de horarios de la categoría. Devuelve
+        ``(campo, fecha_hora, hora_final, horario_solicitado)``; si no hubo
+        cancha en ningún horario, ``campo`` es ``None`` y ``horario_solicitado``
+        queda vacío (se marca como partido sin cancha para revisión).
+        """
+        uso_campos_jornada = uso_campos_jornada or {}
+        hora_pedida = normalizar_hora(hora_pedida)
+
+        campos_disponibles = todas_campos
+        if self.categoria.campos_permitidos.exists():
+            ids_permitidos = set(self.categoria.campos_permitidos.values_list("pk", flat=True))
+            campos_disponibles = [c for c in todas_campos if c.id in ids_permitidos]
+
+        horas = [hora_pedida]
+        for h in (horarios or []):
+            hn = normalizar_hora(h)
+            if hn not in horas:
+                horas.append(hn)
+
+        def _dt(hora):
+            hh, mm = [int(x) for x in hora.split(":")]
+            return timezone.make_aware(
+                datetime.datetime.combine(fecha_jornada, datetime.time(hh, mm))
+            )
+
+        def _campo_libre(dt):
+            """Ranchería del local primero; luego el campo normal con menos uso."""
+            if local and local.campo_rancheria_id:
+                rc = local.campo_rancheria
+                if (
+                    rc in campos_disponibles
+                    and (dt, rc.id) not in ocupados_externos
+                    and (dt, rc.id) not in nuevos_ocupados
+                ):
+                    return rc
+            libres = [
+                c for c in campos_disponibles
+                if ((local and local.campo_rancheria_id == c.id) or not c.es_rancheria)
+            ]
+            libres = [
+                c for c in libres
+                if (dt, c.id) not in ocupados_externos
+                and (dt, c.id) not in nuevos_ocupados
+            ]
+            if not libres:
+                return None
+            return min(libres, key=lambda c: (
+                max(team_uso_campo[local.id][c.id], team_uso_campo[visit.id][c.id]),
+                uso_campos_jornada.get(c.id, 0),
+                c.id,
+            ))
+
+        for hora in horas:
+            dt = _dt(hora)
+            campo = _campo_libre(dt)
+            if campo is not None:
+                return campo, dt, hora, ("" if hora == hora_pedida else hora_pedida)
+
+        # Sin cancha libre en ningún horario: se queda en la hora pedida.
+        return None, _dt(hora_pedida), hora_pedida, ""
+
     def _crear_partidos_desde_fixture(self, fixture, horarios_fijos, todas_campos, fecha_base, dias_juego, horarios, idx_start=1, jornada_inicial=1, fecha_base_futura=None):
         """Crea TODAS las jornadas y partidos desde un fixture, retorna el último índice usado.
 
@@ -651,57 +736,22 @@ class Temporada(models.Model):
                     local, visit = item
                     grupo_letra = ""
 
-                # Determinar hora primero (necesitamos fecha_hora para checar conflicto de campo)
-                hora_local = None
+                # Hora pedida: la del local si compró horario; si no, la del
+                # visitante (respetar la hora comprada en medida de lo posible).
+                hora_pedida = None
                 if local and local.id in horarios_fijos:
-                    hora_local = horarios_fijos[local.id]
+                    hora_pedida = horarios_fijos[local.id]
                 elif visit and visit.id in horarios_fijos:
-                    hora_local = horarios_fijos[visit.id]
-                if not hora_local:
-                    hora_local = next(horarios_cycle)
-                try:
-                    hh, mm = hora_local.split(":")
-                    fecha_hora_partido = datetime.datetime.combine(fecha_jornada, datetime.time(int(hh), int(mm)))
-                    fecha_hora_partido = timezone.make_aware(fecha_hora_partido)
-                except (ValueError, AttributeError):
-                    fecha_hora_partido = datetime.datetime.combine(fecha_jornada, datetime.time(12, 0))
-                    fecha_hora_partido = timezone.make_aware(fecha_hora_partido)
+                    hora_pedida = horarios_fijos[visit.id]
+                if not hora_pedida:
+                    hora_pedida = next(horarios_cycle)
 
-                # Determinar campo evitando conflictos cross-temporada
-                campo = None
-                # Si la categoría tiene campos_permitidos, restringir a esos
-                campos_disponibles = todas_campos
-                if self.categoria.campos_permitidos.exists():
-                    ids_permitidos = set(self.categoria.campos_permitidos.values_list("pk", flat=True))
-                    campos_disponibles = [c for c in todas_campos if c.id in ids_permitidos]
+                campo, fecha_hora_partido, hora_final, horario_solicitado = self._ubicar_partido(
+                    local, visit, fecha_jornada, hora_pedida, horarios,
+                    todas_campos, ocupados_externos, nuevos_ocupados,
+                    team_uso_campo, uso_campos_jornada,
+                )
 
-                # Priorizar campo_rancheria del local si está libre y disponible
-                if local.campo_rancheria_id:
-                    rc = local.campo_rancheria
-                    if rc in campos_disponibles and (fecha_hora_partido, rc.id) not in ocupados_externos and (fecha_hora_partido, rc.id) not in nuevos_ocupados:
-                        campo = rc
-                # Si no hay ranchería o está ocupada, elegir mejor campo libre de los disponibles
-                if not campo:
-                    libres = [c for c in campos_disponibles
-                              if (c.es_rancheria and local.campo_rancheria_id == c.id) or not c.es_rancheria]
-                    libres = [c for c in libres
-                              if (fecha_hora_partido, c.id) not in ocupados_externos
-                              and (fecha_hora_partido, c.id) not in nuevos_ocupados]
-                    if libres:
-                        if len(libres) == 1:
-                            campo = libres[0]
-                        else:
-                            best_campo = None
-                            best_score = float("inf")
-                            for c in libres:
-                                score = max(team_uso_campo[local.id][c.id], team_uso_campo[visit.id][c.id])
-                                if score < best_score:
-                                    best_score = score
-                                    best_campo = c
-                                elif score == best_score:
-                                    if uso_campos_jornada[c.id] < uso_campos_jornada[best_campo.id]:
-                                        best_campo = c
-                            campo = best_campo
                 if campo:
                     team_uso_campo[local.id][campo.id] += 1
                     team_uso_campo[visit.id][campo.id] += 1
@@ -712,6 +762,7 @@ class Temporada(models.Model):
                     equipo_local=local, equipo_visitante=visit,
                     campo=campo, fecha_hora=fecha_hora_partido, estado="PEND",
                     grupo=grupo_letra,
+                    horario_solicitado=horario_solicitado,
                 )
                 nuevos_ocupados.add((fecha_hora_partido, campo.id if campo else None))
             idx += 1
@@ -1194,28 +1245,23 @@ class Temporada(models.Model):
                 else:
                     local_id, visit_id = item
                     grupo_letra = ""
-                hora_local = horarios_fijos.get(local_id) or horarios_fijos.get(visit_id)
-                if not hora_local:
-                    hora_local = next(horarios_cycle)
-                fecha_hora = None
-                try:
-                    hh, mm = hora_local.split(":")
-                    fecha_hora = _dt.datetime.combine(fecha_jornada, _dt.time(int(hh), int(mm)))
-                    fecha_hora = timezone.make_aware(fecha_hora)
-                except (ValueError, AttributeError):
-                    fecha_hora = _dt.datetime.combine(fecha_jornada, _dt.time(12, 0))
-                    fecha_hora = timezone.make_aware(fecha_hora)
                 local = Equipo.objects.get(pk=local_id)
                 visit = Equipo.objects.get(pk=visit_id)
-                campo = self._elegir_campo_libre(
-                    local, visit, fecha_hora, todas_campos,
-                    ocupados_externos, nuevos_ocupados, team_uso_campo,
+                hora_pedida = (
+                    horarios_fijos.get(local_id)
+                    or horarios_fijos.get(visit_id)
+                    or next(horarios_cycle)
+                )
+                campo, fecha_hora, hora_final, horario_solicitado = self._ubicar_partido(
+                    local, visit, fecha_jornada, hora_pedida, horarios,
+                    todas_campos, ocupados_externos, nuevos_ocupados,
+                    team_uso_campo,
                 )
                 Partido.objects.create(
                     temporada=self, jornada=jornada,
                     equipo_local=local, equipo_visitante=visit,
                     campo=campo, fecha_hora=fecha_hora, estado="PEND",
-                    grupo=grupo_letra,
+                    grupo=grupo_letra, horario_solicitado=horario_solicitado,
                 )
                 if campo:
                     nuevos_ocupados.add((fecha_hora, campo.id))
@@ -1224,31 +1270,6 @@ class Temporada(models.Model):
             idx += 1
 
         self.actualizar_fecha_fin()
-
-    def _elegir_campo_libre(self, local, visit, fecha_hora, todas_campos,
-                            ocupados_externos, nuevos_ocupados, team_uso_campo):
-        from .models import Campo
-        campos_disponibles = todas_campos
-        if self.categoria.campos_permitidos.exists():
-            ids_permitidos = set(self.categoria.campos_permitidos.values_list("pk", flat=True))
-            campos_disponibles = [c for c in todas_campos if c.id in ids_permitidos]
-        if local.campo_rancheria_id:
-            rc = local.campo_rancheria
-            if rc in campos_disponibles and (fecha_hora, rc.id) not in ocupados_externos \
-                    and (fecha_hora, rc.id) not in nuevos_ocupados:
-                return rc
-        # Rancherías solo disponibles para el equipo dueño; las demás se excluyen
-        libres = [c for c in campos_disponibles
-                  if (fecha_hora, c.id) not in ocupados_externos
-                  and (fecha_hora, c.id) not in nuevos_ocupados
-                  and (not c.es_rancheria or local.campo_rancheria_id == c.id)]
-        if not libres:
-            return None
-        best = min(libres, key=lambda c: (
-            max(team_uso_campo[local.id][c.id], team_uso_campo[visit.id][c.id]),
-            c.id,
-        ))
-        return best
 
     def calcular_fecha_fin_estimada(self):
         """Estima la fecha de fin basada en equipos, vueltas y días de juego"""
@@ -1940,6 +1961,12 @@ class Partido(models.Model):
         "Arbitro", on_delete=models.SET_NULL, null=True, blank=True, related_name="partidos"
     )
     fecha_hora = models.DateTimeField()
+    horario_solicitado = models.CharField(
+        max_length=5, blank=True, default="",
+        verbose_name="Horario solicitado",
+        help_text="Hora que pidió el equipo con horario fijo. Si difiere de la hora del partido, "
+                  "se reacomodó por falta de cancha disponible a esa hora.",
+    )
     goles_local = models.IntegerField(default=0)
     goles_visitante = models.IntegerField(default=0)
     estado = models.CharField(max_length=4, choices=ESTADOS, default="PEND")

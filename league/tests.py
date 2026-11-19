@@ -10,10 +10,69 @@ from django.test import TestCase, Client
 from django.utils import timezone
 from django.core.management import call_command
 
-from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro, JugadorPartido
+from .models import Campo, Categoria, Equipo, Partido, Temporada, Jugador, Jornada, JugadorEquipo, MovimientoEquipo, SuspensionJugador, JugadorHerencia, AbandonoTemporada, Arbitro, JugadorPartido, HorarioFijoEquipo, normalizar_hora
 from .cedula_service import procesar_cedula
 from .reglas_movimientos import errores_movimiento_jugador, aplicar_movimiento_a_jugador
 from .views import _hora_por_defecto_partido
+
+
+class HorarioCapacidadTest(TestCase):
+    """Al generar el rol, los equipos del mismo horario no deben saturar canchas.
+
+    Con 2 canchas normales caben 2 partidos por hora (4 equipos). Si hay 6
+    equipos a las 08:00, cada jornada deja 2 partidos a las 08:00 y el tercero
+    se reacomoda al siguiente horario, marcando el horario solicitado.
+    """
+
+    def setUp(self):
+        self.cat = Categoria.objects.create(
+            nombre="Capacidad", dias_juego=["SAB"], horarios=["08:00", "10:00"],
+        )
+        self.campos = [
+            Campo.objects.create(nombre=f"Cancha {i}", activo=True, es_rancheria=False)
+            for i in range(2)
+        ]
+        self.equipos = [
+            Equipo.objects.create(nombre=f"Equipo {i}", categoria=self.cat, activo=True)
+            for i in range(6)
+        ]
+        self.temporada = Temporada.objects.create(
+            categoria=self.cat, nombre="Temp Capacidad",
+            fecha_inicio=date(2026, 5, 2), tipo_rol="TODOS", vueltas=1,
+        )
+        for e in self.equipos:
+            HorarioFijoEquipo.objects.create(
+                temporada=self.temporada, equipo=e, horario="08:00",
+            )
+
+    def test_normalizar_hora(self):
+        self.assertEqual(normalizar_hora("8:00"), "08:00")
+        self.assertEqual(normalizar_hora(" 08:0 "), "08:00")
+        self.assertEqual(normalizar_hora(""), "12:00")
+        self.assertEqual(normalizar_hora("25:00"), "12:00")
+
+    def test_capacidad_por_cancha_y_marca_de_horario_movido(self):
+        self.temporada.generar_rol()
+        jornadas = list(self.temporada.jornadas.order_by("numero"))
+        self.assertEqual(len(jornadas), 5)
+
+        for j in jornadas:
+            partidos = list(Partido.objects.filter(jornada=j))
+            self.assertEqual(len(partidos), 3)
+            a_las_8 = [
+                p for p in partidos
+                if timezone.localtime(p.fecha_hora).strftime("%H:%M") == "08:00"
+            ]
+            movidos = [p for p in partidos if p.horario_solicitado == "08:00"]
+            # Solo 2 partidos a las 8:00 (2 canchas) y el tercero reacomodado
+            self.assertEqual(len(a_las_8), 2)
+            self.assertEqual(len(movidos), 1)
+            self.assertEqual(
+                timezone.localtime(movidos[0].fecha_hora).strftime("%H:%M"), "10:00"
+            )
+            # Todos con cancha asignada
+            for p in partidos:
+                self.assertIsNotNone(p.campo)
 
 
 class FixtureDescansoTest(TestCase):

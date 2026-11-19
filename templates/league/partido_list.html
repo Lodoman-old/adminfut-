@@ -66,7 +66,7 @@
             <td class="{% if agregado and agregado.avanza_local == False %}table-success fw-bold{% endif %}">{{ p.equipo_visitante }}</td>
             <td>{{ p.campo|default:"-" }}</td>
             <td>{% if p.arbitro %}{{ p.arbitro }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-            <td>{{ p.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>{{ p.fecha_hora|date:"d/m/Y H:i" }}{% if p.horario_solicitado %}<br><span class="badge bg-warning text-dark" title="El equipo pidió este horario; se reacomodó por falta de cancha disponible">Pedía {{ p.horario_solicitado }}</span>{% endif %}</td>
             <td><span class="badge {% if p.estado == 'FIN' %}bg-success{% elif p.estado == 'JUG' %}bg-warning{% elif p.estado == 'SUSP' %}bg-danger{% else %}bg-secondary{% endif %}">{{ p.get_estado_display }}</span></td>
             <td>
                 {% if p.estado == 'FIN' and not user|tiene_permiso:"partido_aperturar" %}

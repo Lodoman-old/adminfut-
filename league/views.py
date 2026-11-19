@@ -160,7 +160,13 @@ class EquipoUpdateView(UpdateView):
                 "hf_pk": horario_fijo.pk if horario_fijo else None,
             })
         ctx["temporadas_hf"] = data
-        ctx["categoria_horarios"] = equipo.categoria.horarios or []
+        from .models import normalizar_hora
+        horarios_cat = []
+        for h in (equipo.categoria.horarios or []):
+            hn = normalizar_hora(h)
+            if hn not in horarios_cat:
+                horarios_cat.append(hn)
+        ctx["categoria_horarios"] = horarios_cat
         # Contar disponibilidad por horario en cada temporada (solo equipos SIN campo_rancheria consumen campo normal)
         from .models import HorarioFijoEquipo, Campo
         ctx["disponibilidad_horarios"] = {}
@@ -168,11 +174,15 @@ class EquipoUpdateView(UpdateView):
             ocupados = {}
             for hf in HorarioFijoEquipo.objects.filter(temporada=t).select_related("equipo"):
                 if not hf.equipo.campo_rancheria_id:
-                    ocupados[hf.horario] = ocupados.get(hf.horario, 0) + 1
-            limite = Campo.objects.filter(activo=True, es_rancheria=False).count()
+                    hn = normalizar_hora(hf.horario)
+                    ocupados[hn] = ocupados.get(hn, 0) + 1
+            canchas = Campo.objects.filter(activo=True, es_rancheria=False).count()
+            # Cada partido ocupa una cancha y son 2 equipos: caben 2 equipos por cancha.
+            limite = max(canchas * 2, 2)
             ctx["disponibilidad_horarios"][str(t.id)] = {
                 "ocupados": ocupados,
                 "limite": limite,
+                "canchas": canchas,
             }
         return ctx
 
@@ -225,24 +235,35 @@ class EquipoUpdateView(UpdateView):
     def form_valid(self, form):
         r = super().form_valid(form)
         equipo = self.object
-        from .models import HorarioFijoEquipo, Campo, Temporada
+        from .models import HorarioFijoEquipo, Campo, Temporada, normalizar_hora
         for key, val in self.request.POST.items():
             if key.startswith("hf_"):
                 partes = key.split("_")
                 temp_id = int(partes[1])
                 horario = val.strip()
                 if horario:
+                    horario = normalizar_hora(horario)
                     # Validar capacidad del horario
                     if not equipo.campo_rancheria_id:
-                        limite = Campo.objects.filter(activo=True, es_rancheria=False).count()
-                        ocupados = HorarioFijoEquipo.objects.filter(
-                            temporada_id=temp_id, horario=horario
-                        ).exclude(equipo=equipo).exclude(equipo__campo_rancheria__isnull=False).count()
+                        canchas = Campo.objects.filter(activo=True, es_rancheria=False).count()
+                        # Un partido usa una cancha para dos equipos
+                        limite = max(canchas * 2, 2)
+                        ocupados = 0
+                        for hf in (
+                            HorarioFijoEquipo.objects.filter(temporada_id=temp_id)
+                            .exclude(equipo=equipo)
+                            .select_related("equipo")
+                        ):
+                            if hf.equipo.campo_rancheria_id:
+                                continue
+                            if normalizar_hora(hf.horario) == horario:
+                                ocupados += 1
                         if ocupados >= limite:
                             from django.contrib import messages
                             messages.error(
                                 self.request,
-                                f"El horario {horario} ya está al límite ({ocupados}/{limite} campos disponibles). "
+                                f"El horario {horario} ya está al límite ({ocupados}/{limite} equipos; "
+                                f"{canchas} cancha(s) = 2 equipos por cancha). "
                                 f"Elige otro horario para {equipo.nombre}."
                             )
                             continue
