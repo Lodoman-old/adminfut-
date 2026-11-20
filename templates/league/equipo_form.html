@@ -8,6 +8,9 @@
     <div class="card-body">
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
+            <datalist id="horariosCat">
+                {% for h in categoria_horarios %}<option value="{{ h }}"></option>{% endfor %}
+            </datalist>
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">{{ form.nombre.label }}</label>
@@ -77,24 +80,10 @@
                                                 <small class="text-muted d-block"><i class="bi bi-check-circle text-success"></i> {% if item.comprado %}Horario comprado y asignado{% else %}Horario ya asignado{% endif %}</small>
                                                 {% elif item.pagado %}
                                                 {% with disp=disponibilidad_horarios|dict_key:item.temporada.id %}
-                                                <select name="hf_{{ item.temporada.id }}" class="form-select" style="width:auto">
-                                                    <option value="">--- Sin horario ---</option>
-                                                    {% for h in categoria_horarios %}
-                                                    {% with ocupados=disp.ocupados|dict_key:h|default:0 %}
-                                                    {% with lleno=ocupados|add:"0" %}
-                                                    {% if lleno >= disp.limite and item.horario != h %}
-                                                    <option value="{{ h }}" disabled class="text-muted">
-                                                        {{ h }} ({{ ocupados }}/{{ disp.limite }}) [LLENO]
-                                                    </option>
-                                                    {% else %}
-                                                    <option value="{{ h }}" {% if item.horario == h %}selected{% endif %}>
-                                                        {{ h }} ({{ ocupados }}/{{ disp.limite }})
-                                                    </option>
-                                                    {% endif %}
-                                                    {% endwith %}
-                                                    {% endwith %}
-                                                    {% endfor %}
-                                                </select>
+                                                <input type="time" name="hf_{{ item.temporada.id }}" value=""
+                                                       class="form-control form-control-sm hora-libre" style="max-width:150px"
+                                                       list="horariosCat">
+                                                <small class="text-muted d-block hora-label">Formato 24 h (2 de la tarde = 14:00).</small>
                                                 {% endwith %}
                                                 {% else %}
                                                 <span class="text-muted">—</span>
@@ -134,12 +123,10 @@
                                                 <span class="fw-bold">{{ v.horario }}</span>
                                                 <span class="badge bg-success ms-1">Asignado</span>
                                                 {% else %}
-                                                <select name="venta_{{ v.id }}" class="form-select form-select-sm" style="max-width:190px">
-                                                    <option value="">— Escoger horario fijo —</option>
-                                                    {% for h in categoria_horarios %}
-                                                    <option value="{{ h }}">{{ h }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                                <input type="time" name="venta_{{ v.id }}" value=""
+                                                       class="form-control form-control-sm hora-libre" style="max-width:150px"
+                                                       list="horariosCat">
+                                                <small class="text-muted d-block hora-label">Formato 24 h (2 de la tarde = 14:00).</small>
                                                 {% endif %}
                                             </td>
                                             <td>
@@ -165,4 +152,45 @@
         </form>
     </div>
 </div>
+
+<script>
+(function() {
+  function hora12(v) {
+    if (!v || v.indexOf(':') === -1) return '';
+    var partes = v.split(':');
+    var h = parseInt(partes[0], 10);
+    var m = partes[1] || '00';
+    if (isNaN(h)) return '';
+    var sufijo = h < 12 ? 'am' : 'pm';
+    var h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return h12 + ':' + m + ' ' + sufijo;
+  }
+  function actualizar(el) {
+    var cont = el.closest('td') || el.parentElement;
+    var lbl = cont ? cont.querySelector('.hora-label') : null;
+    if (!lbl) return;
+    var v = el.value;
+    if (!v) {
+      lbl.textContent = 'Formato 24 h (2 de la tarde = 14:00).';
+      lbl.className = 'text-muted d-block hora-label';
+      return;
+    }
+    var h = parseInt(v.split(':')[0], 10);
+    var txt = v + ' = ' + hora12(v);
+    if (!isNaN(h) && h < 6) {
+      txt += '  ⚠ Son de la madrugada. Si querías las 2 de la tarde, escribe 14:00.';
+      lbl.className = 'text-danger d-block hora-label';
+    } else {
+      lbl.className = 'text-success d-block hora-label';
+    }
+    lbl.textContent = txt;
+  }
+  document.querySelectorAll('input.hora-libre').forEach(function(el) {
+    el.addEventListener('input', function() { actualizar(el); });
+    el.addEventListener('change', function() { actualizar(el); });
+    actualizar(el);
+  });
+})();
+</script>
 {% endblock %}

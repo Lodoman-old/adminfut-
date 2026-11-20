@@ -261,6 +261,13 @@ class EquipoUpdateView(UpdateView):
                 horario = val.strip()
                 if horario:
                     horario = normalizar_hora(horario)
+                    if horario < "06:00":
+                        from django.contrib import messages
+                        messages.warning(
+                            self.request,
+                            f"Registraste {horario}. Si querías las 2 de la tarde, "
+                            f"la hora correcta es 14:00 (formato de 24 horas).",
+                        )
                     # Validar capacidad del horario
                     if not equipo.campo_rancheria_id:
                         canchas = Campo.objects.filter(activo=True, es_rancheria=False).count()
@@ -329,6 +336,12 @@ class EquipoUpdateView(UpdateView):
                 continue
             venta.horario = normalizar_hora(horario)
             venta.save(update_fields=["horario"])
+            if venta.horario < "06:00":
+                messages.warning(
+                    self.request,
+                    f"Registraste {venta.horario}. Si querías las 2 de la tarde, "
+                    f"la hora correcta es 14:00 (formato de 24 horas).",
+                )
             aplicadas = 0
             for t in Temporada.objects.filter(categoria=equipo.categoria):
                 aplicadas += len(aplicar_ventas_horario(t))
