@@ -343,6 +343,41 @@ class PosHorarioVigenciaTest(TestCase):
         self.assertIn(r.status_code, (200, 302))
 
 
+class HorarioLibreTest(TestCase):
+    """Una hora libre (ej. 14:00) solo aplica al equipo que la tiene."""
+
+    def test_hora_libre_no_se_usa_para_otros_equipos(self):
+        cat = Categoria.objects.create(
+            nombre="Libre Hora", dias_juego=["DOM"], horarios=["08:00", "10:00"],
+        )
+        Campo.objects.create(nombre="Cancha L1", activo=True, es_rancheria=False)
+        Campo.objects.create(nombre="Cancha L2", activo=True, es_rancheria=False)
+        equipos = [
+            Equipo.objects.create(nombre=f"Libre {i}", categoria=cat, activo=True)
+            for i in range(4)
+        ]
+        t = Temporada.objects.create(
+            nombre="Temp Libre", categoria=cat, fecha_inicio=date(2026, 5, 3),
+            tipo_rol="TODOS", vueltas=1,
+        )
+        especial = equipos[0]
+        HorarioFijoEquipo.objects.create(
+            temporada=t, equipo=especial, horario="14:00",
+        )
+        t.generar_rol()
+
+        for p in Partido.objects.filter(temporada=t):
+            hora = timezone.localtime(p.fecha_hora).strftime("%H:%M")
+            if especial in (p.equipo_local, p.equipo_visitante):
+                # Su partido va a su hora (o marcado si se reacomodó)
+                if hora != "14:00":
+                    self.assertEqual(p.horario_solicitado, "14:00")
+            else:
+                # Ningún otro partido debe caer en la hora especial
+                self.assertNotEqual(hora, "14:00")
+                self.assertIn(hora, ("08:00", "10:00"))
+
+
 class FixtureDescansoTest(TestCase):
     def setUp(self):
         self.cat = Categoria.objects.create(nombre="Libre", dias_juego=["SAB"])
